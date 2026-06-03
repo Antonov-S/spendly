@@ -1,0 +1,303 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── User ────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String    @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String? // hashed, null for OAuth users
+  isPro                Boolean   @default(false)
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  preferredCurrency    String    @default("USD")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  financialAccounts  FinancialAccount[]
+  transactions       Transaction[]
+  categories         Category[]
+  budgets            Budget[]
+  goals              Goal[]
+  recurringTemplates RecurringTemplate[]
+}
+
+// ─── NextAuth Models ──────────────────────────────────
+// Required by NextAuth v5. Do not rename or modify fields.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Enums ───────────────────────────────────────────
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  CASH
+  INVESTMENT
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum RecurringCadence {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum DraftStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+// ─── FinancialAccount ─────────────────────────────────
+// Balance is NEVER stored — always derived at query time:
+// startingBalance + SUM(transactions WHERE deletedAt IS NULL)
+
+model FinancialAccount {
+  id              String      @id @default(cuid())
+  name            String
+  type            AccountType
+  currency        String      @default("USD")
+  startingBalance Decimal     @default(0) @db.Decimal(12, 2)
+  color           String? // hex, e.g. "#1D9E75"
+  icon            String? // Lucide icon name
+  isArchived      Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  userId String
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+  recurringTemplates RecurringTemplate[]
+
+  @@index([userId])
+}
+
+// ─── Category ─────────────────────────────────────────
+// Flat list — no hierarchy in MVP.
+// System categories are shared (userId = null); user categories are owned.
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  icon      String // Lucide icon name
+  color     String // hex
+  isSystem  Boolean  @default(false)
+  userId    String? // null for system categories
+  createdAt DateTime @default(now())
+
+  user               User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+  budgets            Budget[]
+  recurringTemplates RecurringTemplate[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+// ─── Transaction ──────────────────────────────────────
+// Transfers create two records sharing the same transferPairId.
+// Both legs have isTransferLeg = true to prevent accidental recategorization.
+
+model Transaction {
+  id             String          @id @default(cuid())
+  type           TransactionType
+  amount         Decimal         @db.Decimal(12, 2)
+  currency       String
+  date           DateTime        @db.Date // calendar date in user's local timezone — no UTC conversion
+  note           String?
+  merchant       String?
+  isTransferLeg  Boolean         @default(false) // true for both sides of a transfer
+  deletedAt      DateTime? // soft delete
+  transferPairId String? // shared UUID linking both legs of a transfer
+
+  userId              String
+  financialAccountId  String
+  categoryId          String?
+  recurringTemplateId String?
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  financialAccount  FinancialAccount   @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, financialAccountId])
+  @@index([userId, categoryId])
+  @@index([transferPairId])
+  @@index([deletedAt])
+}
+
+// ─── Budget ───────────────────────────────────────────
+// One budget per category per calendar month.
+// month = 1–12, year = e.g. 2026. No rollover between periods.
+
+model Budget {
+  id         String   @id @default(cuid())
+  amount     Decimal  @db.Decimal(12, 2)
+  currency   String
+  month      Int // 1–12
+  year       Int // e.g. 2026
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId     String
+  categoryId String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
+  @@index([userId, year, month])
+}
+
+// ─── RecurringTemplate ────────────────────────────────
+// Generates RecurringDrafts on schedule. Drafts require confirmation.
+
+model RecurringTemplate {
+  id             String           @id @default(cuid())
+  name           String
+  type           TransactionType
+  amount         Decimal          @db.Decimal(12, 2)
+  currency       String
+  cadence        RecurringCadence
+  nextOccurrence DateTime         @db.Date
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  userId             String
+  financialAccountId String
+  categoryId         String?
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  financialAccount FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  category         Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  drafts           RecurringDraft[]
+  transactions     Transaction[]
+
+  @@index([userId])
+  @@index([isActive, nextOccurrence])
+}
+
+// ─── RecurringDraft ───────────────────────────────────
+// Pending confirmation entry. Confirmed → creates Transaction. Dismissed → ignored.
+
+model RecurringDraft {
+  id              String      @id @default(cuid())
+  suggestedDate   DateTime    @db.Date
+  suggestedAmount Decimal     @db.Decimal(12, 2)
+  status          DraftStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+
+  recurringTemplateId String
+
+  recurringTemplate RecurringTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([recurringTemplateId, status])
+}
+
+// ─── Goal ─────────────────────────────────────────────
+// Virtual progress only. Does not affect account balances or budgets.
+// currentAmount is a denormalized sum of GoalContribution.amount —
+// kept for fast reads, always derivable from contributions.
+
+model Goal {
+  id            String    @id @default(cuid())
+  name          String
+  targetAmount  Decimal   @db.Decimal(12, 2)
+  currentAmount Decimal   @default(0) @db.Decimal(12, 2)
+  currency      String
+  targetDate    DateTime? @db.Date
+  isCompleted   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@index([userId])
+}
+
+// ─── GoalContribution ─────────────────────────────────
+// Created by the "Add contribution" action in the UI (drawer with
+// amount, date, optional note). Also supports negative amounts for
+// withdrawals. Incrementing currentAmount on Goal is done in the
+// same transaction as inserting this record.
+
+model GoalContribution {
+  id        String   @id @default(cuid())
+  amount    Decimal  @db.Decimal(12, 2) // negative = withdrawal
+  date      DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now())
+
+  goalId String
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
