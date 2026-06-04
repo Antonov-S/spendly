@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Spendly design system — dark mode default.
+ * Semantic color encoding per project-overview.md:
+ *   green = positive / in budget, amber = warning, red = over budget, grey = neutral.
+ */
+@theme {
+  /* Surfaces */
+  --color-app: #0a0b0d; /* page + main area background */
+  --color-sidebar: #111317; /* sidebar surface */
+  --color-surface: #16181c; /* cards / panels */
+  --color-surface-2: #1c1f24; /* hover / nested */
+  --color-line: #26282e; /* subtle 0.5px separators & borders */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Text */
+  --color-ink: #e8e8e6; /* primary */
+  --color-ink-2: #9a9a94; /* secondary */
+  --color-ink-3: #6b6c72; /* metadata / muted */
+
+  /* Semantic */
+  --color-success: #1d9e75;
+  --color-warning: #ef9f27;
+  --color-danger: #e24b4a;
+  --color-info: #378add;
+  --color-neutral: #888780;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-app);
+  color: var(--color-ink);
 }
