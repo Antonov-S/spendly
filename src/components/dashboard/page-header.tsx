@@ -7,15 +7,15 @@ import type { Period } from "@/lib/system-constants";
 import { formatCurrency, formatSigned } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "@/components/dashboard/sparkline";
-import { MOCK_BALANCE_TREND } from "@/lib/mock-data";
 import type { DashboardSummary } from "@/types/dashboard";
 
 interface PageHeaderProps {
   summary: DashboardSummary;
+  balanceTrend: number[];
   onAdd: () => void;
 }
 
-export function PageHeader({ summary, onAdd }: PageHeaderProps) {
+export function PageHeader({ summary, balanceTrend, onAdd }: PageHeaderProps) {
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
 
   return (
@@ -29,7 +29,7 @@ export function PageHeader({ summary, onAdd }: PageHeaderProps) {
           <p className="text-[28px] font-medium leading-none text-ink">
             {formatCurrency(summary.totalBalance)}
           </p>
-          <Sparkline data={MOCK_BALANCE_TREND} className="mt-0.5" />
+          <Sparkline data={balanceTrend} className="mt-0.5" />
         </div>
         <p className="mt-2 flex items-center gap-1 text-[11px] text-success">
           <ArrowUpRight size={13} />

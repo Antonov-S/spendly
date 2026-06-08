@@ -1,11 +1,9 @@
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatSigned } from "@/lib/format";
+import { SEMANTIC_COLORS } from "@/lib/system-constants";
 import { cn } from "@/lib/utils";
-import { MOCK_TRANSACTIONS, MOCK_TRANSACTION_COUNT } from "@/lib/mock-data";
 import type { TransactionRow } from "@/types/dashboard";
 
-// Shared grid template keeps the header aligned with rows. Mobile shows only
-// Description + Amount; the middle columns appear from md up.
 const ROW_GRID =
   "grid items-center gap-3 grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1.7fr)_1.1fr_84px_96px_minmax(64px,auto)]";
 
@@ -18,10 +16,21 @@ function groupFor(dateLabel: string): DateGroup {
   return "Earlier";
 }
 
-export function TransactionsPanel() {
+const TYPE_BORDER_COLOR: Record<TransactionRow["type"], string> = {
+  INCOME: SEMANTIC_COLORS.success,
+  EXPENSE: SEMANTIC_COLORS.danger,
+  TRANSFER: SEMANTIC_COLORS.neutral,
+};
+
+interface TransactionsPanelProps {
+  rows: TransactionRow[];
+  count: number;
+}
+
+export function TransactionsPanel({ rows, count }: TransactionsPanelProps) {
   const grouped = GROUP_ORDER.map((group) => ({
     group,
-    rows: MOCK_TRANSACTIONS.filter((tx) => groupFor(tx.dateLabel) === group),
+    rows: rows.filter((tx) => groupFor(tx.dateLabel) === group),
   })).filter((g) => g.rows.length > 0);
 
   return (
@@ -29,9 +38,7 @@ export function TransactionsPanel() {
       {/* Panel header */}
       <div className="flex items-center gap-2 px-4 py-3.5">
         <h2 className="text-[13px] font-medium text-ink">Recent transactions</h2>
-        <span className="text-[11px] text-ink-3">
-          {MOCK_TRANSACTION_COUNT} this month
-        </span>
+        <span className="text-[11px] text-ink-3">{count} this month</span>
         <button
           type="button"
           className="ml-auto text-[11px] text-info transition-opacity hover:opacity-80"
@@ -56,12 +63,12 @@ export function TransactionsPanel() {
 
       {/* Date-grouped rows */}
       <div className="flex flex-col">
-        {grouped.map(({ group, rows }) => (
+        {grouped.map(({ group, rows: groupRows }) => (
           <div key={group}>
             <div className="bg-app/40 px-4 py-1.5 text-[10px] font-medium uppercase tracking-wide text-ink-3">
               {group}
             </div>
-            {rows.map((tx) => (
+            {groupRows.map((tx) => (
               <TransactionRowItem key={tx.id} tx={tx} />
             ))}
           </div>
@@ -78,8 +85,7 @@ function TransactionRowItem({ tx }: { tx: TransactionRow }) {
         ROW_GRID,
         "border-b border-line px-4 py-2.5 transition-colors hover:bg-surface-2"
       )}
-      // Thin category-color accent on the left edge (no layout shift).
-      style={{ boxShadow: `inset 2px 0 0 ${tx.category.color}` }}
+      style={{ boxShadow: `inset 2px 0 0 ${TYPE_BORDER_COLOR[tx.type]}` }}
     >
       {/* Description */}
       <div className="flex min-w-0 items-center gap-2.5">

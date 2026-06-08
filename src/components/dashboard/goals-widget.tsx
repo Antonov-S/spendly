@@ -1,13 +1,17 @@
 import { formatCurrency } from "@/lib/format";
-import { MOCK_GOALS } from "@/lib/mock-data";
+import type { GoalRow } from "@/types/dashboard";
 
-export function GoalsWidget() {
+interface GoalsWidgetProps {
+  goals: GoalRow[];
+}
+
+export function GoalsWidget({ goals }: GoalsWidgetProps) {
   return (
     <section className="flex flex-col rounded-xl border border-line bg-surface">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3.5">
         <h2 className="text-[13px] font-medium text-ink">Goals</h2>
-        <span className="text-[11px] text-ink-3">{MOCK_GOALS.length} active</span>
+        <span className="text-[11px] text-ink-3">{goals.length} active</span>
         <button
           type="button"
           className="ml-auto text-[11px] text-info transition-opacity hover:opacity-80"
@@ -18,7 +22,7 @@ export function GoalsWidget() {
 
       {/* Goal rows */}
       <div className="flex flex-col gap-3.5 border-t border-line px-4 py-4">
-        {MOCK_GOALS.map((goal) => {
+        {goals.map((goal) => {
           const percent = Math.min(
             100,
             Math.round((goal.saved / goal.target) * 100)

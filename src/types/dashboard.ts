@@ -11,6 +11,7 @@ export interface CategoryRef {
 /** A single row in the recent-transactions table. */
 export interface TransactionRow {
   id: string;
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
   description: string;
   category: CategoryRef;
   /** Pre-formatted, display-ready date label (e.g. "Today", "Jun 1"). */

@@ -2,10 +2,15 @@ import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatCurrency } from "@/lib/format";
 import { budgetState, budgetPercent, budgetColor } from "@/lib/budget";
 import { cn } from "@/lib/utils";
-import { MOCK_BUDGETS, MOCK_BUDGET_SUMMARY } from "@/lib/mock-data";
+import type { BudgetRow, BudgetSummary } from "@/types/dashboard";
 
-export function BudgetsPanel() {
-  const summary = MOCK_BUDGET_SUMMARY;
+interface BudgetsPanelProps {
+  rows: BudgetRow[];
+  summary: BudgetSummary;
+}
+
+export function BudgetsPanel({ rows, summary }: BudgetsPanelProps) {
+  const monthName = new Date().toLocaleString("en-US", { month: "long" });
 
   return (
     <section className="flex flex-col rounded-xl border border-line bg-surface">
@@ -26,7 +31,7 @@ export function BudgetsPanel() {
       {/* Remaining summary */}
       <div className="border-y border-line px-4 py-3">
         <p className="text-[10px] font-medium uppercase tracking-wide text-ink-3">
-          Remaining in June
+          Remaining in {monthName}
         </p>
         <p className="mt-1 text-[20px] font-medium leading-none text-ink">
           {formatCurrency(summary.remaining)}
@@ -39,7 +44,7 @@ export function BudgetsPanel() {
 
       {/* Budget rows */}
       <div className="flex flex-col gap-3.5 px-4 py-4">
-        {MOCK_BUDGETS.map((budget) => {
+        {rows.map((budget) => {
           const state = budgetState(budget.spent, budget.limit);
           const percent = budgetPercent(budget.spent, budget.limit);
           const color = budgetColor(state);
