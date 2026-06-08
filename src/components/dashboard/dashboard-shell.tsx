@@ -11,11 +11,12 @@ import type { DashboardSummary } from "@/types/dashboard";
 
 interface DashboardShellProps {
   summary: DashboardSummary;
+  balanceTrend: number[];
   /** Static, non-interactive content: metric strip + content columns. */
   children: React.ReactNode;
 }
 
-export function DashboardShell({ summary, children }: DashboardShellProps) {
+export function DashboardShell({ summary, balanceTrend, children }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -52,7 +53,7 @@ export function DashboardShell({ summary, children }: DashboardShellProps) {
 
         <main className="flex-1 overflow-y-auto bg-app p-4 pb-24 md:pb-4">
           <div className="mx-auto flex max-w-350 flex-col gap-3">
-            <PageHeader summary={summary} onAdd={() => setDrawerOpen(true)} />
+            <PageHeader summary={summary} balanceTrend={balanceTrend} onAdd={() => setDrawerOpen(true)} />
             {children}
           </div>
         </main>

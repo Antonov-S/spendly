@@ -64,6 +64,7 @@ export const MOCK_GOALS: GoalRow[] = [
 export const MOCK_TRANSACTIONS: TransactionRow[] = [
   {
     id: "t1",
+    type: "EXPENSE",
     description: "Whole Foods",
     category: { name: "Groceries", color: "#EF9F27", icon: ShoppingCart },
     dateLabel: "Today",
@@ -73,6 +74,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t2",
+    type: "INCOME",
     description: "Salary",
     category: { name: "Income", color: "#1D9E75", icon: Briefcase },
     dateLabel: "Today",
@@ -82,6 +84,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t3",
+    type: "EXPENSE",
     description: "Metro card",
     category: { name: "Transport", color: "#7F77DD", icon: Bus },
     dateLabel: "Yesterday",
@@ -91,6 +94,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t4",
+    type: "EXPENSE",
     description: "Starbucks",
     category: { name: "Dining", color: "#D85A30", icon: UtensilsCrossed },
     dateLabel: "Yesterday",
@@ -100,6 +104,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t5",
+    type: "EXPENSE",
     description: "Netflix",
     category: { name: "Subscriptions", color: "#378ADD", icon: Tv },
     dateLabel: "Jun 15",
@@ -109,6 +114,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t6",
+    type: "EXPENSE",
     description: "Rent",
     category: { name: "Housing", color: "#1D9E75", icon: Home },
     dateLabel: "Jun 1",
@@ -118,6 +124,7 @@ export const MOCK_TRANSACTIONS: TransactionRow[] = [
   },
   {
     id: "t7",
+    type: "EXPENSE",
     description: "Pharmacy",
     category: { name: "Health", color: "#D4537E", icon: Heart },
     dateLabel: "Jun 12",

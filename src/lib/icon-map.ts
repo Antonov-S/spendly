@@ -1,0 +1,50 @@
+import {
+  ShoppingCart,
+  UtensilsCrossed,
+  Bus,
+  Home,
+  Zap,
+  Heart,
+  Gamepad2,
+  MoreHorizontal,
+  Briefcase,
+  Laptop,
+  Tv,
+  Shirt,
+  BookOpen,
+  Shield,
+  Gift,
+  Plane,
+  Landmark,
+  PawPrint,
+  TrendingUp,
+  HelpCircle,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  ShoppingCart,
+  UtensilsCrossed,
+  Bus,
+  Home,
+  Zap,
+  Heart,
+  Gamepad2,
+  MoreHorizontal,
+  Briefcase,
+  Laptop,
+  Tv,
+  Shirt,
+  BookOpen,
+  Shield,
+  Gift,
+  Plane,
+  Landmark,
+  PawPrint,
+  TrendingUp,
+  HelpCircle,
+};
+
+export function resolveIcon(name: string): LucideIcon {
+  return ICON_MAP[name] ?? HelpCircle;
+}
