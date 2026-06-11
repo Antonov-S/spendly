@@ -21,6 +21,10 @@ export const BUDGET_THRESHOLDS = {
   danger: 1.0, // >= 100% -> red
 } as const;
 
+/** Credentials auth security policy. */
+export const BCRYPT_SALT_ROUNDS = 12;
+export const PASSWORD_MIN_LENGTH = 8;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav
