@@ -50,3 +50,4 @@ AGENTS.md
 /context
 /.claude
 .mcp.json
+.playwright-mcp
