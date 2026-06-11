@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { TransactionsPanel } from "@/components/dashboard/transactions-panel";
@@ -12,23 +14,18 @@ import {
   getBudgetsData,
   getGoals,
 } from "@/lib/db/dashboard";
-import { prisma } from "@/lib/prisma";
-
-// TODO: replace with session.user.id once NextAuth is wired up
-async function getDemoUserId(): Promise<string> {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { email: "demo-pro@spendly.io" },
-    select: { id: true },
-  });
-  return user.id;
-}
 
 export default async function DashboardPage() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/api/auth/signin");
+  }
+
   const today = new Date();
   const month = today.getMonth() + 1;
   const year = today.getFullYear();
 
-  const userId = await getDemoUserId();
+  const userId = session.user.id;
 
   const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals] =
     await Promise.all([
@@ -40,7 +37,15 @@ export default async function DashboardPage() {
     ]);
 
   return (
-    <DashboardShell summary={summary} balanceTrend={balanceTrend}>
+    <DashboardShell
+      summary={summary}
+      balanceTrend={balanceTrend}
+      user={{
+        name: session.user.name ?? null,
+        email: session.user.email ?? null,
+        image: session.user.image ?? null,
+      }}
+    >
       <MetricStrip summary={summary} />
 
       {/* Content columns: transactions (1.4fr) + budgets & goals (1fr) */}

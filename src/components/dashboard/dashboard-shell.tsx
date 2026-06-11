@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { Sidebar, type SidebarUser } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
@@ -12,11 +12,13 @@ import type { DashboardSummary } from "@/types/dashboard";
 interface DashboardShellProps {
   summary: DashboardSummary;
   balanceTrend: number[];
+  /** The authenticated user shown in the sidebar profile row. */
+  user: SidebarUser;
   /** Static, non-interactive content: metric strip + content columns. */
   children: React.ReactNode;
 }
 
-export function DashboardShell({ summary, balanceTrend, children }: DashboardShellProps) {
+export function DashboardShell({ summary, balanceTrend, user, children }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -27,6 +29,7 @@ export function DashboardShell({ summary, balanceTrend, children }: DashboardShe
       <Sidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(v => !v)}
+        user={user}
       />
 
       {/* Mobile sidebar overlay */}
@@ -44,7 +47,7 @@ export function DashboardShell({ summary, balanceTrend, children }: DashboardShe
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Sidebar variant="mobile" onNavigate={() => setMobileNavOpen(false)} />
+        <Sidebar variant="mobile" onNavigate={() => setMobileNavOpen(false)} user={user} />
       </div>
 
       {/* Main column */}

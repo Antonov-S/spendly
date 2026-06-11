@@ -8,6 +8,13 @@ import { NAV_ITEMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/system-constants";
 
+/** Signed-in user shown in the bottom profile row. */
+export interface SidebarUser {
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}
+
 interface SidebarProps {
   /** "mobile" renders a full-width overlay panel with labels always shown. */
   variant?: "desktop" | "mobile";
@@ -16,13 +23,27 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
   /** Called when a nav item is tapped (used to close the mobile overlay). */
   onNavigate?: () => void;
+  /** The authenticated user rendered in the profile row. */
+  user: SidebarUser;
+}
+
+/** Up to two initials from the name, falling back to the email, then "?". */
+function getInitials(name: string | null, email: string | null): string {
+  const source = name?.trim() || email?.trim() || "";
+  if (!source) return "?";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return source.slice(0, 2).toUpperCase();
 }
 
 export function Sidebar({
   variant = "desktop",
   collapsed = false,
   onToggleCollapse,
-  onNavigate
+  onNavigate,
+  user
 }: SidebarProps) {
   const pathname = usePathname();
   const isMobile = variant === "mobile";
@@ -41,6 +62,9 @@ export function Sidebar({
     : collapsed
       ? "hidden"
       : "hidden lg:flex";
+
+  const displayName = user.name?.trim() || user.email || "Account";
+  const initials = getInitials(user.name, user.email);
 
   return (
     <aside
@@ -106,19 +130,30 @@ export function Sidebar({
         <Link
           href="/settings"
           onClick={onNavigate}
-          title={collapsed ? "Alex Stone" : undefined}
+          title={collapsed ? displayName : undefined}
           className="mt-0.5 flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-surface-2"
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success/15 text-[11px] font-medium text-success">
-            AS
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-success/15 text-[11px] font-medium text-success">
+            {user.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.image}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              initials
+            )}
           </span>
           <span className={cn("min-w-0 flex-col", labelFlexClass)}>
             <span className="truncate text-[12px] font-medium text-ink">
-              Alex Stone
+              {displayName}
             </span>
-            <span className="truncate text-[10px] text-ink-3">
-              alex@spendly.app
-            </span>
+            {user.email && (
+              <span className="truncate text-[10px] text-ink-3">
+                {user.email}
+              </span>
+            )}
           </span>
         </Link>
       </div>
