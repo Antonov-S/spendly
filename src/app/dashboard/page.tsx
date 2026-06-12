@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { TransactionsPanel } from "@/components/dashboard/transactions-panel";
@@ -16,10 +15,7 @@ import {
 } from "@/lib/db/dashboard";
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/api/auth/signin");
-  }
+  const session = await getSessionOrRedirect();
 
   const today = new Date();
   const month = today.getMonth() + 1;
