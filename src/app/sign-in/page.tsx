@@ -4,13 +4,13 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
 interface SignInPageProps {
-  searchParams: Promise<{ registered?: string }>;
+  searchParams: Promise<{ registered?: string; verified?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   await redirectIfAuthenticated();
 
-  const { registered } = await searchParams;
+  const { registered, verified } = await searchParams;
 
   return (
     <AuthCard
@@ -25,7 +25,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </>
       }
     >
-      <SignInForm justRegistered={registered === "1"} />
+      <SignInForm
+        justRegistered={registered === "1"}
+        justVerified={verified === "1"}
+      />
     </AuthCard>
   );
 }

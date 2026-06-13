@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { authenticate, type SignInState } from "@/actions/auth";
 import { InputFormField } from "@/components/auth/input-form-field";
@@ -11,13 +12,20 @@ const INITIAL_STATE: SignInState = {};
 interface SignInFormProps {
   /** Shown after a successful registration redirect (`?registered=1`). */
   justRegistered?: boolean;
+  /** Shown after a successful email verification (`?verified=1`). */
+  justVerified?: boolean;
 }
 
-export function SignInForm({ justRegistered }: SignInFormProps) {
+export function SignInForm({ justRegistered, justVerified }: SignInFormProps) {
   const [state, formAction] = useActionState(authenticate, INITIAL_STATE);
 
   return (
     <div className="flex flex-col gap-4">
+      {justVerified && (
+        <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
+          Email verified. Sign in to continue.
+        </p>
+      )}
       {justRegistered && (
         <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
           Account created. Sign in to continue.
@@ -50,6 +58,13 @@ export function SignInForm({ justRegistered }: SignInFormProps) {
 
         <SubmitButton>Sign in</SubmitButton>
       </form>
+
+      <p className="text-center text-[11px] text-ink-3">
+        Haven&apos;t verified your email?{" "}
+        <Link href="/verify-email" className="text-success">
+          Resend the link
+        </Link>
+      </p>
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-line" />

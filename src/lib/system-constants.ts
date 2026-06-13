@@ -25,6 +25,10 @@ export const BUDGET_THRESHOLDS = {
 export const BCRYPT_SALT_ROUNDS = 12;
 export const PASSWORD_MIN_LENGTH = 8;
 
+/** Email verification: token lifetime and sender identity. */
+export const VERIFICATION_TOKEN_TTL_HOURS = 24;
+export const EMAIL_FROM = "onboarding@resend.dev";
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav

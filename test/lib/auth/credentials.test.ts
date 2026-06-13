@@ -26,6 +26,7 @@ const dbUser = {
   email: "test@example.com",
   image: null,
   password: "hashed-pw",
+  emailVerified: new Date("2026-01-01"),
 };
 
 const validCredentials = { email: "test@example.com", password: "password123" };
@@ -59,6 +60,13 @@ describe("verifyCredentials", () => {
   it("returns null when the password does not match", async () => {
     findUnique.mockResolvedValue(dbUser as never);
     compare.mockResolvedValue(false as never);
+    const result = await verifyCredentials(validCredentials);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the email is not verified", async () => {
+    findUnique.mockResolvedValue({ ...dbUser, emailVerified: null } as never);
+    compare.mockResolvedValue(true as never);
     const result = await verifyCredentials(validCredentials);
     expect(result).toBeNull();
   });
