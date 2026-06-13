@@ -35,5 +35,12 @@ export async function verifyCredentials(
     return null;
   }
 
+  // Email-verification gate. Isolated on purpose: a future dev toggle can
+  // short-circuit this single block without touching the rest of the flow.
+  // Placed after the password check so it can't be used to enumerate accounts.
+  if (!user.emailVerified) {
+    return null;
+  }
+
   return { id: user.id, name: user.name, email: user.email, image: user.image };
 }

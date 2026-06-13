@@ -36,7 +36,10 @@ export async function authenticate(
     return {};
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
+      return {
+        error:
+          "Invalid email or password, or your email isn't verified yet.",
+      };
     }
     // Re-throw the NEXT_REDIRECT control-flow error on success.
     throw error;

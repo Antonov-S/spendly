@@ -68,7 +68,9 @@ describe("authenticate", () => {
 
     const result = await authenticate({}, validForm);
 
-    expect(result).toEqual({ error: "Invalid email or password." });
+    expect(result).toEqual({
+      error: "Invalid email or password, or your email isn't verified yet.",
+    });
   });
 
   it("re-throws non-AuthError errors (e.g. the success redirect)", async () => {
