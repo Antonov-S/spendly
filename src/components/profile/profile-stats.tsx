@@ -49,7 +49,13 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
               <Icon size={16} aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <dd className="text-[18px] font-medium text-ink">{value}</dd>
+              <dd
+                className={`text-[18px] font-medium ${
+                  value === 0 ? "text-ink-2" : "text-ink"
+                }`}
+              >
+                {value}
+              </dd>
               <dt className="text-[11px] text-ink-2">{label}</dt>
             </div>
           </div>

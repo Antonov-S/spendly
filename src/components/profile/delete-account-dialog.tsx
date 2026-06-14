@@ -66,7 +66,7 @@ export function DeleteAccountDialog({ email }: DeleteAccountDialogProps) {
       <button
         type="button"
         onClick={openDialog}
-        className="mt-4 flex h-9 items-center justify-center rounded-md border border-danger/40 px-4 text-[13px] font-medium text-danger transition-colors hover:bg-danger/10"
+        className="mt-4 flex h-9 w-full items-center justify-center rounded-md border border-danger/40 px-4 text-[13px] font-medium text-danger transition-colors hover:bg-danger/10"
       >
         Delete account
       </button>
