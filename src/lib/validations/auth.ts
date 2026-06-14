@@ -58,3 +58,25 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * Change-password payload for the signed-in profile page — requires the current
+ * password (re-authentication) plus a confirmed new password.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+      ),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

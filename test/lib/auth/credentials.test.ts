@@ -72,6 +72,16 @@ describe("verifyCredentials", () => {
     expect(compare).not.toHaveBeenCalled();
   });
 
+  it("returns null for a soft-deleted account before comparing the password", async () => {
+    findUnique.mockResolvedValue({
+      ...dbUser,
+      deletedAt: new Date("2026-06-01"),
+    } as never);
+    const result = await verifyCredentials(validCredentials);
+    expect(result).toBeNull();
+    expect(compare).not.toHaveBeenCalled();
+  });
+
   it("returns null when the password does not match", async () => {
     findUnique.mockResolvedValue(dbUser as never);
     compare.mockResolvedValue(false as never);

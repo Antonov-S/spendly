@@ -22,6 +22,7 @@ model User {
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
   preferredCurrency    String    @default("USD")
+  deletedAt            DateTime? // soft delete — 30-day grace period before purge
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -33,6 +34,8 @@ model User {
   budgets            Budget[]
   goals              Goal[]
   recurringTemplates RecurringTemplate[]
+
+  @@index([deletedAt])
 }
 
 // ─── NextAuth Models ──────────────────────────────────

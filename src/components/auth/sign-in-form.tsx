@@ -14,6 +14,8 @@ interface SignInFormProps {
   justRegistered?: boolean;
   /** Shown after a successful email verification (`?verified=1`). */
   justVerified?: boolean;
+  /** Shown after an account deletion (`?deleted=1`). */
+  justDeleted?: boolean;
   /** When true, surface the resend-verification link after a failed sign-in. */
   emailVerificationEnabled?: boolean;
 }
@@ -21,12 +23,18 @@ interface SignInFormProps {
 export function SignInForm({
   justRegistered,
   justVerified,
+  justDeleted,
   emailVerificationEnabled,
 }: SignInFormProps) {
   const [state, formAction] = useActionState(authenticate, INITIAL_STATE);
 
   return (
     <div className="flex flex-col gap-4">
+      {justDeleted && (
+        <p className="rounded-md border border-line bg-surface-2 px-3 py-2 text-[12px] text-ink-2">
+          Your account has been deactivated and is scheduled for deletion.
+        </p>
+      )}
       {justVerified && (
         <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
           Email verified. Sign in to continue.

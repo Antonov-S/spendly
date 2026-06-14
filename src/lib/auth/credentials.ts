@@ -31,6 +31,13 @@ export async function verifyCredentials(
     return null;
   }
 
+  // Soft-deleted accounts are deactivated immediately — block sign-in during
+  // the grace period (checked before the password compare returns, so it never
+  // becomes a way to enumerate which emails exist).
+  if (user.deletedAt) {
+    return null;
+  }
+
   const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) {
     return null;

@@ -5,13 +5,17 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 import { EMAIL_VERIFICATION_ENABLED } from "@/lib/system-constants";
 
 interface SignInPageProps {
-  searchParams: Promise<{ registered?: string; verified?: string }>;
+  searchParams: Promise<{
+    registered?: string;
+    verified?: string;
+    deleted?: string;
+  }>;
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   await redirectIfAuthenticated();
 
-  const { registered, verified } = await searchParams;
+  const { registered, verified, deleted } = await searchParams;
 
   return (
     <AuthCard
@@ -29,6 +33,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <SignInForm
         justRegistered={registered === "1"}
         justVerified={verified === "1"}
+        justDeleted={deleted === "1"}
         emailVerificationEnabled={EMAIL_VERIFICATION_ENABLED}
       />
     </AuthCard>
