@@ -18,6 +18,8 @@ interface SignInFormProps {
   justDeleted?: boolean;
   /** When true, surface the resend-verification link after a failed sign-in. */
   emailVerificationEnabled?: boolean;
+  /** Set when NextAuth redirects with `?error=OAuthAccountNotLinked`. */
+  oauthError?: "OAuthAccountNotLinked";
 }
 
 export function SignInForm({
@@ -25,11 +27,18 @@ export function SignInForm({
   justVerified,
   justDeleted,
   emailVerificationEnabled,
+  oauthError,
 }: SignInFormProps) {
   const [state, formAction] = useActionState(authenticate, INITIAL_STATE);
 
   return (
     <div className="flex flex-col gap-4">
+      {oauthError === "OAuthAccountNotLinked" && (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+          This email is already registered with a password. Please sign in with
+          your email and password instead.
+        </p>
+      )}
       {justDeleted && (
         <p className="rounded-md border border-line bg-surface-2 px-3 py-2 text-[12px] text-ink-2">
           Your account has been deactivated and is scheduled for deletion.
