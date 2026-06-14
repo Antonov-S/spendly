@@ -14,9 +14,15 @@ interface SignInFormProps {
   justRegistered?: boolean;
   /** Shown after a successful email verification (`?verified=1`). */
   justVerified?: boolean;
+  /** When true, surface the resend-verification link after a failed sign-in. */
+  emailVerificationEnabled?: boolean;
 }
 
-export function SignInForm({ justRegistered, justVerified }: SignInFormProps) {
+export function SignInForm({
+  justRegistered,
+  justVerified,
+  emailVerificationEnabled,
+}: SignInFormProps) {
   const [state, formAction] = useActionState(authenticate, INITIAL_STATE);
 
   return (
@@ -59,12 +65,14 @@ export function SignInForm({ justRegistered, justVerified }: SignInFormProps) {
         <SubmitButton>Sign in</SubmitButton>
       </form>
 
-      <p className="text-center text-[11px] text-ink-3">
-        Haven&apos;t verified your email?{" "}
-        <Link href="/verify-email" className="text-success">
-          Resend the link
-        </Link>
-      </p>
+      {emailVerificationEnabled && state.error && (
+        <p className="text-center text-[11px] text-ink-3">
+          Haven&apos;t verified your email?{" "}
+          <Link href="/verify-email" className="text-success">
+            Resend the link
+          </Link>
+        </p>
+      )}
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-line" />
