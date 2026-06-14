@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { consumePasswordResetToken } from "@/lib/auth/password-reset";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { BCRYPT_SALT_ROUNDS } from "@/lib/system-constants";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/reset-password { token, password, confirmPassword }
@@ -12,6 +17,14 @@ import { BCRYPT_SALT_ROUNDS } from "@/lib/system-constants";
  * it wasn't already.
  */
 export async function POST(request: Request) {
+  const { success, retryAfterSeconds } = await checkRateLimit(
+    "resetPassword",
+    getClientIp(request.headers)
+  );
+  if (!success) {
+    return tooManyRequestsResponse(retryAfterSeconds);
+  }
+
   let body: unknown;
   try {
     body = await request.json();

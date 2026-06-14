@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { registerUser } from "@/lib/auth/register";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const { success, retryAfterSeconds } = await checkRateLimit(
+    "register",
+    getClientIp(request.headers)
+  );
+  if (!success) {
+    return tooManyRequestsResponse(retryAfterSeconds);
+  }
+
   let body: unknown;
   try {
     body = await request.json();

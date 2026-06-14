@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { createPasswordResetToken } from "@/lib/auth/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email/send-password-reset-email";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/forgot-password { email }
@@ -12,6 +17,14 @@ import { forgotPasswordSchema } from "@/lib/validations/auth";
  * is logged but never changes the response.
  */
 export async function POST(request: Request) {
+  const { success, retryAfterSeconds } = await checkRateLimit(
+    "forgotPassword",
+    getClientIp(request.headers)
+  );
+  if (!success) {
+    return tooManyRequestsResponse(retryAfterSeconds);
+  }
+
   let body: unknown;
   try {
     body = await request.json();

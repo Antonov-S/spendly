@@ -39,6 +39,11 @@ export function SignInForm({
           your email and password instead.
         </p>
       )}
+      {state.rateLimited && (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+          {state.error}
+        </p>
+      )}
       {justDeleted && (
         <p className="rounded-md border border-line bg-surface-2 px-3 py-2 text-[12px] text-ink-2">
           Your account has been deactivated and is scheduled for deletion.
@@ -75,7 +80,7 @@ export function SignInForm({
           required
         />
 
-        {state.error && (
+        {state.error && !state.rateLimited && (
           <p className="text-[12px] text-danger">{state.error}</p>
         )}
 
@@ -91,7 +96,7 @@ export function SignInForm({
         <SubmitButton>Sign in</SubmitButton>
       </form>
 
-      {emailVerificationEnabled && state.error && (
+      {emailVerificationEnabled && state.error && !state.rateLimited && (
         <p className="text-center text-[11px] text-ink-3">
           Haven&apos;t verified your email?{" "}
           <Link href="/verify-email" className="text-success">

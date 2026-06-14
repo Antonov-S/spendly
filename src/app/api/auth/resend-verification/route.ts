@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { createVerificationToken } from "@/lib/auth/verification";
 import { sendVerificationEmail } from "@/lib/email/send-verification-email";
 import { EMAIL_VERIFICATION_ENABLED } from "@/lib/system-constants";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit";
 
 const resendSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -29,6 +34,17 @@ export async function POST(request: Request) {
   }
 
   const { email } = parsed.data;
+
+  // IP + email keyed: stops both a single IP hammering many addresses and a
+  // single address being targeted from rotating IPs. Checked after parsing so
+  // the email is available, but before any DB lookup or email send.
+  const { success, retryAfterSeconds } = await checkRateLimit(
+    "resendVerification",
+    `${getClientIp(request.headers)}:${email}`
+  );
+  if (!success) {
+    return tooManyRequestsResponse(retryAfterSeconds);
+  }
 
   // No new tokens are issued when verification enforcement is disabled.
   if (EMAIL_VERIFICATION_ENABLED) {
