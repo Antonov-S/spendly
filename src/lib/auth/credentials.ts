@@ -2,6 +2,7 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { credentialsSchema } from "@/lib/validations/auth";
+import { EMAIL_VERIFICATION_ENABLED } from "@/lib/system-constants";
 
 export interface AuthenticatedUser {
   id: string;
@@ -35,10 +36,10 @@ export async function verifyCredentials(
     return null;
   }
 
-  // Email-verification gate. Isolated on purpose: a future dev toggle can
-  // short-circuit this single block without touching the rest of the flow.
-  // Placed after the password check so it can't be used to enumerate accounts.
-  if (!user.emailVerified) {
+  // Email-verification gate. Isolated on purpose so the EMAIL_VERIFICATION_ENABLED
+  // flag can short-circuit this single block without touching the rest of the
+  // flow. Placed after the password check so it can't be used to enumerate accounts.
+  if (EMAIL_VERIFICATION_ENABLED && !user.emailVerified) {
     return null;
   }
 

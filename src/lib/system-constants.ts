@@ -29,6 +29,14 @@ export const PASSWORD_MIN_LENGTH = 8;
 export const VERIFICATION_TOKEN_TTL_HOURS = 24;
 export const EMAIL_FROM = "onboarding@resend.dev";
 
+/**
+ * Whether email-verification enforcement is active. Defaults to on: only the
+ * literal string "false" disables it, so an unset or empty value keeps
+ * verification enabled and production stays safe without extra config.
+ */
+export const EMAIL_VERIFICATION_ENABLED =
+  process.env.EMAIL_VERIFICATION_ENABLED !== "false";
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav

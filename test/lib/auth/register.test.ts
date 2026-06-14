@@ -28,6 +28,20 @@ vi.mock("@/lib/email/send-verification-email", () => ({
   sendVerificationEmail: vi.fn(),
 }));
 
+// Mutable flag so individual tests can flip EMAIL_VERIFICATION_ENABLED. The
+// getter keeps the imported binding live so register.ts reads the current value.
+const verificationFlag = vi.hoisted(() => ({ enabled: true }));
+
+vi.mock("@/lib/system-constants", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/system-constants")>();
+  return {
+    ...actual,
+    get EMAIL_VERIFICATION_ENABLED() {
+      return verificationFlag.enabled;
+    },
+  };
+});
+
 const findUnique = vi.mocked(prisma.user.findUnique);
 const create = vi.mocked(prisma.user.create);
 const hash = vi.mocked(bcrypt.hash);
@@ -50,6 +64,7 @@ describe("registerUser", () => {
     sendEmail.mockReset();
     createToken.mockResolvedValue("verify-token");
     sendEmail.mockResolvedValue(undefined);
+    verificationFlag.enabled = true;
   });
 
   it("rejects when name is empty", async () => {
@@ -139,6 +154,19 @@ describe("registerUser", () => {
     expect(result.success).toBe(true);
     expect(createToken).toHaveBeenCalledWith("test@example.com");
     expect(sendEmail).toHaveBeenCalledWith("test@example.com", "verify-token");
+  });
+
+  it("skips token creation and email when verification is disabled", async () => {
+    verificationFlag.enabled = false;
+    findUnique.mockResolvedValue(null);
+    hash.mockResolvedValue("hashed-pw" as never);
+    create.mockResolvedValue({ id: "new-id", email: "test@example.com" } as never);
+
+    const result = await registerUser(validInput);
+
+    expect(result.success).toBe(true);
+    expect(createToken).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("still succeeds when sending the verification email fails", async () => {

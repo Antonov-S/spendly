@@ -17,6 +17,20 @@ vi.mock("bcryptjs", () => ({
   },
 }));
 
+// Mutable flag so individual tests can flip EMAIL_VERIFICATION_ENABLED. The
+// getter keeps the imported binding live so credentials.ts reads the current value.
+const verificationFlag = vi.hoisted(() => ({ enabled: true }));
+
+vi.mock("@/lib/system-constants", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/system-constants")>();
+  return {
+    ...actual,
+    get EMAIL_VERIFICATION_ENABLED() {
+      return verificationFlag.enabled;
+    },
+  };
+});
+
 const findUnique = vi.mocked(prisma.user.findUnique);
 const compare = vi.mocked(bcrypt.compare);
 
@@ -35,6 +49,7 @@ describe("verifyCredentials", () => {
   beforeEach(() => {
     findUnique.mockReset();
     compare.mockReset();
+    verificationFlag.enabled = true;
   });
 
   it("returns null for invalid input shape", async () => {
@@ -69,6 +84,21 @@ describe("verifyCredentials", () => {
     compare.mockResolvedValue(true as never);
     const result = await verifyCredentials(validCredentials);
     expect(result).toBeNull();
+  });
+
+  it("allows an unverified user when verification is disabled", async () => {
+    verificationFlag.enabled = false;
+    findUnique.mockResolvedValue({ ...dbUser, emailVerified: null } as never);
+    compare.mockResolvedValue(true as never);
+
+    const result = await verifyCredentials(validCredentials);
+
+    expect(result).toEqual({
+      id: "user-1",
+      name: "Test User",
+      email: "test@example.com",
+      image: null,
+    });
   });
 
   it("returns the safe user object on a valid match", async () => {
