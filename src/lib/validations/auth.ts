@@ -32,3 +32,29 @@ export const credentialsSchema = z.object({
 });
 
 export type CredentialsInput = z.infer<typeof credentialsSchema>;
+
+/** Forgot-password request — just the email to send a reset link to. */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/** Reset-password payload — new password (with confirmation) plus the token. */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: z
+      .string()
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+      ),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

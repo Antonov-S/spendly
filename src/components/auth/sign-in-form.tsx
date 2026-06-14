@@ -62,6 +62,15 @@ export function SignInForm({
           <p className="text-[12px] text-danger">{state.error}</p>
         )}
 
+        <div className="-mt-1 text-right">
+          <Link
+            href="/forgot-password"
+            className="text-[11px] text-ink-3 hover:text-ink-2"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
         <SubmitButton>Sign in</SubmitButton>
       </form>
 

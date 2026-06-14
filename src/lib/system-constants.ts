@@ -30,6 +30,12 @@ export const VERIFICATION_TOKEN_TTL_HOURS = 24;
 export const EMAIL_FROM = "onboarding@resend.dev";
 
 /**
+ * Password-reset token lifetime. Shorter than verification (24h) because the
+ * link grants the ability to take over the account.
+ */
+export const PASSWORD_RESET_TOKEN_TTL_HOURS = 1;
+
+/**
  * Whether email-verification enforcement is active. Defaults to on: only the
  * literal string "false" disables it, so an unset or empty value keeps
  * verification enabled and production stays safe without extra config.
