@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createHash } from "crypto";
 import {
   createVerificationToken,
   consumeVerificationToken,
 } from "@/lib/auth/verification";
 import { prisma } from "@/lib/prisma";
 import { VERIFICATION_TOKEN_TTL_HOURS } from "@/lib/system-constants";
+
+const sha256 = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -46,7 +50,7 @@ describe("createVerificationToken", () => {
     expect(data.identifier).toBe("test@example.com");
   });
 
-  it("persists a random token with the correct expiry and returns it", async () => {
+  it("persists the hash with the correct expiry and returns the raw token", async () => {
     const before = Date.now();
     const token = await createVerificationToken("test@example.com");
     const after = Date.now();
@@ -55,7 +59,9 @@ describe("createVerificationToken", () => {
     expect(token).toMatch(/^[0-9a-f]{64}$/);
 
     const data = create.mock.calls[0][0].data;
-    expect(data.token).toBe(token);
+    // The stored value is the hash, never the raw token in the link.
+    expect(data.token).not.toBe(token);
+    expect(data.token).toBe(sha256(token));
 
     const ttlMs = VERIFICATION_TOKEN_TTL_HOURS * 60 * 60 * 1000;
     const expires = (data.expires as Date).getTime();
@@ -71,6 +77,14 @@ describe("consumeVerificationToken", () => {
     del.mockResolvedValue({} as never);
   });
 
+  it("looks up the hashed token, never the raw value", async () => {
+    findUnique.mockResolvedValue(null);
+    await consumeVerificationToken("raw-token");
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { token: sha256("raw-token") },
+    });
+  });
+
   it("returns null for an unknown token without deleting", async () => {
     findUnique.mockResolvedValue(null);
     const result = await consumeVerificationToken("nope");
@@ -78,29 +92,29 @@ describe("consumeVerificationToken", () => {
     expect(del).not.toHaveBeenCalled();
   });
 
-  it("returns the email and deletes the row for a valid token", async () => {
+  it("returns the email and deletes the row (by hash) for a valid token", async () => {
     findUnique.mockResolvedValue({
       identifier: "test@example.com",
-      token: "tok",
+      token: sha256("raw-token"),
       expires: new Date(Date.now() + 60_000),
     } as never);
 
-    const result = await consumeVerificationToken("tok");
+    const result = await consumeVerificationToken("raw-token");
 
     expect(result).toBe("test@example.com");
-    expect(del).toHaveBeenCalledWith({ where: { token: "tok" } });
+    expect(del).toHaveBeenCalledWith({ where: { token: sha256("raw-token") } });
   });
 
   it("rejects and deletes an expired token", async () => {
     findUnique.mockResolvedValue({
       identifier: "test@example.com",
-      token: "tok",
+      token: sha256("raw-token"),
       expires: new Date(Date.now() - 60_000),
     } as never);
 
-    const result = await consumeVerificationToken("tok");
+    const result = await consumeVerificationToken("raw-token");
 
     expect(result).toBeNull();
-    expect(del).toHaveBeenCalledWith({ where: { token: "tok" } });
+    expect(del).toHaveBeenCalledWith({ where: { token: sha256("raw-token") } });
   });
 });
