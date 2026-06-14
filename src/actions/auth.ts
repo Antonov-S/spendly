@@ -1,13 +1,18 @@
 "use server";
 
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { credentialsSchema } from "@/lib/validations/auth";
 
 /** Result returned to the sign-in form's `useActionState` hook. */
 export interface SignInState {
   error?: string;
+  /** True when the failure was a rate limit, so the form shows an amber notice. */
+  rateLimited?: boolean;
 }
+
+const RATE_LIMITED_MESSAGE =
+  "Too many sign-in attempts. Please try again in a few minutes.";
 
 /**
  * Validate credentials and start a session. On success `signIn` throws a
@@ -35,6 +40,11 @@ export async function authenticate(
     });
     return {};
   } catch (error) {
+    // The rate-limit throw in authorize surfaces here as a CredentialsSignin
+    // carrying our custom code (NextAuth handles form actions server-side).
+    if (error instanceof CredentialsSignin && error.code === "rate_limited") {
+      return { error: RATE_LIMITED_MESSAGE, rateLimited: true };
+    }
     if (error instanceof AuthError) {
       return {
         error:

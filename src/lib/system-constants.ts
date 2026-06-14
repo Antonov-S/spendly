@@ -12,13 +12,13 @@ export const SEMANTIC_COLORS = {
   warning: "#EF9F27", // warning threshold
   danger: "#E24B4A", // over budget / loss
   neutral: "#888780", // neutral information
-  info: "#378ADD", // links / informational accents
+  info: "#378ADD" // links / informational accents
 } as const;
 
 /** Budget progress bar state thresholds (fraction of limit spent). */
 export const BUDGET_THRESHOLDS = {
   warning: 0.6, // >= 60% -> amber
-  danger: 1.0, // >= 100% -> red
+  danger: 1.0 // >= 100% -> red
 } as const;
 
 /** Credentials auth security policy. */
@@ -50,10 +50,25 @@ export const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30;
 export const EMAIL_VERIFICATION_ENABLED =
   process.env.EMAIL_VERIFICATION_ENABLED !== "false";
 
+/**
+ * Auth rate-limit policy. Each entry is a sliding-window budget: at most
+ * `limit` requests per `window` (Upstash Duration string). Keyed per-endpoint
+ * so a burst of logins can't exhaust the register budget and vice versa.
+ */
+export const RATE_LIMITS = {
+  login: { limit: 5, window: "15 m" },
+  register: { limit: 3, window: "1 h" },
+  forgotPassword: { limit: 3, window: "1 h" },
+  resetPassword: { limit: 5, window: "15 m" },
+  resendVerification: { limit: 3, window: "15 m" }
+} as const;
+
+export type RateLimitName = keyof typeof RATE_LIMITS;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav
-  tablet: 1024, // 768–1024: icon-only sidebar
+  tablet: 1024 // 768–1024: icon-only sidebar
 } as const;
 
 /** A single navigation entry (sidebar or mobile bottom nav). */

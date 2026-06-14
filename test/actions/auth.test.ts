@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { authenticate } from "@/actions/auth";
 import { signIn } from "@/auth";
 
 // next-auth's package index imports `next/server`, which isn't available in the
-// node test env. Stub it with just the AuthError class the action relies on —
-// both this test and the action resolve to this same class, so `instanceof`
-// keeps working.
-vi.mock("next-auth", () => ({
-  AuthError: class AuthError extends Error {},
-}));
+// node test env. Stub it with just the error classes the action relies on —
+// both this test and the action resolve to these same classes, so `instanceof`
+// keeps working. CredentialsSignin extends AuthError, mirroring real next-auth.
+vi.mock("next-auth", () => {
+  class AuthError extends Error {}
+  class CredentialsSignin extends AuthError {
+    code = "credentials";
+  }
+  return { AuthError, CredentialsSignin };
+});
 
 vi.mock("@/auth", () => ({
   signIn: vi.fn(),
@@ -71,6 +75,30 @@ describe("authenticate", () => {
     expect(result).toEqual({
       error: "Invalid email or password, or your email isn't verified yet.",
     });
+  });
+
+  it("maps a rate_limited CredentialsSignin to the amber rate-limit notice", async () => {
+    const error = new CredentialsSignin();
+    error.code = "rate_limited";
+    mockSignIn.mockRejectedValue(error);
+
+    const result = await authenticate({}, validForm);
+
+    expect(result.rateLimited).toBe(true);
+    expect(result.error).toMatch(/too many/i);
+  });
+
+  it("treats a non-rate-limit CredentialsSignin as generic invalid credentials", async () => {
+    const error = new CredentialsSignin();
+    error.code = "credentials";
+    mockSignIn.mockRejectedValue(error);
+
+    const result = await authenticate({}, validForm);
+
+    expect(result.rateLimited).toBeUndefined();
+    expect(result.error).toBe(
+      "Invalid email or password, or your email isn't verified yet."
+    );
   });
 
   it("re-throws non-AuthError errors (e.g. the success redirect)", async () => {
