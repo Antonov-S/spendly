@@ -24,6 +24,17 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
+    // Block soft-deleted accounts from signing back in during the grace period.
+    // Credentials are already gated in verifyCredentials; this covers the
+    // Google OAuth path, where the adapter resolves the user by email.
+    async signIn({ user }) {
+      if (!user.email) return true
+      const existing = await prisma.user.findUnique({
+        where: { email: user.email },
+        select: { deletedAt: true },
+      })
+      return !existing?.deletedAt
+    },
     session({ session, token }) {
       if (token.sub) {
         session.user.id = token.sub

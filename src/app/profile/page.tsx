@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSessionOrRedirect } from "@/lib/auth/guards";
+import { getProfileStats } from "@/lib/db/profile";
 import { Avatar } from "@/components/ui/avatar";
 import { SubmitButton } from "@/components/auth/submit-button";
+import { ProfileStats } from "@/components/profile/profile-stats";
+import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { signOutAction } from "@/actions/auth";
 
 export default async function ProfilePage() {
@@ -18,6 +22,7 @@ export default async function ProfilePage() {
       name: true,
       email: true,
       image: true,
+      password: true,
       isPro: true,
       preferredCurrency: true,
       createdAt: true,
@@ -28,10 +33,16 @@ export default async function ProfilePage() {
     redirect("/sign-in");
   }
 
+  const stats = await getProfileStats(session.user.id);
+
   const memberSince = user.createdAt.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
   });
+
+  // Password change is only meaningful for email/password accounts; OAuth-only
+  // users have no password to verify against.
+  const hasPassword = user.password !== null;
 
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-10">
@@ -66,6 +77,12 @@ export default async function ProfilePage() {
           <ProfileRow label="Member since" value={memberSince} />
         </dl>
       </div>
+
+      <ProfileStats stats={stats} />
+
+      {hasPassword && <ChangePasswordForm />}
+
+      <DeleteAccountDialog email={user.email} />
 
       <form action={signOutAction}>
         <SubmitButton className="bg-surface text-ink hover:bg-surface-2">

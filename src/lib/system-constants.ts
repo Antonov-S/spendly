@@ -36,6 +36,13 @@ export const EMAIL_FROM = "onboarding@resend.dev";
 export const PASSWORD_RESET_TOKEN_TTL_HOURS = 1;
 
 /**
+ * Days a soft-deleted account is retained before permanent purge. The account
+ * is deactivated immediately (sign-in blocked) but data is preserved during
+ * this grace period so deletion can be reversed.
+ */
+export const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30;
+
+/**
  * Whether email-verification enforcement is active. Defaults to on: only the
  * literal string "false" disables it, so an unset or empty value keeps
  * verification enabled and production stays safe without extra config.
