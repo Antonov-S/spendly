@@ -1,7 +1,10 @@
 import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { BCRYPT_SALT_ROUNDS } from "@/lib/system-constants";
+import {
+  BCRYPT_SALT_ROUNDS,
+  EMAIL_VERIFICATION_ENABLED,
+} from "@/lib/system-constants";
 import { registerSchema } from "@/lib/validations/auth";
 import { createVerificationToken } from "@/lib/auth/verification";
 import { sendVerificationEmail } from "@/lib/email/send-verification-email";
@@ -44,12 +47,15 @@ export async function registerUser(input: unknown): Promise<RegisterResult> {
   });
 
   // Issue a verification link. A send failure must not fail registration —
-  // the user can request a fresh link from the verify-email screen.
-  try {
-    const token = await createVerificationToken(email);
-    await sendVerificationEmail(email, token);
-  } catch (error) {
-    console.error("Failed to send verification email", error);
+  // the user can request a fresh link from the verify-email screen. Skipped
+  // entirely when verification enforcement is disabled.
+  if (EMAIL_VERIFICATION_ENABLED) {
+    try {
+      const token = await createVerificationToken(email);
+      await sendVerificationEmail(email, token);
+    } catch (error) {
+      console.error("Failed to send verification email", error);
+    }
   }
 
   return { success: true, data: user };

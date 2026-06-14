@@ -18,7 +18,12 @@ const EMPTY_FORM = {
   confirmPassword: "",
 };
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  /** When false, registration skips verification and lands on /sign-in. */
+  emailVerificationEnabled: boolean;
+}
+
+export function RegisterForm({ emailVerificationEnabled }: RegisterFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(EMPTY_FORM);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -62,7 +67,13 @@ export function RegisterForm() {
         return;
       }
 
-      router.push(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
+      if (emailVerificationEnabled) {
+        router.push(
+          `/verify-email?email=${encodeURIComponent(parsed.data.email)}`
+        );
+      } else {
+        router.push("/sign-in");
+      }
     } catch {
       setFormError("Unable to reach the server. Please try again.");
     } finally {
