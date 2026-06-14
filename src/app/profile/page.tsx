@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -55,7 +56,8 @@ export default async function ProfilePage() {
       </Link>
 
       <div className="rounded-xl border border-line bg-surface p-6">
-        <div className="flex items-center gap-4">
+        <h2 className="text-[13px] font-medium text-ink">Account</h2>
+        <div className="mt-4 flex items-center gap-4">
           <Avatar
             name={user.name}
             email={user.email}
@@ -72,7 +74,7 @@ export default async function ProfilePage() {
         </div>
 
         <dl className="mt-6 flex flex-col divide-y divide-line border-t border-line text-[13px]">
-          <ProfileRow label="Plan" value={user.isPro ? "Pro" : "Free"} />
+          <ProfileRow label="Plan" value={<PlanBadge isPro={user.isPro} />} />
           <ProfileRow label="Preferred currency" value={user.preferredCurrency} />
           <ProfileRow label="Member since" value={memberSince} />
         </dl>
@@ -93,11 +95,32 @@ export default async function ProfilePage() {
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string }) {
+function ProfileRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between py-3">
       <dt className="text-ink-2">{label}</dt>
       <dd className="font-medium text-ink">{value}</dd>
     </div>
+  );
+}
+
+/** Plan status pill — green for Pro, neutral for Free. */
+function PlanBadge({ isPro }: { isPro: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+        isPro
+          ? "border-success/30 bg-success/10 text-success"
+          : "border-line text-ink-2"
+      }`}
+    >
+      {isPro ? "Pro" : "Free"}
+    </span>
   );
 }
