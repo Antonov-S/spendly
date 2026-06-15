@@ -4,7 +4,7 @@ import type { CategoryRef } from "@/types/dashboard";
 /** Tinted rounded square holding a category's icon in its accent color. */
 export function CategoryIcon({
   category,
-  size = "md",
+  size = "md"
 }: {
   category: CategoryRef;
   size?: "sm" | "md";
@@ -14,7 +14,7 @@ export function CategoryIcon({
     <span
       className={cn(
         "flex shrink-0 items-center justify-center rounded-md",
-        size === "sm" ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"
+        size === "sm" ? "h-4.5 w-4.5" : "h-5.5 w-5.5"
       )}
       // Dynamic per-category color from data — inline style is required here.
       style={{ backgroundColor: `${category.color}22` }}

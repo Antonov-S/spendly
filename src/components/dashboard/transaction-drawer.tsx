@@ -39,7 +39,7 @@ export function TransactionDrawer({ open, onClose }: TransactionDrawerProps) {
         className={cn(
           "fixed z-50 flex flex-col bg-surface transition-transform duration-300 ease-in-out",
           "inset-x-0 bottom-0 h-[90vh] rounded-t-2xl border-t border-line",
-          "md:inset-y-0 md:left-auto md:right-0 md:h-full md:w-[420px] md:rounded-none md:border-l md:border-t-0",
+          "md:inset-y-0 md:left-auto md:right-0 md:h-full md:w-105 md:rounded-none md:border-l md:border-t-0",
           open
             ? "translate-y-0 md:translate-x-0"
             : "translate-y-full md:translate-y-0 md:translate-x-full"
@@ -62,7 +62,7 @@ export function TransactionDrawer({ open, onClose }: TransactionDrawerProps) {
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {/* Type toggle */}
           <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-app p-1">
-            {TRANSACTION_TYPES.map((option) => (
+            {TRANSACTION_TYPES.map(option => (
               <button
                 key={option}
                 type="button"
@@ -98,7 +98,7 @@ export function TransactionDrawer({ open, onClose }: TransactionDrawerProps) {
             <input
               type="date"
               defaultValue="2026-06-04"
-              className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none [color-scheme:dark]"
+              className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none [scheme:dark]"
             />
           </Field>
 
@@ -108,7 +108,7 @@ export function TransactionDrawer({ open, onClose }: TransactionDrawerProps) {
               defaultValue="Groceries"
               className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none"
             >
-              {MOCK_CATEGORIES.map((name) => (
+              {MOCK_CATEGORIES.map(name => (
                 <option key={name}>{name}</option>
               ))}
             </select>
@@ -120,7 +120,7 @@ export function TransactionDrawer({ open, onClose }: TransactionDrawerProps) {
               defaultValue={ACCOUNT_OPTIONS[0]}
               className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none"
             >
-              {ACCOUNT_OPTIONS.map((name) => (
+              {ACCOUNT_OPTIONS.map(name => (
                 <option key={name}>{name}</option>
               ))}
             </select>
@@ -171,7 +171,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function Field({
   label,
   optional,
-  children,
+  children
 }: {
   label: string;
   optional?: boolean;

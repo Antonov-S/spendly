@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { redirectIfAuthenticated } from "@/lib/auth/guards";
-import { Logo } from "@/components/dashboard/logo";
+import { Nav } from "@/components/marketing/nav";
 import { Hero } from "@/components/marketing/hero";
+import { Features } from "@/components/marketing/features";
+import { AiSection } from "@/components/marketing/ai-section";
+import { Pricing } from "@/components/marketing/pricing";
+import { CtaBanner } from "@/components/marketing/cta-banner";
+import { Footer } from "@/components/marketing/footer";
 import { MARKETING_COPY } from "@/lib/marketing/copy";
-import Link from "next/link";
 
 const pageTitle = `Spendly — ${MARKETING_COPY.headline}`;
 
@@ -28,19 +32,17 @@ export default async function Home() {
   await redirectIfAuthenticated();
 
   return (
-    <main className="flex min-h-full flex-1 flex-col">
-      {/* Slim marketing header — logo + a path to sign in. */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-        <Logo />
-        <Link
-          href="/sign-in"
-          className="text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
-        >
-          Sign in
-        </Link>
-      </header>
-
-      <Hero />
-    </main>
+    <>
+      <Nav />
+      {/* pt clears the fixed nav so the hero never tucks under it. */}
+      <main className="flex min-h-full flex-1 flex-col pt-14 md:pt-16">
+        <Hero />
+        <Features />
+        <AiSection />
+        <Pricing />
+        <CtaBanner />
+      </main>
+      <Footer />
+    </>
   );
 }

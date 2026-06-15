@@ -5,6 +5,8 @@ import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { BudgetsPanel } from "@/components/dashboard/budgets-panel";
 import { GoalsWidget } from "@/components/dashboard/goals-widget";
 import { formatCurrency, formatSigned } from "@/lib/format";
+import { HERO_PREVIEW } from "@/lib/constants";
+import type { BudgetSummary } from "@/types/dashboard";
 import {
   MARKETING_SUMMARY,
   MARKETING_BALANCE_TREND,
@@ -12,6 +14,19 @@ import {
   MARKETING_BUDGET_SUMMARY,
   MARKETING_GOALS,
 } from "@/lib/marketing/dashboard-snapshot";
+
+// Render a compact slice of the dashboard so the preview doesn't dominate the
+// hero. The budget summary is derived from the shown rows so its totals stay
+// consistent with what's visible (daysLeft has no per-row source, so it carries
+// over from the snapshot).
+const previewBudgets = MARKETING_BUDGETS.slice(0, HERO_PREVIEW.budgetRows);
+const previewGoals = MARKETING_GOALS.slice(0, HERO_PREVIEW.goals);
+const previewBudgetSummary: BudgetSummary = {
+  total: previewBudgets.reduce((sum, b) => sum + b.limit, 0),
+  remaining: previewBudgets.reduce((sum, b) => sum + (b.limit - b.spent), 0),
+  categoryCount: previewBudgets.length,
+  daysLeft: MARKETING_BUDGET_SUMMARY.daysLeft,
+};
 
 /**
  * Phase-4 "clarity" reveal: a realistic Spendly dashboard inside a browser
@@ -37,7 +52,7 @@ export function DashboardPreview() {
       </div>
 
       {/* Dashboard body */}
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-2.5 p-3.5">
         {/* Hero balance block (static — period pills / Add CTA omitted). */}
         <div>
           <p className="text-[10px] font-medium uppercase tracking-wide text-ink-3">
@@ -58,12 +73,9 @@ export function DashboardPreview() {
         <MetricStrip summary={MARKETING_SUMMARY} />
 
         {/* Budget usage + savings goal progress. */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
-          <BudgetsPanel
-            rows={MARKETING_BUDGETS}
-            summary={MARKETING_BUDGET_SUMMARY}
-          />
-          <GoalsWidget goals={MARKETING_GOALS} />
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-[1.4fr_1fr]">
+          <BudgetsPanel rows={previewBudgets} summary={previewBudgetSummary} />
+          <GoalsWidget goals={previewGoals} />
         </div>
       </div>
     </div>
