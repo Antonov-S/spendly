@@ -1,6 +1,6 @@
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatSigned } from "@/lib/format";
-import { SEMANTIC_COLORS } from "@/lib/system-constants";
+import { TYPE_BORDER_COLOR } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import type { TransactionRow } from "@/types/dashboard";
 
@@ -15,12 +15,6 @@ function groupFor(dateLabel: string): DateGroup {
   if (dateLabel === "Yesterday") return "Yesterday";
   return "Earlier";
 }
-
-const TYPE_BORDER_COLOR: Record<TransactionRow["type"], string> = {
-  INCOME: SEMANTIC_COLORS.success,
-  EXPENSE: SEMANTIC_COLORS.danger,
-  TRANSFER: SEMANTIC_COLORS.neutral,
-};
 
 interface TransactionsPanelProps {
   rows: TransactionRow[];

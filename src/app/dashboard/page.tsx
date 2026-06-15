@@ -13,6 +13,7 @@ import {
   getBudgetsData,
   getGoals,
 } from "@/lib/db/dashboard";
+import { getUserAccounts } from "@/lib/db/accounts";
 
 export default async function DashboardPage() {
   const session = await getSessionOrRedirect();
@@ -23,19 +24,21 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals] =
+  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals, accounts] =
     await Promise.all([
       getDashboardSummary(userId, month, year),
       getBalanceTrend(userId, month, year),
       getRecentTransactions(userId, 20),
       getBudgetsData(userId, month, year),
       getGoals(userId),
+      getUserAccounts(userId),
     ]);
 
   return (
     <DashboardShell
       summary={summary}
       balanceTrend={balanceTrend}
+      accounts={accounts}
       user={{
         name: session.user.name ?? null,
         email: session.user.email ?? null,

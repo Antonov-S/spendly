@@ -10,8 +10,29 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import type { NavItem } from "@/lib/system-constants";
+import type { TransactionTypeValue } from "@/types/transactions";
 
 /** App-level UI data. Shared types/enums live in system-constants.ts. */
+
+/** Default page size for the transactions feed ("load more" increment). */
+export const TRANSACTIONS_PAGE_SIZE = 50;
+
+/** Debounce before a search keystroke updates the URL (ms). */
+export const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * Mutually-exclusive type filter pills on the transactions feed.
+ * `value: null` is the default "All" (no `type` filter applied).
+ */
+export const TRANSACTION_TYPE_FILTERS: ReadonlyArray<{
+  label: string;
+  value: TransactionTypeValue | null;
+}> = [
+  { label: "All", value: null },
+  { label: "Income", value: "INCOME" },
+  { label: "Expense", value: "EXPENSE" },
+  { label: "Transfer", value: "TRANSFER" },
+];
 
 /** Primary sidebar navigation (Help is rendered separately, pinned to bottom). */
 export const NAV_ITEMS: NavItem[] = [
