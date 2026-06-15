@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { HOW_IT_WORKS_SECTION_ENABLED } from "@/lib/constants";
 import { MARKETING_COPY } from "@/lib/marketing/copy";
 import { DashboardPreview } from "@/components/marketing/dashboard-preview";
 import { HeroAnimation } from "@/components/marketing/hero-animation";
@@ -15,12 +14,6 @@ const PREVIEW_ANCHOR = "hero-dashboard";
  * after hydration, on the animated render path only.
  */
 export function Hero() {
-  // The features section isn't built yet, so the secondary CTA points at the
-  // live preview (a real, working destination) rather than a dead anchor.
-  const secondaryHref = HOW_IT_WORKS_SECTION_ENABLED
-    ? "#how-it-works"
-    : `#${PREVIEW_ANCHOR}`;
-
   return (
     <section className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-center gap-10 px-6 py-12 md:min-h-[90vh] md:grid-cols-2 md:gap-8 md:py-0">
       {/* Copy + CTAs — the value proposition, independent of the animation. */}
@@ -28,8 +21,13 @@ export function Hero() {
         <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink-2">
           {MARKETING_COPY.eyebrow}
         </span>
-        <h1 className="mt-5 text-[34px] font-semibold leading-[1.1] tracking-tight text-ink sm:text-[44px]">
-          {MARKETING_COPY.headline}
+        <h1 className="mt-5 text-[40px] font-bold leading-[1.05] tracking-tight text-ink sm:text-[56px]">
+          {MARKETING_COPY.headlineLead}{" "}
+          {/* Deliberate marketing exception to the no-gradient design rule:
+              the pivot word draws the chaos → clarity arc in brand green. */}
+          <span className="bg-linear-to-r from-success to-teal-400 bg-clip-text text-transparent">
+            {MARKETING_COPY.headlineAccent}
+          </span>
         </h1>
         <p className="mt-4 text-[15px] leading-relaxed text-ink-2 sm:text-[16px]">
           {MARKETING_COPY.subheadline}
@@ -44,7 +42,7 @@ export function Hero() {
             <ArrowRight size={16} strokeWidth={2.5} />
           </Link>
           <Link
-            href={secondaryHref}
+            href="#features"
             className="flex h-11 items-center justify-center rounded-lg border border-line bg-surface px-6 text-[14px] font-medium text-ink transition-colors hover:bg-surface-2"
           >
             {MARKETING_COPY.secondaryCta}
@@ -55,7 +53,7 @@ export function Hero() {
       </div>
 
       {/* Stage: static dashboard reveal (phase 4) + cube animation overlay. */}
-      <div id={PREVIEW_ANCHOR} className="relative scroll-mt-20">
+      <div id={PREVIEW_ANCHOR} className="relative scroll-mt-24">
         <DashboardPreview />
         <HeroAnimation />
       </div>

@@ -73,9 +73,11 @@ export const HERO_CUBE_COLORS = {
 } as const;
 
 /**
- * Whether the "How it works" features section exists yet. While false, the
- * hero's secondary CTA scrolls to the live dashboard preview instead of a
- * not-yet-built `#how-it-works` anchor (no visibly dead button — principle #6).
- * Flip to true when that section ships and repoint the CTA.
+ * How much of the dashboard the hero preview renders. Kept compact so the
+ * preview doesn't dominate the hero. Budgets match the animation's morph-target
+ * count, so every rendered bar is also a cube-morph target (perfect alignment).
  */
-export const HOW_IT_WORKS_SECTION_ENABLED = false;
+export const HERO_PREVIEW = {
+  budgetRows: HERO_ANIMATION.budgetRows, // 4 — same bars the cubes resolve onto
+  goals: 2,
+} as const;
