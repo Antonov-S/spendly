@@ -37,3 +37,46 @@ body {
   background: var(--color-app);
   color: var(--color-ink);
 }
+
+/*
+ * Homepage hero — "Financial Chaos → Clarity" cube animation.
+ * Decorative, desktop + motion-OK only (see hero-animation.tsx). Geometry only;
+ * all motion/position/opacity is applied at runtime via the Web Animations API.
+ * Cube size flows from the HERO_ANIMATION constant via the --cube-size var.
+ */
+.hero-stage {
+  perspective: 900px;
+}
+
+.hero-cube {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  transform-style: preserve-3d;
+  color: #5b5d63; /* default grey; animated via WAAPI `color` keyframes */
+  opacity: 0; /* hidden until the animation runs, then faded back out at rest */
+  will-change: transform, opacity;
+}
+
+.hero-cube__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: currentColor; /* inherits the animated cube color */
+}
+
+.hero-cube__face--front {
+  transform: translateZ(calc(var(--cube-size) / 2));
+}
+
+.hero-cube__face--top {
+  transform: rotateX(90deg) translateZ(calc(var(--cube-size) / 2));
+  filter: brightness(1.18); /* lit top face — fakes depth */
+}
+
+.hero-cube__face--right {
+  transform: rotateY(90deg) translateZ(calc(var(--cube-size) / 2));
+  filter: brightness(0.78); /* shaded side face */
+}

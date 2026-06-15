@@ -64,8 +64,13 @@ export function BudgetsPanel({ rows, summary }: BudgetsPanelProps) {
                   {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
                 </span>
               </div>
-              {/* Progress track */}
-              <div className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
+              {/* Progress track. `data-budget-track` is an inert alignment
+                  hook the marketing hero animation uses to land its cube bars
+                  on the real bars; it has no effect on the dashboard. */}
+              <div
+                data-budget-track
+                className="h-1 w-full overflow-hidden rounded-full bg-surface-2"
+              >
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${percent}%`, backgroundColor: color }}
