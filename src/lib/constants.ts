@@ -50,6 +50,17 @@ export const TRANSACTION_TYPE_OPTIONS: ReadonlyArray<{
 /** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
 export const BUDGET_AMOUNT_MAX = 1_000_000;
 
+/** Max recurring template amount accepted by the form (UI guard). */
+export const RECURRING_AMOUNT_MAX = 1_000_000;
+
+/** Cadence options for the recurring template form select. */
+export const CADENCE_OPTIONS = [
+  { value: "DAILY", label: "Daily" },
+  { value: "WEEKLY", label: "Weekly" },
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "YEARLY", label: "Yearly" },
+] as const;
+
 /**
  * One-tap starter budgets for the empty state (category name → suggested amount).
  * Names must match seeded system categories exactly (a test guards against drift).

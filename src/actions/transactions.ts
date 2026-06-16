@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getTransactions } from "@/lib/db/transactions";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
+import { revalidateTransactionViews } from "@/lib/revalidation";
 import {
   createTransactionSchema,
   updateTransactionSchema,
@@ -39,14 +39,6 @@ const NOT_AUTHED: MutationResult = {
   success: false,
   error: "You must be signed in.",
 };
-
-/** Revalidate every surface that renders transactions or derived balances. */
-function revalidateTransactionViews() {
-  revalidatePath("/transactions");
-  revalidatePath("/dashboard");
-  // Spend consumed by a budget is derived from transactions — keep /budgets fresh.
-  revalidatePath("/budgets");
-}
 
 /** Round a money magnitude to the 2 decimals the Decimal(12,2) column stores. */
 function round2(n: number): number {

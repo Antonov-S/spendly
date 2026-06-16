@@ -3,6 +3,7 @@ import {
   toDateInputValue,
   todayDateInputValue,
   dateInputToUtc,
+  startOfUtcDay,
 } from "@/lib/date";
 
 describe("toDateInputValue", () => {
@@ -30,5 +31,17 @@ describe("dateInputToUtc", () => {
 
   it("round-trips with toDateInputValue", () => {
     expect(toDateInputValue(dateInputToUtc("2026-12-01"))).toBe("2026-12-01");
+  });
+});
+
+describe("startOfUtcDay", () => {
+  it("floors a mid-day UTC timestamp to 00:00:00.000Z of the same calendar day", () => {
+    const floored = startOfUtcDay(new Date("2026-06-16T14:37:21.500Z"));
+    expect(floored.toISOString()).toBe("2026-06-16T00:00:00.000Z");
+  });
+
+  it("is idempotent (flooring an already-floored date returns the same instant)", () => {
+    const once = startOfUtcDay(new Date("2026-06-16T14:37:21.500Z"));
+    expect(startOfUtcDay(once).toISOString()).toBe(once.toISOString());
   });
 });
