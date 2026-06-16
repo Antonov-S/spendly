@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatCurrency } from "@/lib/format";
 import { budgetState, budgetPercent, budgetColor } from "@/lib/budget";
@@ -20,12 +21,12 @@ export function BudgetsPanel({ rows, summary }: BudgetsPanelProps) {
         <span className="text-[11px] text-ink-3">
           {summary.categoryCount} categories
         </span>
-        <button
-          type="button"
+        <Link
+          href="/budgets"
           className="ml-auto text-[11px] text-info transition-opacity hover:opacity-80"
         >
           Manage →
-        </button>
+        </Link>
       </div>
 
       {/* Remaining summary */}

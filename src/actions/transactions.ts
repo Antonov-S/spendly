@@ -44,6 +44,8 @@ const NOT_AUTHED: MutationResult = {
 function revalidateTransactionViews() {
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
+  // Spend consumed by a budget is derived from transactions — keep /budgets fresh.
+  revalidatePath("/budgets");
 }
 
 /** Round a money magnitude to the 2 decimals the Decimal(12,2) column stores. */

@@ -141,6 +141,7 @@ export const MOCK_BUDGET_SUMMARY: BudgetSummary = {
   total: 2660,
   daysLeft: 12,
   categoryCount: 7,
+  hasMixedCurrencies: false,
 };
 
 export const MOCK_BUDGETS: BudgetRow[] = [

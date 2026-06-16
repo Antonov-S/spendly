@@ -4,7 +4,21 @@ import {
   budgetState,
   budgetPercent,
   budgetColor,
+  mapBudgetRow,
+  summarizeBudgets,
+  type MappableBudget,
 } from "@/lib/budget";
+import type { BudgetRow } from "@/types/dashboard";
+
+/** Build a minimal BudgetRow for the summary tests (icon is irrelevant here). */
+function row(spent: number, limit: number): BudgetRow {
+  return {
+    id: "b",
+    category: { name: "X", color: "#000000", icon: (() => null) as never },
+    spent,
+    limit,
+  };
+}
 
 describe("budgetFraction", () => {
   it("returns 0 when limit is zero", () => {
@@ -83,5 +97,108 @@ describe("budgetColor", () => {
 
   it("returns the red hex for danger", () => {
     expect(budgetColor("danger")).toBe("#E24B4A");
+  });
+});
+
+describe("mapBudgetRow", () => {
+  function budget(
+    amount: number,
+    txAmounts: number[]
+  ): MappableBudget {
+    return {
+      id: "b1",
+      amount,
+      category: {
+        name: "Groceries",
+        color: "#EF9F27",
+        icon: "ShoppingCart",
+        transactions: txAmounts.map((a) => ({ amount: a })),
+      },
+    };
+  }
+
+  it("derives spent as the absolute sum of (negative) expense amounts", () => {
+    const r = mapBudgetRow(budget(400, [-50, -30.5, -20]));
+    expect(r.spent).toBe(100.5);
+    expect(r.limit).toBe(400);
+  });
+
+  it("returns 0 spent when there are no transactions", () => {
+    const r = mapBudgetRow(budget(200, []));
+    expect(r.spent).toBe(0);
+    expect(r.limit).toBe(200);
+  });
+
+  it("carries through the category name/color and the raw icon name", () => {
+    const r = mapBudgetRow(budget(400, [-10]));
+    expect(r.category.name).toBe("Groceries");
+    expect(r.category.color).toBe("#EF9F27");
+    expect(r.category.icon).toBe("ShoppingCart");
+  });
+
+  it("coerces Decimal-like amount values via toString", () => {
+    const r = mapBudgetRow({
+      id: "b2",
+      amount: { toString: () => "150" },
+      category: {
+        name: "Dining",
+        color: "#D85A30",
+        icon: "UtensilsCrossed",
+        transactions: [{ amount: { toString: () => "-25" } }],
+      },
+    });
+    expect(r.limit).toBe(150);
+    expect(r.spent).toBe(25);
+  });
+});
+
+describe("summarizeBudgets", () => {
+  // Fixed clock: 2026-06-16 (mid-June, current = period 6/2026).
+  const NOW = new Date("2026-06-16T12:00:00Z");
+
+  it("totals the limits and computes remaining", () => {
+    const s = summarizeBudgets([row(50, 400), row(100, 200)], ["USD", "USD"], 6, 2026, NOW);
+    expect(s.total).toBe(600);
+    expect(s.remaining).toBe(450);
+    expect(s.categoryCount).toBe(2);
+  });
+
+  it("clamps remaining at 0 when overspent", () => {
+    const s = summarizeBudgets([row(500, 400)], ["USD"], 6, 2026, NOW);
+    expect(s.remaining).toBe(0);
+  });
+
+  it("computes daysLeft for the current period", () => {
+    // June has 30 days; mid-June 16 → 14 days left.
+    const s = summarizeBudgets([row(0, 100)], ["USD"], 6, 2026, NOW);
+    expect(s.daysLeft).toBe(14);
+  });
+
+  it("returns 0 daysLeft for a past period", () => {
+    const s = summarizeBudgets([row(0, 100)], ["USD"], 5, 2026, NOW);
+    expect(s.daysLeft).toBe(0);
+  });
+
+  it("returns 0 daysLeft for a future period", () => {
+    const s = summarizeBudgets([row(0, 100)], ["USD"], 7, 2026, NOW);
+    expect(s.daysLeft).toBe(0);
+  });
+
+  it("flags mixed currencies when more than one currency is present", () => {
+    const s = summarizeBudgets([row(0, 100), row(0, 100)], ["USD", "EUR"], 6, 2026, NOW);
+    expect(s.hasMixedCurrencies).toBe(true);
+  });
+
+  it("does not flag a uniform single-currency period", () => {
+    const s = summarizeBudgets([row(0, 100)], ["USD", "USD"], 6, 2026, NOW);
+    expect(s.hasMixedCurrencies).toBe(false);
+  });
+
+  it("does not flag an empty period", () => {
+    const s = summarizeBudgets([], [], 6, 2026, NOW);
+    expect(s.hasMixedCurrencies).toBe(false);
+    expect(s.total).toBe(0);
+    expect(s.remaining).toBe(0);
+    expect(s.categoryCount).toBe(0);
   });
 });
