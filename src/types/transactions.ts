@@ -97,3 +97,33 @@ export interface TransactionPage {
   rows: FeedTransaction[];
   nextCursor: string | null;
 }
+
+/**
+ * Editable shape used to pre-fill the drawer when a feed row is clicked. The
+ * `amount` is the positive magnitude (the stored sign is re-derived on save).
+ * `date` is a "YYYY-MM-DD" string ready for the date input.
+ */
+export interface EditableTransaction {
+  /** Canonical row id (the clicked leg for transfers). */
+  id: string;
+  type: TransactionTypeValue;
+  /** Positive magnitude. */
+  amount: number;
+  /** "YYYY-MM-DD". */
+  date: string;
+  merchant: string | null;
+  note: string | null;
+  /** Income/expense only. */
+  financialAccountId?: string;
+  categoryId?: string | null;
+  /** Transfer only. */
+  transferPairId?: string;
+  fromAccountId?: string;
+  toAccountId?: string;
+}
+
+/** Accounts + categories needed by the drawer's selectors. */
+export interface DrawerFormData {
+  accounts: AccountOption[];
+  categories: CategoryOption[];
+}

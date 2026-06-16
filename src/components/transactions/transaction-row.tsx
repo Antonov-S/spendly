@@ -17,7 +17,14 @@ const UNCATEGORIZED: CategoryRef = {
   icon: resolveIcon("HelpCircle"),
 };
 
-export function TransactionRow({ txn }: { txn: FeedTransaction }) {
+export function TransactionRow({
+  txn,
+  onSelect,
+}: {
+  txn: FeedTransaction;
+  /** Open the edit drawer for this row. */
+  onSelect: () => void;
+}) {
   const isTransfer = txn.type === "TRANSFER";
   const isIncome = txn.type === "INCOME";
 
@@ -35,10 +42,12 @@ export function TransactionRow({ txn }: { txn: FeedTransaction }) {
       : txn.accountName;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onSelect}
       className={cn(
         ROW_GRID,
-        "border-b border-line px-4 py-2.5 transition-colors hover:bg-surface-2"
+        "w-full cursor-pointer border-b border-line px-4 py-2.5 text-left transition-colors hover:bg-surface-2"
       )}
       style={{ boxShadow: `inset 2px 0 0 ${TYPE_BORDER_COLOR[txn.type]}` }}
     >
@@ -90,6 +99,6 @@ export function TransactionRow({ txn }: { txn: FeedTransaction }) {
       >
         {isTransfer ? formatCurrency(txn.amount) : formatSigned(txn.amount)}
       </span>
-    </div>
+    </button>
   );
 }

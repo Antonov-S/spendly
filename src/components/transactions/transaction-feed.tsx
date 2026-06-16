@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { groupTransactionsByDate } from "@/lib/transactions";
 import { loadMoreTransactions } from "@/actions/transactions";
 import { TransactionRow } from "@/components/transactions/transaction-row";
+import { useAppShell } from "@/components/layout/app-shell";
 import { cn } from "@/lib/utils";
 import type { FeedTransaction, TransactionFilters } from "@/types/transactions";
 
@@ -24,11 +25,22 @@ export function TransactionFeed({
   filters,
   nowMs,
 }: TransactionFeedProps) {
-  const [rows, setRows] = useState(initialRows);
+  const { openDrawer } = useAppShell();
+  const [extraRows, setExtraRows] = useState<FeedTransaction[]>([]);
   const [cursor, setCursor] = useState(initialCursor);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Re-sync when the server sends a fresh first page (e.g. after a write +
+  // router.refresh()): drop the locally appended pages and reset the cursor.
+  const [prevInitial, setPrevInitial] = useState(initialRows);
+  if (prevInitial !== initialRows) {
+    setPrevInitial(initialRows);
+    setExtraRows([]);
+    setCursor(initialCursor);
+  }
+
+  const rows = [...initialRows, ...extraRows];
   const groups = groupTransactionsByDate(rows, new Date(nowMs));
 
   function handleLoadMore() {
@@ -37,7 +49,7 @@ export function TransactionFeed({
     startTransition(async () => {
       const res = await loadMoreTransactions(filters, cursor);
       if (res.success && res.data) {
-        setRows((prev) => [...prev, ...res.data!.rows]);
+        setExtraRows((prev) => [...prev, ...res.data!.rows]);
         setCursor(res.data.nextCursor);
       } else {
         setError(res.error ?? "Could not load more transactions.");
@@ -68,7 +80,11 @@ export function TransactionFeed({
               {group.label}
             </div>
             {group.items.map((txn) => (
-              <TransactionRow key={txn.id} txn={txn} />
+              <TransactionRow
+                key={txn.id}
+                txn={txn}
+                onSelect={() => openDrawer(txn.id)}
+              />
             ))}
           </div>
         ))}

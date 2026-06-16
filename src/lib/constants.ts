@@ -34,6 +34,19 @@ export const TRANSACTION_TYPE_FILTERS: ReadonlyArray<{
   { label: "Transfer", value: "TRANSFER" },
 ];
 
+/**
+ * Type toggle in the create/edit drawer. Unlike the feed filters there is no
+ * "All" option — every transaction has exactly one type.
+ */
+export const TRANSACTION_TYPE_OPTIONS: ReadonlyArray<{
+  label: string;
+  value: TransactionTypeValue;
+}> = [
+  { label: "Income", value: "INCOME" },
+  { label: "Expense", value: "EXPENSE" },
+  { label: "Transfer", value: "TRANSFER" },
+];
+
 /** Primary sidebar navigation (Help is rendered separately, pinned to bottom). */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

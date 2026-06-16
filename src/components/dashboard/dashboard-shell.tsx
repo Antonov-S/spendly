@@ -42,6 +42,10 @@ function DashboardHeader({
 }) {
   const { openDrawer } = useAppShell();
   return (
-    <PageHeader summary={summary} balanceTrend={balanceTrend} onAdd={openDrawer} />
+    <PageHeader
+      summary={summary}
+      balanceTrend={balanceTrend}
+      onAdd={() => openDrawer()}
+    />
   );
 }
