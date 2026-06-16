@@ -47,6 +47,20 @@ export const TRANSACTION_TYPE_OPTIONS: ReadonlyArray<{
   { label: "Transfer", value: "TRANSFER" },
 ];
 
+/** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
+export const BUDGET_AMOUNT_MAX = 1_000_000;
+
+/**
+ * One-tap starter budgets for the empty state (category name → suggested amount).
+ * Names must match seeded system categories exactly (a test guards against drift).
+ */
+export const BUDGET_PRESETS = [
+  { categoryName: "Groceries", amount: 400 },
+  { categoryName: "Dining", amount: 200 },
+  { categoryName: "Transport", amount: 120 },
+  { categoryName: "Utilities", amount: 150 },
+] as const;
+
 /** Primary sidebar navigation (Help is rendered separately, pinned to bottom). */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

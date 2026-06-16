@@ -89,6 +89,7 @@ export const MARKETING_BUDGET_SUMMARY: BudgetSummary = {
   total: 3120,
   daysLeft: 15,
   categoryCount: MARKETING_BUDGETS.length,
+  hasMixedCurrencies: false,
 };
 
 /** Savings goal progress. Steady, healthy progress — no overdue goals. */

@@ -276,7 +276,13 @@ export async function getBudgetsData(
 
   return {
     rows,
-    summary: { remaining, total, daysLeft, categoryCount: rows.length },
+    summary: {
+      remaining,
+      total,
+      daysLeft,
+      categoryCount: rows.length,
+      hasMixedCurrencies: new Set(budgets.map((b) => b.currency)).size > 1,
+    },
   };
 }
 

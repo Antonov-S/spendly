@@ -26,6 +26,7 @@ const previewBudgetSummary: BudgetSummary = {
   remaining: previewBudgets.reduce((sum, b) => sum + (b.limit - b.spent), 0),
   categoryCount: previewBudgets.length,
   daysLeft: MARKETING_BUDGET_SUMMARY.daysLeft,
+  hasMixedCurrencies: false,
 };
 
 /**
