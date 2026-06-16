@@ -4,13 +4,14 @@ import { createContext, useContext, useState } from "react";
 import { Sidebar, type SidebarUser } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
-import { TransactionDrawer } from "@/components/dashboard/transaction-drawer";
+import { TransactionDrawer } from "@/components/transactions/transaction-drawer";
+import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import type { AccountOption } from "@/types/transactions";
 
 interface AppShellContextValue {
-  /** Open the create-transaction drawer (drawer is a visual mock until Part 2). */
-  openDrawer: () => void;
+  /** Open the transaction drawer. Pass a transaction id to edit; omit to create. */
+  openDrawer: (editId?: string) => void;
 }
 
 const AppShellContext = createContext<AppShellContextValue | null>(null);
@@ -41,9 +42,13 @@ interface AppShellProps {
 export function AppShell({ user, accounts, children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawer, setDrawer] = useState<{ open: boolean; editId: string | null }>(
+    { open: false, editId: null }
+  );
 
-  const openDrawer = () => setDrawerOpen(true);
+  const openDrawer = (editId?: string) =>
+    setDrawer({ open: true, editId: editId ?? null });
+  const closeDrawer = () => setDrawer((d) => ({ ...d, open: false }));
 
   return (
     <AppShellContext.Provider value={{ openDrawer }}>
@@ -92,10 +97,17 @@ export function AppShell({ user, accounts, children }: AppShellProps) {
         </div>
 
         {/* Mobile bottom nav + floating add */}
-        <MobileNav onAdd={openDrawer} />
+        <MobileNav onAdd={() => openDrawer()} />
 
         {/* Slide-in transaction drawer */}
-        <TransactionDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <TransactionDrawer
+          open={drawer.open}
+          editId={drawer.editId}
+          onClose={closeDrawer}
+        />
+
+        {/* Toast surface (create/update/delete + snackbar undo) */}
+        <Toaster />
       </div>
     </AppShellContext.Provider>
   );
