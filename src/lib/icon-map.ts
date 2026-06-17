@@ -19,6 +19,10 @@ import {
   PawPrint,
   TrendingUp,
   HelpCircle,
+  Wallet,
+  PiggyBank,
+  CreditCard,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +47,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   PawPrint,
   TrendingUp,
   HelpCircle,
+  // Account icons (ACCOUNT_ICONS) — Landmark/TrendingUp already present above.
+  Wallet,
+  PiggyBank,
+  CreditCard,
+  Banknote,
 };
 
 export function resolveIcon(name: string): LucideIcon {

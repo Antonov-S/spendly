@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -25,6 +26,7 @@ import {
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
 import { todayDateInputValue } from "@/lib/date";
+import { getDefaultActiveAccount } from "@/lib/account";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import type { DrawerFormData, TransactionTypeValue } from "@/types/transactions";
@@ -42,6 +44,8 @@ export function TransactionDrawer({
   onClose,
 }: TransactionDrawerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const scopedAccountId = searchParams.get("account");
   const isDesktop = useMediaQuery(`(min-width: ${BREAKPOINTS.mobile}px)`);
   const [isPending, startTransition] = useTransition();
 
@@ -117,14 +121,19 @@ export function TransactionDrawer({
     };
   }, [open, editId]);
 
-  // Default the account selects to real accounts once they load (create mode).
+  // Default the account selects once accounts load (create mode). The primary
+  // account follows the topbar scope when active, else the first active account
+  // (single source: getDefaultActiveAccount); the transfer "to" leg picks a
+  // different account when one exists.
   useEffect(() => {
     if (!formData || isEdit) return;
-    const [first, second] = formData.accounts;
-    setAccountId((prev) => prev || first?.id || "");
-    setFromAccountId((prev) => prev || first?.id || "");
-    setToAccountId((prev) => prev || second?.id || first?.id || "");
-  }, [formData, isEdit]);
+    const accounts = formData.accounts;
+    const primary = getDefaultActiveAccount(accounts, scopedAccountId);
+    const other = accounts.find((a) => a.id !== primary?.id) ?? primary;
+    setAccountId((prev) => prev || primary?.id || "");
+    setFromAccountId((prev) => prev || primary?.id || "");
+    setToAccountId((prev) => prev || other?.id || primary?.id || "");
+  }, [formData, isEdit, scopedAccountId]);
 
   const accounts = formData?.accounts ?? [];
   const categories = formData?.categories ?? [];
@@ -337,7 +346,15 @@ export function TransactionDrawer({
           {error && <p className="text-[12px] text-danger">{error}</p>}
           {noAccounts && (
             <p className="text-[12px] text-ink-3">
-              Create a financial account before adding transactions.
+              You need an account first.{" "}
+              <Link
+                href="/accounts"
+                onClick={onClose}
+                className="text-info underline-offset-2 hover:underline"
+              >
+                Create an account
+              </Link>{" "}
+              to start adding transactions.
             </p>
           )}
           <button

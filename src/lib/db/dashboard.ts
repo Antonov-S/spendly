@@ -173,9 +173,16 @@ export async function getRecentTransactions(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)
   );
 
+  // Exclude transactions on archived accounts — they're gone from every other
+  // active view (hero balance, metric strip, /transactions), so the recent feed
+  // must match. Mirrors the `isArchived: false` scoping in the summary fetchers.
   const [txs, count] = await Promise.all([
     prisma.transaction.findMany({
-      where: { userId, deletedAt: null },
+      where: {
+        userId,
+        deletedAt: null,
+        financialAccount: { isArchived: false },
+      },
       orderBy: { date: "desc" },
       take: limit,
       include: {
@@ -187,6 +194,7 @@ export async function getRecentTransactions(
       where: {
         userId,
         deletedAt: null,
+        financialAccount: { isArchived: false },
         date: { gte: monthStart, lte: monthEnd },
       },
     }),

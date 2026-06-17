@@ -16,3 +16,16 @@ export function revalidateTransactionViews() {
   // Spend consumed by a budget is derived from transactions — keep /budgets fresh.
   revalidatePath("/budgets");
 }
+
+/**
+ * Revalidate every surface affected by an account mutation: the `/accounts`
+ * management list, the `/dashboard` hero/metric totals, and `/transactions`
+ * (the topbar account selector + any account-scoped view). One helper so account
+ * actions never scatter individual `revalidatePath` calls (mirrors
+ * `revalidateTransactionViews`).
+ */
+export function revalidateAccountViews() {
+  revalidatePath("/accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/transactions");
+}

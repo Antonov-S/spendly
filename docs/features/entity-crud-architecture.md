@@ -98,11 +98,11 @@ await prisma.transaction.findMany({
 
 ## FinancialAccount
 
-**Route:** `/accounts` (dedicated account-management page), account selector pill (global filter across all pages). A "Manage accounts" entry point links here from the topbar account pill, the sidebar bottom utility group, and the UserMenu drop-up.
+**Route:** `/settings` (account management), account selector pill (global filter across all pages)
 
 ### Read path
 
-Fetcher file: `src/lib/db/accounts.ts` (the existing file — not `financial-accounts.ts`). Keeps `getUserAccounts` (active-only `{ id, name }` for selectors) and adds `getAccountsWithBalances(userId, { includeArchived })` (derived balances via a 2-query `findMany` + `groupBy`, no N+1) and `getAccountForEdit(userId, id)`.
+Fetcher file: `src/lib/db/financial-accounts.ts`
 
 Standard list query scoped by `userId`. Archived accounts (`isArchived: true`) are excluded from all account selectors, the dashboard hero balance, and the monthly metric strip. Archived accounts remain visible in Reports only when explicitly selected by the user.
 
@@ -118,26 +118,27 @@ const balance = account.startingBalance
 
 For the dashboard hero total: sum derived balances across all non-archived accounts. When the user holds accounts in multiple currencies, display a `⚠ Mixed currencies — approximate total` indicator alongside the hero balance.
 
+> **MVP note — EUR-only.** The shipped MVP is single-currency (EUR), so the mixed-currency branch never fires and the hero total is always exact. When multi-currency lands, replace the naïve "approximate total" with **per-currency subtotals** rather than summing across currencies. See `financial-account-crud-spec.md` §10.
+
 ### Mutation path
 
 Action file: `src/actions/financial-accounts.ts`
 
 | Action | Description |
 |---|---|
-| `createFinancialAccount` | Create with name, type, startingBalance, optional color/icon. **`currency` is set server-side to `DEFAULT_CURRENCY` (EUR) — never client-supplied** (§ currency note below). |
-| `updateFinancialAccount` | Patch name, color, icon **only** — `type` and `startingBalance` are immutable in MVP (changing `startingBalance` would silently rewrite every derived balance) |
-| `archiveFinancialAccount` | Idempotent. Set `isArchived = true` and, in the **same `$transaction`**, pause (`isActive = false`) the account's active recurring templates so the scheduler stops emitting unconfirmable drafts. Never hard-delete |
-| `unarchiveFinancialAccount` | Idempotent. Set `isArchived = false` — drives the 8-second Sonner undo. Does **not** auto-resume the templates archiving paused (the user re-activates each one deliberately) |
+| `createFinancialAccount` | Create with name, type, startingBalance, optional color/icon. `currency` is **not** an input — set server-side to `DEFAULT_CURRENCY` (EUR) |
+| `updateFinancialAccount` | Patch name, color, icon — type and currency changes post-MVP |
+| `archiveFinancialAccount` | Set `isArchived = true` — never hard-delete |
+| `unarchiveFinancialAccount` | Set `isArchived = false` — drives the snackbar undo |
 
-Zod schema validates: `name` (non-empty string, ≤ 60), `type` (`AccountType` enum), `startingBalance` (**signed** Decimal — negative allowed for liability accounts such as credit cards — bounded by `±STARTING_BALANCE_MAX`), optional `color` (hex) / `icon` (whitelisted `ACCOUNT_ICONS`). There is **no** `currency` field on the schema in MVP (EUR-only; the action stamps `DEFAULT_CURRENCY`).
+Zod schema validates: `name` (non-empty string), `type` (`AccountType` enum), `startingBalance` (signed Decimal, bounded). `icon` is restricted to the `ACCOUNT_ICONS` whitelist.
+
+> **Superseded by `financial-account-crud-spec.md` (the authoritative slice spec).** Two earlier statements here are out of date: (1) **currency is not a client input** — EUR-only MVP stamps `DEFAULT_CURRENCY` server-side (§10 of that spec); (2) **`startingBalance` is signed, not `≥ 0`** — liability accounts (credit cards) open negative (§5). Archiving also pauses the account's recurring templates and the transaction/`confirmDraft` actions must reject archived accounts (§9).
 
 ### Special cases
 
-- **Currency is EUR-only and resolved server-side.** No currency picker exists in MVP. `createFinancialAccount` writes `DEFAULT_CURRENCY` (EUR) from `src/lib/currency.ts`; client-supplied currency is ignored. The schema column stays for the post-MVP multi-currency upgrade. Display uses the existing `$`-styled `formatCurrency` for now (per-row `€` formatting lands with multi-currency).
-- **Negative starting balance allowed.** Liability accounts (e.g. `CREDIT_CARD`) legitimately open below zero; the derived-balance formula already sums signed amounts. This overrides the earlier `≥ 0` rule.
-- **Archived accounts cannot receive new transactions.** The transaction create/update actions verify `financialAccount.isArchived === false` (already enforced), and `confirmDraft` must do the same (see RecurringTemplate special cases).
+- **Archived accounts cannot receive new transactions.** The transaction create action must verify `financialAccount.isArchived === false` before inserting.
 - **Balance is derived, not stored.** Never add a `balance` column. If query performance becomes an issue, add a read-model cache table — but do not denormalize onto the model itself.
-- **Archive-only — no hard delete in MVP.** `prisma.financialAccount.delete` is never called; archiving is the only removal path.
 
 ---
 
@@ -190,7 +191,6 @@ The schema enforces `@@unique([userId, categoryId, month, year])` — the action
 
 - **No rollover.** Each month is independent; there is no carry-forward of unspent amounts.
 - **Currency.** Budget currency is recorded but cross-currency comparison is post-MVP. In MVP, budgets and transactions should share the same currency.
-- **Archived-account expenses still count toward budget spend (deliberate).** Budget consumption is **category-scoped historical analysis**, so it sums a category's EXPENSE transactions regardless of whether the owning account is archived — `getBudgetsData`/`getBudgets` intentionally do **not** add an `isArchived: false` account filter. This is asymmetric with the dashboard hero balance and metric strip (current-account aggregates that *do* exclude archived accounts) and with the recent-transactions feed (which excludes archived-account rows so it agrees with `/transactions`). The rule: archiving changes **visibility and future capture, not historical category spending**. Do not "fix" the budget query to match the balance query — the divergence is the intended behavior.
 
 ---
 
@@ -294,7 +294,6 @@ async function confirmDraft(draftId: string, userId: string) {
 
 ### Special cases
 
-- **Archived-account guard on confirm.** Confirming a draft creates a `Transaction` on the template's `financialAccountId`, so `confirmDraft` must reject when that account `isArchived === true`, returning `{ success: false, error: "This account is archived" }`. (Archiving an account already pauses its active templates, but a `PENDING` draft generated before archiving can still exist — this guard blocks confirming it.)
 - **Confirmed-draft description.** The created `Transaction` sets `merchant = template.name`. A `Transaction` has no dedicated description/name column; its displayed label is derived from `merchant` first. Without the stamp a draft-born row is unlabeled and the views diverge — the transactions feed falls back `merchant → category.name → type`, while the dashboard recent list falls back `merchant ?? note ?? "Transaction"`. Stamping the template name (the field's intended use — "future-proofs subscription detection") makes both views show the recognizable name. Any new surface that creates a `Transaction` from a template should follow the same rule.
 - **Draft generation.** A background job (or a cron-triggered API route at `/api/recurring/generate`) checks templates where `isActive = true` and `nextOccurrence <= today`, creates PENDING drafts, and does NOT advance `nextOccurrence` — that happens only on confirmation. In MVP this can be triggered on page load server-side.
 - **Dismissed drafts.** Setting `status = "DISMISSED"` skips the occurrence. `nextOccurrence` is still advanced so the template continues generating future drafts.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, Wallet } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,17 @@ export function UserMenu({
             >
               <User size={15} className="shrink-0" />
               Profile
+            </Link>
+            <Link
+              href="/accounts"
+              onClick={() => {
+                setOpen(false);
+                onNavigate?.();
+              }}
+              className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <Wallet size={15} className="shrink-0" />
+              Accounts
             </Link>
             <form action={signOutAction}>
               <button

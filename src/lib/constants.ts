@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { NavItem } from "@/lib/system-constants";
 import type { TransactionTypeValue } from "@/types/transactions";
+import type { AccountTypeValue } from "@/types/accounts";
 
 /** App-level UI data. Shared types/enums live in system-constants.ts. */
 
@@ -46,6 +47,43 @@ export const TRANSACTION_TYPE_OPTIONS: ReadonlyArray<{
   { label: "Expense", value: "EXPENSE" },
   { label: "Transfer", value: "TRANSFER" },
 ];
+
+/** Account type options for the create drawer select. Type is immutable after create. */
+export const ACCOUNT_TYPE_OPTIONS: ReadonlyArray<{
+  label: string;
+  value: AccountTypeValue;
+}> = [
+  { label: "Checking", value: "CHECKING" },
+  { label: "Savings", value: "SAVINGS" },
+  { label: "Credit card", value: "CREDIT_CARD" },
+  { label: "Cash", value: "CASH" },
+  { label: "Investment", value: "INVESTMENT" },
+  { label: "Other", value: "OTHER" },
+];
+
+/** Account accent color swatches offered in the create/edit drawer. */
+export const ACCOUNT_COLORS = [
+  "#1D9E75",
+  "#EF9F27",
+  "#378ADD",
+  "#D4537E",
+  "#7F77DD",
+  "#888780",
+] as const;
+
+/**
+ * Account icon whitelist. A tuple (not arbitrary string) so the Zod schema can
+ * `z.enum` it and reject icons that have no mapping in `icon-map.ts`. Every name
+ * here must be registered in `resolveIcon`.
+ */
+export const ACCOUNT_ICONS = [
+  "Wallet",
+  "Landmark",
+  "PiggyBank",
+  "CreditCard",
+  "Banknote",
+  "TrendingUp",
+] as const;
 
 /** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
 export const BUDGET_AMOUNT_MAX = 1_000_000;
