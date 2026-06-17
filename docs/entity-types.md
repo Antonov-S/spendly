@@ -1,6 +1,6 @@
 # Entity Types Reference
 
-This document is the authoritative field-level reference for every Prisma model in Spendly. It is derived from `prisma/schema.prisma` (field definitions, constraints, indexes, relations), `prisma/seed.ts` (concrete usage patterns), and `context/project-overview.md` (architectural rules). Use this as the single source of truth when writing queries, server actions, or API routes.
+This document is the authoritative field-level reference for every Prisma model in Spendly. It is derived from `prisma/schema.prisma` (field definitions, constraints, indexes, relations), `prisma/seed.ts` (concrete usage patterns), and `docs/project-overview.md` (architectural rules). Use this as the single source of truth when writing queries, server actions, or API routes.
 
 ---
 
@@ -334,8 +334,8 @@ A virtual savings target tracked through manually recorded contributions; goals 
 | `targetAmount` | `Decimal` | `@db.Decimal(12, 2)` | The amount the user wants to reach |
 | `currentAmount` | `Decimal` | `@default(0) @db.Decimal(12, 2)` | Denormalized running total; always equals `SUM(GoalContribution.amount)`. See rules below |
 | `currency` | `String` | required | |
-| `targetDate` | `DateTime?` | `@db.Date`, optional | If set and `currentAmount < targetAmount` and `targetDate` is in the past, the goal surfaces as overdue on the Dashboard |
-| `isCompleted` | `Boolean` | `@default(false)` | Set manually or when `currentAmount >= targetAmount` |
+| `targetDate` | `DateTime?` | `@db.Date`, optional | If set and `currentAmount < targetAmount` and `targetDate` is **strictly before today**, the goal surfaces as overdue on the Dashboard. "Today" floors both sides to UTC midnight with a strict `<`, so a goal due *today* is not overdue (see `docs/features/goals-crud-spec.md` §8) |
+| `isCompleted` | `Boolean` | `@default(false)` | **Manual only** — set exclusively by the `completeGoal` action. The app never auto-completes a goal when `currentAmount >= targetAmount` (resolved in favour of the architecture doc; see `docs/features/goals-crud-spec.md` §14) |
 | `userId` | `String` | FK → `User.id` | |
 | `createdAt` | `DateTime` | `@default(now())` | |
 | `updatedAt` | `DateTime` | `@updatedAt` | |
@@ -353,10 +353,11 @@ A virtual savings target tracked through manually recorded contributions; goals 
 
 ### Special rules
 
-- `currentAmount` is a **denormalized sum** of `GoalContribution.amount`. It is always derivable from the contributions table by running `SUM(amount) WHERE goalId = ?`. The denormalized value is kept for fast reads and must be updated in the same database transaction as any contribution insert or delete.
+- `currentAmount` is a **denormalized sum** of `GoalContribution.amount`. It is always derivable from the contributions table by running `SUM(amount) WHERE goalId = ?`. The denormalized value is kept for fast reads and must be updated in the same database transaction as any contribution insert or delete. `deleteContribution` decrements by the **stored row value** (never a recomputed or client-supplied figure), so the invariant `currentAmount === SUM(contributions.amount)` holds across any add/delete sequence.
 - Goals do not affect `FinancialAccount` balances or `Budget` consumption. They are a virtual tracking layer only.
-- Negative `GoalContribution.amount` values represent withdrawals; `currentAmount` can technically go negative, though the UI should guard against this.
-- Goals with `targetDate` in the past and `isCompleted = false` are shown as overdue in the Dashboard.
+- Negative `GoalContribution.amount` values represent withdrawals; `currentAmount` may legitimately go **negative** (withdrawals exceed deposits) or **exceed `targetAmount`** (overfunded). The **data layer never clamps** — only the *display* progress bar clamps to `[0, 100]`. An overfunded goal (`currentAmount > targetAmount`) must be visually distinct (an "Overfunded / Over 100%" affordance), not silently shown as a flat 100% (see `docs/features/goals-crud-spec.md` §11).
+- **Completion is a soft tag, not a lifecycle state.** A completed goal (`isCompleted = true`) remains fully editable and can still receive contributions; there is no re-open (`uncompleteGoal`) action in MVP. Nothing downstream may assume `isCompleted` implies immutability. If analytics/automation later need a hard "closed" state, `isCompleted` must be promoted to a real lifecycle transition then (see `docs/features/goals-crud-spec.md` §11, §14).
+- Goals with `targetDate` strictly before today and `isCompleted = false` (and `currentAmount < targetAmount`) are shown as overdue in the Dashboard. The overdue rule lives in exactly one place — `isGoalOverdue` in `src/lib/goals.ts` — consumed by both the dashboard widget and the `/goals` page.
 - Seed examples: Pro user has Japan Trip (`target: 5000`, `current: 2400`, `targetDate: 2026-12-01`), Emergency Fund (`target: 10000`, `current: 3800`, no target date), New Laptop (`target: 1500`, `current: 900`, `targetDate: 2026-09-01`).
 
 ---
@@ -388,9 +389,9 @@ A single deposit or withdrawal recorded against a goal; the audit log that backs
 
 ### Special rules
 
-- **Atomic update required.** Inserting or deleting a `GoalContribution` must be wrapped in a Prisma transaction that also updates `Goal.currentAmount` by the same delta. The API route at `DELETE /api/goals/contributions/[id]` must decrement `currentAmount` before returning.
-- Negative `amount` is supported to model withdrawals. The UI should present withdrawals clearly; there is no separate model for them.
-- `GoalContribution` does not have its own `userId` — access is controlled via the parent `Goal`.
+- **Atomic update required.** Inserting or deleting a `GoalContribution` must be wrapped in a `prisma.$transaction` that also updates `Goal.currentAmount` by the same delta. This is the `addContribution` / `deleteContribution` **Server Action** pair (`src/actions/goals.ts`), not a REST endpoint — the `/api/goals/contributions/[id]` row in the project-overview API table is superseded by the Server Actions architecture (see `docs/entity-crud-architecture.md` and `docs/features/goals-crud-spec.md` §6). `deleteContribution` decrements `Goal.currentAmount` by the deleted row's **stored** amount inside the same transaction.
+- Negative `amount` is supported to model withdrawals. The UI should present withdrawals clearly (distinct colour); there is no separate model for them.
+- `GoalContribution` does not have its own `userId` — access is controlled via the parent `Goal` (ownership checked inside the transaction).
 
 ---
 
@@ -469,7 +470,7 @@ A single deposit or withdrawal recorded against a goal; the audit log that backs
 | `FinancialAccount` balance | not stored | Always derived | `startingBalance + SUM(Transaction.amount WHERE deletedAt IS NULL)`. Caching in a read model is a post-MVP optimisation. |
 | Budget consumption | not stored | Always derived | `SUM(Transaction.amount WHERE type = EXPENSE AND categoryId = ? AND month/year match AND deletedAt IS NULL)`. |
 | `Goal.currentAmount` | stored (denormalized) | Derivable but cached | Equals `SUM(GoalContribution.amount WHERE goalId = ?)`. The stored value exists for fast reads and **must** be updated atomically with every contribution insert or delete. |
-| `isCompleted` on `Goal` | stored | Manual flag | Not automatically set; updated by application logic when progress reaches 100 %. |
+| `isCompleted` on `Goal` | stored | Manual flag | Set **only** by the `completeGoal` action. Never auto-set at 100 % progress — a soft tag, not a lifecycle state (completed goals stay editable). |
 
 ---
 

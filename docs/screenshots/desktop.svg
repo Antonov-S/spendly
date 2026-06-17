@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+  <style>
+    .t-pri{fill:#2C2C2A}
+    .t-sec{fill:#888780}
+    .t-ter{fill:#B4B2A9}
+    .t-suc{fill:#1D9E75}
+    .t-dng{fill:#E24B4A}
+    .t-info{fill:#378ADD}
+    .stroke-light{stroke:#E5E3DA;stroke-width:1;fill:none}
+  </style>
+
+  <defs>
+    <symbol id="ic-stroke" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <symbol id="ic-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/>
+    </symbol>
+    <symbol id="ic-bank" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 21h18M3 10h18M5 6l7-3l7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+    </symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10" cy="10" r="7"/><path d="M21 21l-6-6"/>
+    </symbol>
+    <symbol id="ic-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 5a2 2 0 0 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6"/>
+      <path d="M9 17v1a3 3 0 0 0 6 0v-1"/>
+    </symbol>
+    <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </symbol>
+    <symbol id="ic-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12l9-9l9 9M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10M9 21V12h6v9"/>
+    </symbol>
+    <symbol id="ic-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 6h11M9 12h11M9 18h11"/><circle cx="5" cy="6" r="0.5" fill="currentColor"/><circle cx="5" cy="12" r="0.5" fill="currentColor"/><circle cx="5" cy="18" r="0.5" fill="currentColor"/>
+    </symbol>
+    <symbol id="ic-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3M19 16v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/>
+      <path d="M20 12h-4a2 2 0 0 0 0 4h4z"/>
+    </symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/>
+    </symbol>
+    <symbol id="ic-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+    </symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 20V13M10 20V8M16 20V4M22 20H2"/>
+    </symbol>
+    <symbol id="ic-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/>
+    </symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="ic-chev-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 9l6 6l6-6"/>
+    </symbol>
+    <symbol id="ic-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 17l6-6l4 4l8-8M14 7h7v7"/>
+    </symbol>
+    <symbol id="ic-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7l6 6l4-4l8 8M21 10v7h-7"/>
+    </symbol>
+    <symbol id="ic-exchange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 10h14l-4-4M17 14H3l4 4"/>
+    </symbol>
+    <symbol id="ic-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>
+      <path d="M17 17H6V3H4M6 5l14 1l-1 7H6"/>
+    </symbol>
+    <symbol id="ic-briefcase" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="7" width="18" height="13" rx="2"/>
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13a20 20 0 0 0 18 0"/>
+    </symbol>
+    <symbol id="ic-bus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="15" rx="3"/>
+      <path d="M3 12h18M6 4v15M18 4v15M7.5 16h.01M16.5 16h.01"/>
+    </symbol>
+    <symbol id="ic-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 10h14v5a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6v-5z"/>
+      <path d="M17 13a3 3 0 1 1 0-4M8 3a2 2 0 0 0-1 2a2 2 0 0 0 1 2M12 3a2 2 0 0 0-1 2a2 2 0 0 0 1 2"/>
+    </symbol>
+    <symbol id="ic-tv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="7" width="18" height="13" rx="2"/>
+      <path d="M16 3l-4 4l-4-4"/>
+    </symbol>
+    <symbol id="ic-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19.5 12.5L12 20l-7.5-7.5a5 5 0 1 1 7.5-6.5a5 5 0 1 1 7.5 6.5z"/>
+    </symbol>
+    <symbol id="ic-houseicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12l9-9l9 9M5 10v10h14V10"/>
+    </symbol>
+    <symbol id="ic-shirt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 4l6 2v5h-3v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8H3V6l6-2a3 3 0 0 0 6 0z"/>
+    </symbol>
+  </defs>
+
+  <!-- Page background -->
+  <rect width="1280" height="800" fill="#FFFFFF"/>
+
+  <!-- ========== TOPBAR ========== -->
+  <rect x="0" y="0" width="1280" height="56" fill="#FFFFFF"/>
+  <line x1="0" y1="56" x2="1280" y2="56" stroke="#E5E3DA" stroke-width="1"/>
+
+  <!-- Logo -->
+  <use href="#ic-coins" x="20" y="18" width="20" height="20" color="#1D9E75"/>
+  <text x="48" y="34" font-size="15" font-weight="500" class="t-pri">Fintrack</text>
+
+  <!-- Account selector -->
+  <rect x="125" y="14" width="155" height="28" rx="6" fill="#F1EFE8" stroke="#E5E3DA"/>
+  <use href="#ic-bank" x="135" y="20" width="16" height="16" color="#B4B2A9"/>
+  <text x="157" y="33" font-size="12" class="t-pri">All accounts</text>
+  <use href="#ic-chev-down" x="260" y="20" width="14" height="14" color="#B4B2A9"/>
+
+  <!-- Search -->
+  <rect x="296" y="14" width="240" height="28" rx="6" fill="#F1EFE8" stroke="#E5E3DA"/>
+  <use href="#ic-search" x="306" y="20" width="14" height="14" color="#B4B2A9"/>
+  <text x="326" y="32" font-size="12" class="t-ter">Search transactions...</text>
+
+  <!-- Right icons -->
+  <use href="#ic-bell" x="1188" y="18" width="20" height="20" color="#888780"/>
+  <use href="#ic-settings" x="1218" y="18" width="20" height="20" color="#888780"/>
+
+  <!-- Avatar -->
+  <circle cx="1258" cy="28" r="14" fill="#E1F5EE"/>
+  <text x="1258" y="33" font-size="11" font-weight="500" fill="#085041" text-anchor="middle">AS</text>
+
+  <!-- ========== SIDEBAR ========== -->
+  <rect x="0" y="56" width="220" height="744" fill="#F1EFE8"/>
+  <line x1="220" y1="56" x2="220" y2="800" stroke="#E5E3DA" stroke-width="1"/>
+
+  <!-- Dashboard (active) -->
+  <rect x="10" y="74" width="200" height="32" rx="6" fill="#FFFFFF" stroke="#E5E3DA"/>
+  <use href="#ic-home" x="22" y="82" width="16" height="16" color="#1D9E75"/>
+  <text x="46" y="94" font-size="13" font-weight="500" class="t-pri">Dashboard</text>
+
+  <!-- Other nav items -->
+  <use href="#ic-list" x="22" y="118" width="16" height="16" color="#888780"/>
+  <text x="46" y="130" font-size="13" class="t-sec">Transactions</text>
+
+  <use href="#ic-wallet" x="22" y="146" width="16" height="16" color="#888780"/>
+  <text x="46" y="158" font-size="13" class="t-sec">Budgets</text>
+  <!-- Badge -->
+  <rect x="190" y="148" width="18" height="14" rx="7" fill="#FCEBEB"/>
+  <text x="199" y="158" font-size="10" font-weight="500" fill="#791F1F" text-anchor="middle">!</text>
+
+  <use href="#ic-refresh" x="22" y="174" width="16" height="16" color="#888780"/>
+  <text x="46" y="186" font-size="13" class="t-sec">Recurring</text>
+
+  <use href="#ic-target" x="22" y="202" width="16" height="16" color="#888780"/>
+  <text x="46" y="214" font-size="13" class="t-sec">Goals</text>
+
+  <use href="#ic-chart" x="22" y="230" width="16" height="16" color="#888780"/>
+  <text x="46" y="242" font-size="13" class="t-sec">Reports</text>
+
+  <!-- Help (bottom) -->
+  <use href="#ic-help" x="22" y="762" width="16" height="16" color="#888780"/>
+  <text x="46" y="774" font-size="13" class="t-sec">Help</text>
+
+  <!-- ========== MAIN AREA ========== -->
+  <rect x="220" y="56" width="1060" height="744" fill="#F9F8F4"/>
+
+  <!-- Hero balance row -->
+  <text x="248" y="92" font-size="10" font-weight="500" fill="#B4B2A9" letter-spacing="0.5">TOTAL BALANCE · JUNE 2026</text>
+  <text x="248" y="124" font-size="28" font-weight="500" class="t-pri">$8,560</text>
+  <text x="248" y="146" font-size="11" class="t-sec">↑ +$1,360 this month</text>
+
+  <!-- Period pills -->
+  <rect x="1080" y="116" width="120" height="26" rx="6" fill="#F1EFE8"/>
+  <text x="1097" y="132" font-size="11" class="t-ter">Week</text>
+  <rect x="1124" y="119" width="42" height="20" rx="4" fill="#FFFFFF" stroke="#E5E3DA"/>
+  <text x="1145" y="133" font-size="11" class="t-pri" text-anchor="middle">Month</text>
+  <text x="1183" y="133" font-size="11" class="t-ter">Year</text>
+
+  <!-- Add button -->
+  <rect x="1208" y="116" width="68" height="26" rx="6" fill="#1D9E75"/>
+  <use href="#ic-plus" x="1216" y="121" width="14" height="14" color="#E1F5EE"/>
+  <text x="1232" y="133" font-size="12" fill="#E1F5EE">Add</text>
+
+  <!-- Monthly strip -->
+  <g transform="translate(248, 168)">
+    <!-- Income card -->
+    <rect x="0" y="0" width="334" height="60" rx="8" fill="#FFFFFF" stroke="#E5E3DA"/>
+    <rect x="14" y="18" width="24" height="24" rx="6" fill="#E1F5EE"/>
+    <use href="#ic-up" x="18" y="22" width="16" height="16" color="#085041"/>
+    <text x="48" y="30" font-size="11" class="t-ter">Income</text>
+    <text x="48" y="48" font-size="16" font-weight="500" class="t-suc">$3,200</text>
+
+    <!-- Expenses card -->
+    <rect x="346" y="0" width="334" height="60" rx="8" fill="#FFFFFF" stroke="#E5E3DA"/>
+    <rect x="360" y="18" width="24" height="24" rx="6" fill="#FCEBEB"/>
+    <use href="#ic-down" x="364" y="22" width="16" height="16" color="#791F1F"/>
+    <text x="394" y="30" font-size="11" class="t-ter">Expenses</text>
+    <text x="394" y="48" font-size="16" font-weight="500" class="t-dng">$1,840</text>
+
+    <!-- Cashflow card -->
+    <rect x="692" y="0" width="338" height="60" rx="8" fill="#FFFFFF" stroke="#E5E3DA"/>
+    <rect x="706" y="18" width="24" height="24" rx="6" fill="#E6F1FB"/>
+    <use href="#ic-exchange" x="710" y="22" width="16" height="16" color="#0C447C"/>
+    <text x="740" y="30" font-size="11" class="t-ter">Cashflow</text>
+    <text x="740" y="48" font-size="16" font-weight="500" class="t-pri">+$1,360</text>
+  </g>
+
+  <!-- ========== TRANSACTIONS PANEL ========== -->
+  <g transform="translate(248, 252)">
+    <rect x="0" y="0" width="616" height="524" rx="10" fill="#FFFFFF" stroke="#E5E3DA"/>
+
+    <!-- Panel header -->
+    <text x="20" y="28" font-size="13" font-weight="500" class="t-pri">Recent transactions</text>
+    <text x="167" y="28" font-size="11" class="t-ter">62 this month</text>
+    <text x="596" y="28" font-size="11" class="t-info" text-anchor="end">See all →</text>
+
+    <!-- Table header -->
+    <line x1="20" y1="50" x2="596" y2="50" stroke="#E5E3DA" stroke-width="1"/>
+    <text x="20" y="68" font-size="10" font-weight="500" class="t-ter">DESCRIPTION</text>
+    <text x="220" y="68" font-size="10" font-weight="500" class="t-ter">CATEGORY</text>
+    <text x="370" y="68" font-size="10" font-weight="500" class="t-ter">DATE</text>
+    <text x="460" y="68" font-size="10" font-weight="500" class="t-ter">ACCOUNT</text>
+    <text x="596" y="68" font-size="10" font-weight="500" class="t-ter" text-anchor="end">AMOUNT</text>
+    <line x1="20" y1="78" x2="596" y2="78" stroke="#E5E3DA" stroke-width="1"/>
+
+    <!-- Row 1: Whole Foods -->
+    <g transform="translate(0, 96)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#FAEEDA"/>
+      <use href="#ic-cart" x="23" y="-9" width="16" height="16" color="#633806"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Whole Foods</text>
+      <circle cx="227" cy="-1" r="3" fill="#EF9F27"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Groceries</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Today</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Checking</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$47</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 2: Salary -->
+    <g transform="translate(0, 140)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#E1F5EE"/>
+      <use href="#ic-briefcase" x="23" y="-9" width="16" height="16" color="#085041"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Salary</text>
+      <circle cx="227" cy="-1" r="3" fill="#1D9E75"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Income</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Today</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Checking</text>
+      <text x="596" y="3" font-size="12" class="t-suc" text-anchor="end">+$3,200</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 3: Metro card -->
+    <g transform="translate(0, 184)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#EEEDFE"/>
+      <use href="#ic-bus" x="23" y="-9" width="16" height="16" color="#3C3489"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Metro card</text>
+      <circle cx="227" cy="-1" r="3" fill="#7F77DD"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Transport</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Yesterday</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Cash</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$60</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 4: Starbucks -->
+    <g transform="translate(0, 228)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#FCEBEB"/>
+      <use href="#ic-coffee" x="23" y="-9" width="16" height="16" color="#791F1F"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Starbucks</text>
+      <circle cx="227" cy="-1" r="3" fill="#D85A30"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Dining</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Yesterday</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Card</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$8</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 5: Netflix -->
+    <g transform="translate(0, 272)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#E6F1FB"/>
+      <use href="#ic-tv" x="23" y="-9" width="16" height="16" color="#0C447C"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Netflix</text>
+      <circle cx="227" cy="-1" r="3" fill="#378ADD"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Subscriptions</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Jun 15</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Card</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$19</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 6: Rent -->
+    <g transform="translate(0, 316)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#E1F5EE"/>
+      <use href="#ic-houseicon" x="23" y="-9" width="16" height="16" color="#085041"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Rent</text>
+      <circle cx="227" cy="-1" r="3" fill="#1D9E75"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Housing</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Jun 1</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Checking</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$650</text>
+      <line x1="20" y1="16" x2="596" y2="16" stroke="#E5E3DA"/>
+    </g>
+
+    <!-- Row 7: Pharmacy -->
+    <g transform="translate(0, 360)">
+      <rect x="20" y="-12" width="22" height="22" rx="5" fill="#FBEAF0"/>
+      <use href="#ic-heart" x="23" y="-9" width="16" height="16" color="#72243E"/>
+      <text x="50" y="3" font-size="12" class="t-pri">Pharmacy</text>
+      <circle cx="227" cy="-1" r="3" fill="#D4537E"/>
+      <text x="236" y="3" font-size="12" class="t-pri">Health</text>
+      <text x="370" y="3" font-size="12" class="t-ter">Jun 12</text>
+      <text x="460" y="3" font-size="12" class="t-ter">Card</text>
+      <text x="596" y="3" font-size="12" class="t-dng" text-anchor="end">−$34</text>
+    </g>
+  </g>
+
+  <!-- ========== BUDGETS PANEL ========== -->
+  <g transform="translate(880, 252)">
+    <rect x="0" y="0" width="376" height="524" rx="10" fill="#FFFFFF" stroke="#E5E3DA"/>
+
+    <!-- Panel header -->
+    <text x="20" y="28" font-size="13" font-weight="500" class="t-pri">Budgets</text>
+    <text x="80" y="28" font-size="11" class="t-ter">7 categories</text>
+    <text x="356" y="28" font-size="11" class="t-info" text-anchor="end">Manage →</text>
+    <line x1="20" y1="48" x2="356" y2="48" stroke="#E5E3DA"/>
+
+    <!-- Budget summary -->
+    <text x="20" y="68" font-size="10" font-weight="500" fill="#B4B2A9" letter-spacing="0.5">REMAINING IN JUNE</text>
+    <text x="20" y="94" font-size="20" font-weight="500" class="t-pri">$820</text>
+    <text x="20" y="112" font-size="11" class="t-sec">of $2,660 budget · 12 days left</text>
+    <line x1="20" y1="128" x2="356" y2="128" stroke="#E5E3DA"/>
+
+    <!-- Budget rows -->
+    <!-- Groceries -->
+    <g transform="translate(20, 148)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#FAEEDA"/>
+      <use href="#ic-cart" x="2" y="2" width="14" height="14" color="#633806"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Groceries</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$580 / $700</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="279" height="4" rx="2" fill="#1D9E75"/>
+    </g>
+
+    <!-- Dining -->
+    <g transform="translate(20, 198)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#FCEBEB"/>
+      <use href="#ic-coffee" x="2" y="2" width="14" height="14" color="#791F1F"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Dining</text>
+      <text x="336" y="13" font-size="11" class="t-dng" text-anchor="end">$220 / $200</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#E24B4A"/>
+    </g>
+
+    <!-- Transport -->
+    <g transform="translate(20, 248)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#EEEDFE"/>
+      <use href="#ic-bus" x="2" y="2" width="14" height="14" color="#3C3489"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Transport</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$360 / $500</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="242" height="4" rx="2" fill="#EF9F27"/>
+    </g>
+
+    <!-- Health -->
+    <g transform="translate(20, 298)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#FBEAF0"/>
+      <use href="#ic-heart" x="2" y="2" width="14" height="14" color="#72243E"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Health</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$80 / $300</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="91" height="4" rx="2" fill="#1D9E75"/>
+    </g>
+
+    <!-- Housing -->
+    <g transform="translate(20, 348)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#E1F5EE"/>
+      <use href="#ic-houseicon" x="2" y="2" width="14" height="14" color="#085041"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Housing</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$650 / $700</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="312" height="4" rx="2" fill="#EF9F27"/>
+    </g>
+
+    <!-- Subscriptions -->
+    <g transform="translate(20, 398)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#E6F1FB"/>
+      <use href="#ic-tv" x="2" y="2" width="14" height="14" color="#0C447C"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Subscriptions</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$79 / $100</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+      <rect x="0" y="22" width="265" height="4" rx="2" fill="#1D9E75"/>
+    </g>
+
+    <!-- Clothing -->
+    <g transform="translate(20, 448)">
+      <rect x="0" y="0" width="18" height="18" rx="4" fill="#F1EFE8"/>
+      <use href="#ic-shirt" x="2" y="2" width="14" height="14" color="#444441"/>
+      <text x="26" y="13" font-size="12" class="t-pri">Clothing</text>
+      <text x="336" y="13" font-size="11" class="t-ter" text-anchor="end">$0 / $150</text>
+      <rect x="0" y="22" width="336" height="4" rx="2" fill="#F1EFE8"/>
+    </g>
+  </g>
+</svg>

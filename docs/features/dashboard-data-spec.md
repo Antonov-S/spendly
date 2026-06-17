@@ -14,4 +14,4 @@ Replace the dummy data displayed in the main area of the dashboard (right side),
 
 ## References
 
-Check the `@context/screenshots/desktop.png` screenshot if needed, but layout and design is already there. Keep in mind that screenshot was base on previews iterations and some staff was changed (user icon moved in bottom left, etc.)
+Check the `@docs/screenshots/desktop.png` screenshot if needed, but layout and design is already there. Keep in mind that screenshot was base on previews iterations and some staff was changed (user icon moved in bottom left, etc.)
