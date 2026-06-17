@@ -13,8 +13,8 @@ Set up Prisma ORM with Neon PostgreSQL database.
 
 ## References
 
-- Initial data models: `@context/project-overview.md`
-- Database standards: `@context/coding-standards.md`
+- Initial data models: `@docs/project-overview.md`
+- Database standards: `@docs/coding-standards.md`
 - Prisma docs: https://prisma.io/docs (Prisma 7 has breaking changes - fetch latest)
 
 ## Notes

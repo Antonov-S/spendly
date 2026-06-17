@@ -135,6 +135,6 @@ Add to `src/lib/system-constants.ts`:
 
 ## References
 
-- Existing verification flow: `context/features/email-verification-resend-spec.md`
+- Existing verification flow: `docs/features/email-verification-resend-spec.md`
 - Token helpers to mirror: `src/lib/auth/verification.ts`
 - Email sender to mirror: `src/lib/email/send-verification-email.ts`

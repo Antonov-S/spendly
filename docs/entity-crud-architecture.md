@@ -323,7 +323,7 @@ const goals = await prisma.goal.findMany({
 
 `currentAmount` is a denormalized field kept in sync with `SUM(contributions.amount)`. Read it directly for fast renders; treat the contributions list as the audit trail.
 
-Overdue goals: `targetDate < today AND currentAmount < targetAmount AND isCompleted = false`.
+Overdue goals: `targetDate < today AND currentAmount < targetAmount AND isCompleted = false`, where `today` floors both sides to UTC midnight with a strict `<` (a goal due *today* is not overdue). This rule lives in exactly one helper — `isGoalOverdue` in `src/lib/goals.ts` — shared by the dashboard widget and the `/goals` page (see `docs/features/goals-crud-spec.md` §8).
 
 ### Mutation path
 

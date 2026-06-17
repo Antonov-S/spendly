@@ -7,7 +7,7 @@
 
 _Status: proposal • Feature: Recurring Templates • Last updated: 2026-06-16_
 
-Authoritative sources: `context/project-overview.md` (Recurring Templates feature,
+Authoritative sources: `docs/project-overview.md` (Recurring Templates feature,
 Design System), `docs/entity-types.md` (RecurringTemplate / RecurringDraft fields and
 rules), and `docs/entity-crud-architecture.md` (read/mutation contracts, draft-confirm
 pattern).
@@ -795,9 +795,9 @@ Run `npm run test:run` **and** `npm run build` green before commit (workflow §4
 
 ---
 
-## 13. Workflow (per `context/ai-interaction.md`)
+## 13. Workflow (per `docs/ai-interaction.md`)
 
-1. **Document** this feature in `context/current-feature.md` (Goals/Notes).
+1. **Document** this feature in `docs/current-feature.md` (Goals/Notes).
 2. **Branch** `feature/recurring`.
 3. **Migration first**: `prisma migrate dev --create-only --name recurring_draft_pending_unique`, hand-edit the generated SQL to the partial unique index (§3), then `prisma migrate dev` to apply. Run `prisma migrate status` to confirm sync. Do this **before** writing `generatePendingDrafts` so `skipDuplicates` has the index to lean on.
 4. **Implement** §4 files in order: pure helpers → validation → DB fetcher → actions → page → components.

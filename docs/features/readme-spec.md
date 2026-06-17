@@ -26,7 +26,7 @@ The result should feel similar in quality to top open-source SaaS repositories.
 > 2. `.env.example` — the canonical environment variable list
 > 3. `prisma/schema.prisma` — data model and generator config
 > 4. The actual `src/` directory tree — folder structure
-> 5. `context/project-overview.md` — product positioning, features, monetization
+> 5. `docs/project-overview.md` — product positioning, features, monetization
 >
 > Where this spec shows concrete values (versions, env names, trees), treat them
 > as **examples to verify**, not facts to copy. If the repo disagrees with this
@@ -114,7 +114,7 @@ Include comments showing where screenshots should be added later.
 ## 3. Features
 
 Create a professional feature list with short descriptions per item. Base the
-list on `context/project-overview.md`. Cover at least:
+list on `docs/project-overview.md`. Cover at least:
 
 - **Manual transaction entry** — income / expense / transfer via a slide-in
   drawer; sub-5-second re-entry in a known category
@@ -434,7 +434,7 @@ belong unchecked:
 ```
 
 > Verify the checked/unchecked status against the codebase and
-> `context/current-feature.md` history before finalizing.
+> `docs/current-feature.md` history before finalizing.
 
 ---
 

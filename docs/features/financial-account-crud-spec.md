@@ -4,8 +4,8 @@
 > registered user can create, edit, and archive accounts — closing the foundational
 > gap that currently blocks the entire capture loop for any non-seeded user.
 
-This spec follows the patterns in [entity-crud-architecture.md](./entity-crud-architecture.md)
-and the field-level rules in [entity-types.md](./entity-types.md). It mirrors the existing
+This spec follows the patterns in [entity-crud-architecture.md](../entity-crud-architecture.md)
+and the field-level rules in [entity-types.md](../entity-types.md). It mirrors the existing
 Budgets and Transactions slices.
 
 ---
@@ -55,7 +55,7 @@ This slice makes the core loop (`capture → organize → control → understand
 
 ## 3. Data model recap
 
-From [entity-types.md](./entity-types.md#L54-L91). No schema change required.
+From [entity-types.md](../entity-types.md) (FinancialAccount section). No schema change required.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -80,7 +80,7 @@ This formula is **transfer-complete by construction.** Spendly models a transfer
 ordinary `Transaction` rows sharing a `transferPairId` (there is no separate transfer
 table): the outflow leg carries a **negative** `amount` on the source account, the inflow
 leg a **positive** `amount` on the destination account (per
-[entity-types.md](./entity-types.md#L194-L197)). Because each leg is a normal signed
+[entity-types.md](../entity-types.md), Transaction special rules). Because each leg is a normal signed
 `Transaction` scoped to its own `financialAccountId`, summing `amount` per account already
 nets transfers correctly — the balance query needs **no special handling** of `isTransferLeg`
 or `transferPairId`. An archived account's legs still count toward *that* account's balance;
@@ -323,7 +323,7 @@ Returns `null` if not found / not owned.
 
 ## 9. Cross-cutting: archived guard
 
-Archived accounts **cannot receive new transactions** ([entity-crud-architecture.md:135](./entity-crud-architecture.md#L135)).
+Archived accounts **cannot receive new transactions** ([entity-crud-architecture.md](../entity-crud-architecture.md), FinancialAccount special cases).
 
 - In `createTransaction`, `createTransfer`, and `updateTransaction` (when moving a tx to a
   different account): after resolving the account, reject if `account.isArchived === true`

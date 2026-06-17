@@ -7,7 +7,7 @@
 
 _Status: proposal • Feature: Budgets CRUD • Last updated: 2026-06-16_
 
-Authoritative sources: `context/project-overview.md` (Budgets feature, Design
+Authoritative sources: `docs/project-overview.md` (Budgets feature, Design
 System, Onboarding), `docs/entity-types.md` (Budget fields/rules), and
 `docs/entity-crud-architecture.md` (Budget read/mutation contract).
 
@@ -467,9 +467,9 @@ Run `npm run test:run` **and** `npm run build` green before commit (workflow §4
 
 ---
 
-## 12. Workflow (per `context/ai-interaction.md`)
+## 12. Workflow (per `docs/ai-interaction.md`)
 
-1. **Document** this feature in `context/current-feature.md` (Goals/Notes).
+1. **Document** this feature in `docs/current-feature.md` (Goals/Notes).
 2. **Branch** `feature/budgets-crud`.
 3. **Implement** §4 files in order: validation → fetcher → actions → page →
    components → nav wiring.
