@@ -65,6 +65,13 @@ export const RATE_LIMITS = {
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
 
+/**
+ * Max absolute starting balance accepted by the account form (UI + Zod guard).
+ * Signed: liability accounts may open negative, so the bound is `±` this value.
+ * DB column is `Decimal(12,2)` (max ±9,999,999,999.99) — this sits well inside it.
+ */
+export const STARTING_BALANCE_MAX = 100_000_000;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav

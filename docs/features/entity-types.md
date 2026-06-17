@@ -47,6 +47,7 @@ The root identity record for every person using the app; all financial data casc
 
 - All child records cascade-delete when `User` is hard-deleted (after the 30-day grace period).
 - `preferredCurrency` is used only for display aggregation on the Dashboard; actual per-account currencies are stored on `FinancialAccount`. No exchange-rate conversion is applied in MVP — when mixed currencies are detected a visual warning appears.
+  > **MVP note — EUR-only.** The app is single-currency (EUR) in the MVP, so the mixed-currency warning never triggers and aggregation is exact. The schema default here is `"USD"`, which contradicts EUR-only — treat it as a known inconsistency to reconcile when the onboarding currency picker / multi-currency support lands. Do not migrate it as part of the FinancialAccount CRUD slice. See `docs/financial-account-crud-spec.md` §10.
 - `password` is `null` for Google OAuth users. Never attempt a credentials sign-in check on an account where `password` is null.
 
 ---
@@ -62,8 +63,8 @@ A named container (checking account, credit card, cash envelope, etc.) that hold
 | `id` | `String` | `@id @default(cuid())` | |
 | `name` | `String` | required | User-defined label, e.g. "Chase Checking" |
 | `type` | `AccountType` | required | See enum below |
-| `currency` | `String` | `@default("USD")` | ISO 4217; stored for record-keeping. **MVP writes `DEFAULT_CURRENCY` (EUR) server-side** via `src/lib/currency.ts` — not user-selectable; the schema `"USD"` default is dormant (see § Special rules and the §10 multi-currency upgrade path) |
-| `startingBalance` | `Decimal` | `@default(0) @db.Decimal(12, 2)` | The balance at the moment tracking began; not updated thereafter. **Signed** — liability accounts (e.g. credit cards) may open negative; bounded by `±STARTING_BALANCE_MAX` |
+| `currency` | `String` | `@default("USD")` | ISO 4217; stored for record-keeping |
+| `startingBalance` | `Decimal` | `@default(0) @db.Decimal(12, 2)` | The balance at the moment tracking began; not updated thereafter |
 | `color` | `String?` | optional | Hex colour, e.g. `"#1D9E75"` |
 | `icon` | `String?` | optional | Lucide icon name, e.g. `"Wallet"` |
 | `isArchived` | `Boolean` | `@default(false)` | Archived accounts are hidden from selectors, excluded from Dashboard totals, and cannot receive new transactions; transactions remain intact and queryable |
@@ -84,11 +85,11 @@ A named container (checking account, credit card, cash envelope, etc.) that hold
 
 ### Special rules
 
-- **Balance is derived, never stored.** The formula is `startingBalance + SUM(amount WHERE deletedAt IS NULL)`. This prevents reconciliation bugs that arise when a stored balance drifts out of sync. Caching in a read model is a post-MVP optimisation. Display uses the existing `$`-styled `formatCurrency` in MVP even though values are stored in EUR; per-row `€` formatting arrives with the multi-currency slice.
-- **Currency is EUR-only in MVP.** Accounts are created in `DEFAULT_CURRENCY` (EUR) resolved server-side; there is no currency picker and no cross-currency conversion. The `currency` column is retained so multi-currency needs no migration later.
-- **Archive-only — no hard delete in MVP.** `prisma.financialAccount.delete` is never called; `isArchived` is the only removal path. (The schema relations would cascade on a hard delete, but the app never triggers one.)
+- **Balance is derived, never stored.** The formula is `startingBalance + SUM(amount WHERE deletedAt IS NULL)`. This prevents reconciliation bugs that arise when a stored balance drifts out of sync. Caching in a read model is a post-MVP optimisation.
 - Archived accounts appear in Reports only when explicitly selected. They must not appear in account selector dropdowns, topbar filter pills, or Dashboard metrics.
 - Seed examples: Pro demo user has Checking (`startingBalance: 1800`), Savings (`1200`), Cash (`150`), Credit Card (`0`).
+- **MVP currency — EUR-only.** `currency` is **not user-selectable** in the MVP CRUD; the create action writes `DEFAULT_CURRENCY` (`"EUR"`, from `src/lib/currency.ts`). The column is retained (not dropped) so multi-currency requires no migration later. The schema's `@default("USD")` is irrelevant while the action always sets EUR explicitly. See `docs/financial-account-crud-spec.md` §10.
+- **`startingBalance` is signed.** Despite earlier `≥ 0` wording elsewhere, the MVP CRUD accepts **negative** opening balances (bounded by `±STARTING_BALANCE_MAX`) so liability accounts (e.g. `CREDIT_CARD`) can open with existing debt. The signed-sum balance formula already handles this.
 
 ---
 
@@ -442,7 +443,7 @@ A single deposit or withdrawal recorded against a goal; the audit log that backs
 |---|---|---|
 | `User` | Soft delete (`deletedAt`) | 30-day grace period; sign-in blocked immediately; hard purge after grace period; all children cascade on hard delete |
 | `Transaction` | Soft delete (`deletedAt`) | 8-second snackbar undo; no Trash UI; excluded from balance formula and all active queries while soft-deleted |
-| `FinancialAccount` | Archived (`isArchived`) — **archive-only in MVP** | Archiving hides from UI and pauses the account's active recurring templates. No hard delete in MVP (`prisma.financialAccount.delete` is never called); the schema *could* cascade to `Transaction` and `RecurringTemplate`, but the app never triggers it |
+| `FinancialAccount` | Archived (`isArchived`) + hard delete | Archiving hides from UI; hard delete cascades to `Transaction` and `RecurringTemplate` |
 | `Budget` | Archived (`isArchived`) + hard delete | Cascade-deleted when its `Category` is deleted |
 | `Category` | Hard delete | Cascades to `Budget`; sets `Transaction.categoryId` and `RecurringTemplate.categoryId` to null |
 | `RecurringTemplate` | Hard delete | Cascades to `RecurringDraft`; sets `Transaction.recurringTemplateId` to null |

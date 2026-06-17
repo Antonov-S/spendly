@@ -242,6 +242,19 @@ export async function confirmDraft(draftId: string): Promise<MutationResult> {
     }
 
     const template = draft.recurringTemplate;
+
+    // Confirming writes a Transaction on the template's account — block it if the
+    // account was archived after the draft was generated (archived accounts
+    // cannot receive new transactions). The user dismisses such drafts instead.
+    const account = await prisma.financialAccount.findFirst({
+      where: { id: template.financialAccountId, userId },
+      select: { isArchived: true },
+    });
+    if (!account) return { success: false, error: "Account not found." };
+    if (account.isArchived) {
+      return { success: false, error: "This account is archived." };
+    }
+
     const nextOccurrence = advanceNextOccurrence(
       template.nextOccurrence,
       template.cadence

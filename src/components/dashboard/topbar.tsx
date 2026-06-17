@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Landmark, ChevronDown, Menu, Check } from "lucide-react";
+import { Landmark, ChevronDown, Menu, Check, Settings2 } from "lucide-react";
 import { Logo } from "@/components/dashboard/logo";
 import { cn } from "@/lib/utils";
 import type { AccountOption } from "@/types/transactions";
@@ -91,6 +92,17 @@ export function Topbar({ onOpenMobileNav, accounts }: TopbarProps) {
                   onSelect={() => selectAccount(account.id)}
                 />
               ))}
+              <li className="my-1 border-t border-line" role="separator" />
+              <li>
+                <Link
+                  href="/accounts"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+                >
+                  <Settings2 size={14} className="text-ink-3" />
+                  <span className="flex-1 truncate">Manage accounts</span>
+                </Link>
+              </li>
             </ul>
           </>
         )}
