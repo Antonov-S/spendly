@@ -32,3 +32,14 @@ export function dateInputToUtc(value: string): Date {
   const [y, m, d] = value.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
+
+/**
+ * Floor a Date to UTC midnight — the canonical "today" for `@db.Date` compares.
+ * Shared by recurring draft generation and overdue checks so both derive the
+ * current calendar day the same way (no ad-hoc UTC math, no time-of-day drift).
+ */
+export function startOfUtcDay(date: Date = new Date()): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}

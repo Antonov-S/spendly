@@ -260,6 +260,11 @@ async function confirmDraft(draftId: string, userId: string) {
         amount: draft.suggestedAmount,
         currency: template.currency,
         date: draft.suggestedDate,
+        // Stamp the template name as the merchant — a Transaction has no
+        // description column, so the displayed label is derived from `merchant`.
+        // Without this the row shows the category name (feed) or "Transaction"
+        // (dashboard) instead of "Netflix". See "Confirmed-draft description" below.
+        merchant: template.name,
         financialAccountId: template.financialAccountId,
         categoryId: template.categoryId,
         recurringTemplateId: template.id,
@@ -284,6 +289,7 @@ async function confirmDraft(draftId: string, userId: string) {
 
 ### Special cases
 
+- **Confirmed-draft description.** The created `Transaction` sets `merchant = template.name`. A `Transaction` has no dedicated description/name column; its displayed label is derived from `merchant` first. Without the stamp a draft-born row is unlabeled and the views diverge — the transactions feed falls back `merchant → category.name → type`, while the dashboard recent list falls back `merchant ?? note ?? "Transaction"`. Stamping the template name (the field's intended use — "future-proofs subscription detection") makes both views show the recognizable name. Any new surface that creates a `Transaction` from a template should follow the same rule.
 - **Draft generation.** A background job (or a cron-triggered API route at `/api/recurring/generate`) checks templates where `isActive = true` and `nextOccurrence <= today`, creates PENDING drafts, and does NOT advance `nextOccurrence` — that happens only on confirmation. In MVP this can be triggered on page load server-side.
 - **Dismissed drafts.** Setting `status = "DISMISSED"` skips the occurrence. `nextOccurrence` is still advanced so the template continues generating future drafts.
 - **Paused templates.** `isActive = false` templates do not generate new drafts. Existing PENDING drafts remain until explicitly dismissed.
