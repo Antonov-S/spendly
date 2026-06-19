@@ -27,6 +27,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Budgets | Full read/write stack — period stepper, create/edit/archive, preset seeding, live spend aggregation |
 | Recurring Templates | Full read/write stack — templates + drafts inbox, confirm/dismiss, draft generation on load, merchant stamp on confirm |
 | Financial Accounts | Full read/write stack — `/accounts` page, create/edit/archive/unarchive, derived balance, `isArchived` guard on transactions and recurring confirm |
+| Goals | Full read/write stack — `/goals` page, create/edit/complete/delete, signed contributions (withdrawals), atomic `currentAmount`, single-source fetcher shared with the dashboard widget |
 
 ---
 
@@ -63,7 +64,7 @@ A freshly registered user lands on the dashboard with zero accounts, zero catego
   - `/transactions` — "No transactions yet. Add your first one." with Add button.
   - `/budgets` — "No budgets yet" with Create button (existing `BudgetEmptyState`). ✓
   - `/recurring` — "No templates yet" (existing `RecurringEmptyState`). ✓
-  - `/goals` — "No goals yet" (to build in step 2 below).
+  - `/goals` — "Set your first savings goal" (existing `GoalEmptyState`). ✓
   - `/accounts` — "Create your first account" (existing `AccountEmptyState`... verify it works). ✓
 
 **Files to create/modify:**
@@ -73,9 +74,20 @@ A freshly registered user lands on the dashboard with zero accounts, zero catego
 
 ---
 
-### 2. Goals CRUD
+### 2. Goals CRUD ✅ Shipped
 
 **Effort: L · Value: high (headline feature) — full entity slice; zero unbuilt dependencies.**
+
+> **✅ Shipped (`feature/goals-crud`).** Built per `docs/features/goals-crud-spec.md`. Notes on the
+> realized slice: progress is a **bar, not a ring** (spec §14); overfunded goals (`saved > target`)
+> clamp the bar to 100% and surface an explicit **"Over 100%"** pill plus the true percentage.
+> `GOAL_AMOUNT_MAX` lives in `src/lib/system-constants.ts`, `GOAL_COLORS` in `src/lib/constants.ts`.
+> The dashboard now imports a dedicated **`getGoalsSummary`** from `src/lib/db/goals.ts` (the old
+> `getGoals` / `GOAL_COLORS` / inline overdue math were deleted from `dashboard.ts`); overdue/progress
+> logic is centralized in `src/lib/goals.ts` (`isGoalOverdue` floors both sides to UTC midnight with a
+> strict `<`, so a goal due *today* is not overdue). `revalidateGoalViews()` added to
+> `src/lib/revalidation.ts`. 37 new Vitest tests (325 total); `npm run test:run` + `npm run build` pass.
+> The build plan below is retained for reference.
 
 Goals are virtual savings targets updated via manually recorded contributions. No goals page exists yet; only a read-only Goals widget appears on the dashboard (using `getGoals` from `src/lib/db/dashboard.ts`).
 
@@ -300,7 +312,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 
 | # | Item (ID) | Effort | Visible to user? | Why this slot |
 |---|---|---|---|---|
-| 1 | Goals CRUD (2) | L | Yes — new page | Biggest missing headline feature; zero unbuilt deps. Ship the highest-value slice first. |
+| 1 | Goals CRUD (2) | L | Yes — new page | ✅ **Done.** Biggest missing headline feature; zero unbuilt deps. Insights Strip (#3) overdue-goals pill and Data Export (#5) JSON Goals dump dependencies now satisfied. |
 | 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | Pulled up: affects *every* new user's first run. Bundles the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. |
 | 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. |
 | 4 | Reports Page (5) | L | Yes — new page | Major analytics module; all deps done. Largest effort — see the balance-history simplification note. |

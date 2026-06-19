@@ -6,10 +6,7 @@ import type {
   TransactionRow,
   BudgetRow,
   BudgetSummary,
-  GoalRow,
 } from "@/types/dashboard";
-
-const GOAL_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#EF9F27", "#D4537E"];
 
 function utcDateKey(d: Date): string {
   return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
@@ -292,25 +289,4 @@ export async function getBudgetsData(
       hasMixedCurrencies: new Set(budgets.map((b) => b.currency)).size > 1,
     },
   };
-}
-
-export async function getGoals(userId: string): Promise<GoalRow[]> {
-  const today = new Date();
-
-  const goals = await prisma.goal.findMany({
-    where: { userId, isCompleted: false },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return goals.map((goal, i) => ({
-    id: goal.id,
-    name: goal.name,
-    color: GOAL_COLORS[i % GOAL_COLORS.length],
-    saved: Number(goal.currentAmount),
-    target: Number(goal.targetAmount),
-    overdue:
-      goal.targetDate != null &&
-      goal.targetDate < today &&
-      Number(goal.currentAmount) < Number(goal.targetAmount),
-  }));
 }

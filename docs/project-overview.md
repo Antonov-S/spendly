@@ -564,6 +564,11 @@ Confirming a draft stamps the template's **`name` onto the resulting `Transactio
 
 Virtual progress tracking. Progress is updated via an **"Add contribution"** action — a drawer with amount, date, and optional note. Each action creates a `GoalContribution` record; `currentAmount` on the goal is kept in sync as a denormalized sum for fast reads. Negative contributions (withdrawals) are supported. Goals do not affect account balances or budgets. Goals with a `targetDate` in the past and progress below 100% surface as overdue on the Dashboard.
 
+> **✅ Shipped (`feature/goals-crud`).** The full `/goals` read/write stack is live: create / edit /
+> complete / delete goals, a contribution drawer (contributions + withdrawals + delete), and the
+> dashboard `GoalsWidget` "View all →" wired to `/goals`. See `docs/ROADMAP.md` §2 for the realized
+> details. The implementation decisions below are baked in.
+
 > **MVP note — implementation decisions (`docs/features/goals-crud-spec.md`).** The `/goals`
 > read/write slice resolves several rules: **(1) completion is manual** — `completeGoal` is the only
 > thing that sets `isCompleted`; the app never auto-completes at 100% (the architecture doc wins

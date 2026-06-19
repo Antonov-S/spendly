@@ -11,8 +11,8 @@ import {
   getBalanceTrend,
   getRecentTransactions,
   getBudgetsData,
-  getGoals,
 } from "@/lib/db/dashboard";
+import { getGoalsSummary } from "@/lib/db/goals";
 import { getUserAccounts } from "@/lib/db/accounts";
 
 export default async function DashboardPage() {
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       getBalanceTrend(userId, month, year),
       getRecentTransactions(userId, 20),
       getBudgetsData(userId, month, year),
-      getGoals(userId),
+      getGoalsSummary(userId),
       getUserAccounts(userId),
     ]);
 

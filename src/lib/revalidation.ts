@@ -29,3 +29,14 @@ export function revalidateAccountViews() {
   revalidatePath("/dashboard");
   revalidatePath("/transactions");
 }
+
+/**
+ * Revalidate every surface that renders goals or goal progress: the `/goals`
+ * management page and the `/dashboard` GoalsWidget (which reads the same data).
+ * Goals are virtual progress only — they never touch accounts or budgets, so
+ * this deliberately does NOT revalidate `/transactions` or `/budgets`.
+ */
+export function revalidateGoalViews() {
+  revalidatePath("/goals");
+  revalidatePath("/dashboard");
+}
