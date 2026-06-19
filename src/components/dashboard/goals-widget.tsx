@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
+import { goalProgressPercent } from "@/lib/goals";
 import type { GoalRow } from "@/types/dashboard";
 
 interface GoalsWidgetProps {
@@ -12,21 +14,18 @@ export function GoalsWidget({ goals }: GoalsWidgetProps) {
       <div className="flex items-center gap-2 px-4 py-3.5">
         <h2 className="text-[13px] font-medium text-ink">Goals</h2>
         <span className="text-[11px] text-ink-3">{goals.length} active</span>
-        <button
-          type="button"
+        <Link
+          href="/goals"
           className="ml-auto text-[11px] text-info transition-opacity hover:opacity-80"
         >
           View all →
-        </button>
+        </Link>
       </div>
 
       {/* Goal rows */}
       <div className="flex flex-col gap-3.5 border-t border-line px-4 py-4">
         {goals.map((goal) => {
-          const percent = Math.min(
-            100,
-            Math.round((goal.saved / goal.target) * 100)
-          );
+          const percent = goalProgressPercent(goal.saved, goal.target);
           return (
             <div key={goal.id} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">

@@ -72,6 +72,12 @@ export type RateLimitName = keyof typeof RATE_LIMITS;
  */
 export const STARTING_BALANCE_MAX = 100_000_000;
 
+/**
+ * Max goal target / contribution magnitude (UI + Zod guard). Mirrors
+ * `BUDGET_AMOUNT_MAX`; DB column is `Decimal(12,2)` so this sits well inside it.
+ */
+export const GOAL_AMOUNT_MAX = 1_000_000;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav

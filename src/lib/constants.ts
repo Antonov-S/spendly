@@ -88,6 +88,19 @@ export const ACCOUNT_ICONS = [
 /** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
 export const BUDGET_AMOUNT_MAX = 1_000_000;
 
+/**
+ * Accent palette cycled across goal cards/rows by index (`Goal` has no color
+ * column). Moved here from `db/dashboard.ts` so the page and the dashboard
+ * widget share one palette.
+ */
+export const GOAL_COLORS = [
+  "#378ADD",
+  "#1D9E75",
+  "#7F77DD",
+  "#EF9F27",
+  "#D4537E",
+] as const;
+
 /** Max recurring template amount accepted by the form (UI guard). */
 export const RECURRING_AMOUNT_MAX = 1_000_000;
 

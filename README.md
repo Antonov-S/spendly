@@ -19,10 +19,15 @@ Spendly is under active development. The foundation is in place; the transaction
 - Dashboard — a live state screen reading real data from PostgreSQL via Prisma
 - Marketing landing page
 - Full Prisma data model for every financial entity (accounts, transactions, budgets, recurring templates/drafts, goals/contributions)
+- Transactions — full read/write stack (list with filters + search, create/edit/delete drawer, transfers, soft-delete undo)
+- Budgets — full read/write stack (period stepper, create/edit/archive, preset seeding, live spend)
+- Recurring templates — full read/write stack (templates + drafts inbox, confirm/dismiss)
+- Financial accounts — `/accounts` management (create/edit/archive/unarchive, derived balance)
+- Goals — `/goals` management (create/edit/complete/delete, contributions + withdrawals)
 
 **In progress**
 
-- Interactive transaction entry, budgets, recurring templates, goals, and reports
+- Reports & analytics
 - Data export (CSV / JSON)
 - Stripe Pro billing
 
@@ -318,10 +323,11 @@ Authentication is built on **NextAuth v5 (Auth.js)** with the Prisma adapter and
 - [x] Complete Prisma data model + migrations
 - [x] Dashboard state screen (live data)
 - [x] Marketing landing page
-- [ ] Interactive transaction entry (income / expense / transfer)
-- [ ] Budgets management
-- [ ] Recurring templates with confirmation drafts
-- [ ] Goals management
+- [x] Interactive transaction entry (income / expense / transfer)
+- [x] Budgets management
+- [x] Recurring templates with confirmation drafts
+- [x] Financial account management (`/accounts`)
+- [x] Goals management
 - [ ] Reports & analytics
 - [ ] Data export (CSV / JSON)
 - [ ] Stripe Pro billing
