@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
-import { getSessionOrRedirect } from "@/lib/auth/guards";
+import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getBudgets, getBudgetFormData } from "@/lib/db/budgets";
 import { parseMonth, parseYear } from "@/lib/budget-period";
@@ -16,7 +16,7 @@ interface BudgetsPageProps {
 }
 
 export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
-  const session = await getSessionOrRedirect();
+  const session = await requireOnboarded();
   const userId = session.user.id;
 
   const sp = await searchParams;

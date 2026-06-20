@@ -1,14 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
-import { getSessionOrRedirect } from "@/lib/auth/guards";
+import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getGoals } from "@/lib/db/goals";
 import { AppShell } from "@/components/layout/app-shell";
 import { GoalsView } from "@/components/goals/goals-view";
 
 export default async function GoalsPage() {
-  const session = await getSessionOrRedirect();
+  const session = await requireOnboarded();
   const userId = session.user.id;
 
   // `accounts` is shell chrome (topbar selector), not goal data.

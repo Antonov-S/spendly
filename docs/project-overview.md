@@ -202,7 +202,7 @@ model User {
   isPro                Boolean   @default(false)
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
-  preferredCurrency    String    @default("USD")
+  preferredCurrency    String    @default("EUR") // dormant in EUR-only MVP; reconciled from "USD" (migration reconcile_currency_eur_default)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -293,7 +293,7 @@ model FinancialAccount {
   id              String      @id @default(cuid())
   name            String
   type            AccountType
-  currency        String      @default("USD")
+  currency        String      @default("EUR") // EUR-only MVP; reconciled from "USD" (migration reconcile_currency_eur_default)
   startingBalance Decimal     @default(0) @db.Decimal(12, 2)
   color           String?     // hex, e.g. "#1D9E75"
   icon            String?     // Lucide icon name
@@ -686,7 +686,16 @@ Required steps on first launch:
 4. Optional: seed starter budgets for the current month
 5. Land on empty Dashboard with explicit empty-state CTA
 
-> **MVP note — EUR-only.** Step 2 (currency picker) is deferred while the app is single-currency EUR; onboarding can skip it and default `preferredCurrency` to `DEFAULT_CURRENCY` (EUR). Reconcile the schema's `preferredCurrency` default (`"USD"`) with EUR when the currency picker / multi-currency support lands (`docs/features/financial-account-crud-spec.md` §10).
+> **✅ Shipped (`feature/onboarding-currency`).** The first-run gate is live. A registered user with
+> **zero active accounts** is redirected from the data surfaces (`/dashboard`, `/transactions`,
+> `/budgets`, `/recurring`, `/goals`) to a dedicated `/onboarding` route via the per-page server
+> guard `requireOnboarded()` (gate is **derived** from `activeAccountCount > 0`, not a stored flag).
+> The flow is 3 steps — create first account (mandatory) → seed starter budgets (optional) → done →
+> `/dashboard`. `/accounts` and `/profile` stay reachable as escape hatches. Step 2 (currency picker)
+> is **not built** — EUR-only; `preferredCurrency` defaults to `DEFAULT_CURRENCY` (EUR) and is dormant.
+> The dashboard also has a defensive zero-account fallback card. See `docs/ROADMAP.md` §1 + §0.
+
+> **MVP note — EUR-only.** Step 2 (currency picker) is deferred while the app is single-currency EUR; onboarding skips it and `preferredCurrency` defaults to `DEFAULT_CURRENCY` (EUR). The schema default was reconciled from `"USD"` to `"EUR"` (migration `reconcile_currency_eur_default`); `preferredCurrency` is dormant until the currency picker / multi-currency support lands (`docs/features/financial-account-crud-spec.md` §10).
 
 > **MVP note — starter budgets, not named category presets.** Step 4 is realized as the optional `seedPresetBudgets` action (a single `BUDGET_PRESETS` set seeded for the current month), not a "Personal / Freelancer / Family" picker. All 20 categories are already system-seeded (`userId = null`), so a preset cannot *create* categories, and only one budget-preset set exists today. Named preset variants and a category-visibility model are post-MVP — see the Goals/Onboarding slice in `docs/ROADMAP.md`.
 

@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 
-import { getSessionOrRedirect } from "@/lib/auth/guards";
+import { requireOnboarded } from "@/lib/auth/guards";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { TransactionsPanel } from "@/components/dashboard/transactions-panel";
 import { BudgetsPanel } from "@/components/dashboard/budgets-panel";
 import { GoalsWidget } from "@/components/dashboard/goals-widget";
+import { DashboardZeroState } from "@/components/dashboard/dashboard-zero-state";
 import {
   getDashboardSummary,
   getBalanceTrend,
@@ -16,7 +17,7 @@ import { getGoalsSummary } from "@/lib/db/goals";
 import { getUserAccounts } from "@/lib/db/accounts";
 
 export default async function DashboardPage() {
-  const session = await getSessionOrRedirect();
+  const session = await requireOnboarded();
 
   const today = new Date();
   const month = today.getMonth() + 1;
@@ -45,16 +46,26 @@ export default async function DashboardPage() {
         image: session.user.image ?? null,
       }}
     >
-      <MetricStrip summary={summary} />
+      {/* Defensive zero-account fallback. The onboarding guard normally keeps
+          this unreachable; this branch keys purely off locally-fetched accounts
+          (not the guard) so a guard bypass / nav race never renders an empty
+          seed-shaped shell as if it were real. */}
+      {accounts.length === 0 ? (
+        <DashboardZeroState />
+      ) : (
+        <>
+          <MetricStrip summary={summary} />
 
-      {/* Content columns: transactions (1.4fr) + budgets & goals (1fr) */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.4fr_1fr]">
-        <TransactionsPanel rows={transactions} count={count} />
-        <div className="flex flex-col gap-2">
-          <BudgetsPanel rows={budgets} summary={budgetSummary} />
-          <GoalsWidget goals={goals} />
-        </div>
-      </div>
+          {/* Content columns: transactions (1.4fr) + budgets & goals (1fr) */}
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.4fr_1fr]">
+            <TransactionsPanel rows={transactions} count={count} />
+            <div className="flex flex-col gap-2">
+              <BudgetsPanel rows={budgets} summary={budgetSummary} />
+              <GoalsWidget goals={goals} />
+            </div>
+          </div>
+        </>
+      )}
     </DashboardShell>
   );
 }

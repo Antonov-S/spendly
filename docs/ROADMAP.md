@@ -28,6 +28,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Recurring Templates | Full read/write stack — templates + drafts inbox, confirm/dismiss, draft generation on load, merchant stamp on confirm |
 | Financial Accounts | Full read/write stack — `/accounts` page, create/edit/archive/unarchive, derived balance, `isArchived` guard on transactions and recurring confirm |
 | Goals | Full read/write stack — `/goals` page, create/edit/complete/delete, signed contributions (withdrawals), atomic `currentAmount`, single-source fetcher shared with the dashboard widget |
+| Onboarding + Currency (1 + 0) | First-run gate (`requireOnboarded`/`redirectIfOnboarded` server guards, derived from `activeAccountCount > 0`) + `/onboarding` 3-step flow (account → starter budgets → done); budget currency resolves from `DEFAULT_CURRENCY` (EUR); schema currency defaults reconciled to EUR + USD→EUR backfill migration; `formatCurrency` switched to `€` app-wide |
 
 ---
 
@@ -35,18 +36,51 @@ How this roadmap reconciles the three governing docs where they disagree:
 
 ---
 
-### 0. Known Inconsistencies to Resolve First
+### 0. Known Inconsistencies to Resolve First ✅ Shipped
 
 **Effort: S · Value: low (correctness) — these are latent bugs, not new features.**
+
+> **✅ Shipped (`feature/onboarding-currency`, bundled with §1).** Both items resolved:
+> - **Currency drift fixed.** `createBudget` / `seedPresetBudgets` now stamp `DEFAULT_CURRENCY` (EUR)
+>   instead of reading `User.preferredCurrency` (which also dropped a DB round-trip). Migration
+>   `reconcile_currency_eur_default` flips the `User.preferredCurrency` + `FinancialAccount.currency`
+>   schema defaults to `"EUR"` and one-shot-backfills `'USD'`→`'EUR'` across all six currency columns
+>   (applied to the `development` Neon branch after a read-only pre-flight inventory; production
+>   deferred to launch). `preferredCurrency` is now dormant everywhere.
+> - **Bonus — `formatCurrency` was hard-coded to `$`.** The spec wrongly assumed it already rendered
+>   EUR; it didn't. Fixed `src/lib/format.ts` to `€` and swapped the `$`→`€` amount-input prefix in
+>   the account/budget/transaction/recurring drawers (the contribution drawer was already `€`).
+> - **Empty states verified.** `BudgetEmptyState`, `RecurringEmptyState`, `AccountEmptyState` confirmed
+>   rendering on zero-data accounts during QA.
 
 - **`preferredCurrency` is `"USD"` but the app is EUR-only.** `User.preferredCurrency` defaults to `"USD"` in the schema, and `seedPresetBudgets` ([src/actions/budgets.ts](../src/actions/budgets.ts)) writes preset budgets with `currency: preferredCurrency`. Result: preset budgets are created in USD while every account and transaction is EUR. Fix: have budget/goal currency resolve from `DEFAULT_CURRENCY` (per the financial-account spec §10) until multi-currency lands, and reconcile the schema default to `"EUR"` in a migration. Treat `preferredCurrency` as dormant everywhere else.
 - **Verify, don't assume, the existing empty states.** Step 1 marks several pages' empty states with ✓ from the history changelog, not from inspection. Confirm `BudgetEmptyState`, `RecurringEmptyState`, and `AccountEmptyState` actually render on a zero-data account before relying on them.
 
 ---
 
-### 1. Onboarding / First-Run Gate
+### 1. Onboarding / First-Run Gate ✅ Shipped
 
 **Effort: M · Value: high (every new signup) — smooths first-run; not a hard blocker (a determined user can reach `/accounts` directly).**
+
+> **✅ Shipped (`feature/onboarding-currency`).** Built per `docs/features/onboarding-currency-spec.md`,
+> bundled with the §0 currency fixes. Realized slice:
+> - **Per-page server guards, not middleware.** `requireOnboarded()` / `redirectIfOnboarded()` in
+>   `src/lib/auth/guards.ts` over a lean `getActiveAccountCount` fetcher. "Onboarded" is **derived**
+>   from `activeAccountCount > 0` (no stored flag), so archiving the last account re-enters the flow.
+> - **`/onboarding` 3-step flow** (`src/app/onboarding/page.tsx` + `src/components/onboarding/*`):
+>   inline first-account form → optional `seedPresetBudgets` → done. Its own centered surface (no app
+>   chrome), reusing `AuthCard`/`InputFormField`/`SubmitButton` and the existing
+>   `createFinancialAccount` / `seedPresetBudgets` actions.
+> - **Data surfaces** (`/dashboard`, `/transactions`, `/budgets`, `/recurring`, `/goals`) call
+>   `requireOnboarded()`; **`/accounts` + `/profile` stay open** as escape hatches; `/onboarding` added
+>   to `auth.config.ts` `isProtected`. Dashboard gained a defensive `accounts.length === 0` zero-state.
+> - **Resolved during QA:** a Server Action's implicit current-route refresh re-ran the reverse guard
+>   and ejected the user the instant Step 1 created the account, skipping Steps 2–3. Fixed by marking
+>   the flow in-progress in the URL (`?step=budgets|done`) so the reverse guard only bounces *fresh*
+>   visits; the page derives `initialStep` so reloads resume. (This deviates from the spec's
+>   "local state, no URL param" decision, which was the exact thing that broke.)
+> - **Note:** the per-page guard is added to `/reports` when that page is built (§5), not stubbed here.
+> The build plan below is retained for reference.
 
 A freshly registered user lands on the dashboard with zero accounts, zero categories, and nothing to interact with. The transaction drawer already guards against creating a transaction without an account, but there is no proactive guide to help the user set up.
 
@@ -313,7 +347,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | # | Item (ID) | Effort | Visible to user? | Why this slot |
 |---|---|---|---|---|
 | 1 | Goals CRUD (2) | L | Yes — new page | ✅ **Done.** Biggest missing headline feature; zero unbuilt deps. Insights Strip (#3) overdue-goals pill and Data Export (#5) JSON Goals dump dependencies now satisfied. |
-| 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | Pulled up: affects *every* new user's first run. Bundles the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. |
+| 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | ✅ **Done.** Affects *every* new user's first run; bundled the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. Also switched `formatCurrency` to `€` app-wide. |
 | 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. |
 | 4 | Reports Page (5) | L | Yes — new page | Major analytics module; all deps done. Largest effort — see the balance-history simplification note. |
 | 5 | Data Export (6) | M | Yes — download | Trust feature, all tiers; JSON dump now includes Goals. |

@@ -22,6 +22,8 @@ import {
   ACCOUNT_TYPE_OPTIONS,
   ACCOUNT_COLORS,
   ACCOUNT_ICONS,
+  DEFAULT_ACCOUNT_COLOR,
+  DEFAULT_ACCOUNT_ICON,
 } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
 import { resolveIcon } from "@/lib/icon-map";
@@ -54,8 +56,8 @@ export function AccountFormDrawer({
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountTypeValue>(DEFAULT_TYPE);
   const [startingBalance, setStartingBalance] = useState("");
-  const [color, setColor] = useState<string>(ACCOUNT_COLORS[0]);
-  const [icon, setIcon] = useState<AccountIcon>(ACCOUNT_ICONS[0]);
+  const [color, setColor] = useState<string>(DEFAULT_ACCOUNT_COLOR);
+  const [icon, setIcon] = useState<AccountIcon>(DEFAULT_ACCOUNT_ICON);
 
   const isEdit = editId !== null;
 
@@ -78,15 +80,15 @@ export function AccountFormDrawer({
         setName(a.name);
         setType(a.type);
         setStartingBalance(String(a.startingBalance));
-        setColor(a.color ?? ACCOUNT_COLORS[0]);
-        setIcon(ACCOUNT_ICONS.find((i) => i === a.icon) ?? ACCOUNT_ICONS[0]);
+        setColor(a.color ?? DEFAULT_ACCOUNT_COLOR);
+        setIcon(ACCOUNT_ICONS.find((i) => i === a.icon) ?? DEFAULT_ACCOUNT_ICON);
       });
     } else {
       setName("");
       setType(DEFAULT_TYPE);
       setStartingBalance("");
-      setColor(ACCOUNT_COLORS[0]);
-      setIcon(ACCOUNT_ICONS[0]);
+      setColor(DEFAULT_ACCOUNT_COLOR);
+      setIcon(DEFAULT_ACCOUNT_ICON);
     }
 
     return () => {
@@ -181,11 +183,11 @@ export function AccountFormDrawer({
             <Label>Starting balance</Label>
             {isEdit ? (
               <p className="rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink-2">
-                ${startingBalance || "0"}
+                €{startingBalance || "0"}
               </p>
             ) : (
               <div className="flex items-center rounded-lg border border-line bg-app px-3">
-                <span className="text-[22px] font-medium text-ink-3">$</span>
+                <span className="text-[22px] font-medium text-ink-3">€</span>
                 <input
                   type="text"
                   inputMode="decimal"

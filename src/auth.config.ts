@@ -16,7 +16,9 @@ export default {
       const { pathname } = nextUrl
       const isAuthPage = pathname === "/sign-in" || pathname === "/register"
       const isProtected =
-        pathname.startsWith("/dashboard") || pathname.startsWith("/profile")
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/profile") ||
+        pathname.startsWith("/onboarding")
 
       // Signed-in users have no reason to see sign-in/register.
       if (isAuthPage) {

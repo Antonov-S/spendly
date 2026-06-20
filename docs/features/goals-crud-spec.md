@@ -495,9 +495,9 @@ export const GOAL_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#EF9F27", "#D4537E
 - **Goals never touch accounts or budgets.** No balance changes, no budget consumption — purely
   virtual progress. Do not revalidate `/transactions` or `/budgets`.
 - **Currency dormant.** Goal `currency` is always EUR (`DEFAULT_CURRENCY`); `User.preferredCurrency`
-  must not influence goals (it's `"USD"` by default and treated as dormant until multi-currency —
-  see account spec §10). `formatCurrency` is called without a currency arg (EUR default), matching
-  the existing widget.
+  must not influence goals (it now defaults to `"EUR"` and is dormant until multi-currency —
+  reconciled from `"USD"` in `feature/onboarding-currency`; see account spec §10). `formatCurrency` is
+  called without a currency arg (EUR default), matching the existing widget.
 - **Decimal → number serialization.** Never pass a Prisma `Decimal` to a client component;
   `mapGoalCard`/`mapGoalRow` convert (`Number(...)`). Safe because every figure is
   `Decimal(12,2)`, far inside `Number.MAX_SAFE_INTEGER` at 2 fractional digits (same reasoning as

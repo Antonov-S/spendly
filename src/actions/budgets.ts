@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getBudgetForEdit as getBudgetForEditQuery } from "@/lib/db/budgets";
 import { BUDGET_PRESETS } from "@/lib/constants";
+import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
   createBudgetSchema,
   updateBudgetSchema,
@@ -74,11 +75,6 @@ export async function createBudget(
     });
     if (!category) return { success: false, error: "Category not found." };
 
-    const { preferredCurrency } = await prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { preferredCurrency: true },
-    });
-
     const key = {
       userId_categoryId_month_year: { userId, categoryId, month, year },
     };
@@ -94,14 +90,14 @@ export async function createBudget(
       where: key,
       update: {
         amount: magnitude,
-        currency: preferredCurrency,
+        currency: DEFAULT_CURRENCY,
         isArchived: false,
       },
       create: {
         userId,
         categoryId,
         amount: magnitude,
-        currency: preferredCurrency,
+        currency: DEFAULT_CURRENCY,
         month,
         year,
       },
@@ -234,11 +230,6 @@ export async function seedPresetBudgets(
   const userId = session.user.id;
 
   try {
-    const { preferredCurrency } = await prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { preferredCurrency: true },
-    });
-
     const presetNames = BUDGET_PRESETS.map((p) => p.categoryName);
     const categories = await prisma.category.findMany({
       where: { isSystem: true, name: { in: presetNames } },
@@ -260,7 +251,7 @@ export async function seedPresetBudgets(
           userId,
           categoryId,
           amount: round2(preset.amount),
-          currency: preferredCurrency,
+          currency: DEFAULT_CURRENCY,
           month,
           year,
         },

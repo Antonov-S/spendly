@@ -26,6 +26,18 @@ export async function getUserAccounts(
 }
 
 /**
+ * Count of the user's *active* (non-archived) accounts — the onboarding gate
+ * signal. Zero means "no usable account yet", which routes the user into the
+ * first-run flow. Uses the same `isArchived: false` predicate every selector
+ * relies on, so "onboarded" matches "can capture a transaction right now".
+ */
+export async function getActiveAccountCount(userId: string): Promise<number> {
+  return prisma.financialAccount.count({
+    where: { userId, isArchived: false },
+  });
+}
+
+/**
  * Accounts with their derived balance for the `/accounts` management list.
  * Two queries (no N+1): one `findMany` for the accounts, one `groupBy` summing
  * every non-deleted transaction per account. Ordering is the §11 business rule —

@@ -194,7 +194,7 @@ export function TemplateFormDrawer({
           <div className="mb-4">
             <Label>Amount</Label>
             <div className="flex items-center rounded-lg border border-line bg-app px-3">
-              <span className="text-[22px] font-medium text-ink-3">$</span>
+              <span className="text-[22px] font-medium text-ink-3">€</span>
               <input
                 type="text"
                 inputMode="decimal"

@@ -21,7 +21,7 @@ The root identity record for every person using the app; all financial data casc
 | `isPro` | `Boolean` | `@default(false)` | Feature gate; during development all users are effectively Pro |
 | `stripeCustomerId` | `String?` | `@unique` | Set on first Stripe interaction |
 | `stripeSubscriptionId` | `String?` | `@unique` | Active subscription ID; null on Free plan |
-| `preferredCurrency` | `String` | `@default("USD")` | ISO 4217 code; used as the dashboard display unit |
+| `preferredCurrency` | `String` | `@default("EUR")` | ISO 4217 code. **Dormant in EUR-only MVP** — reconciled from `"USD"` (migration `reconcile_currency_eur_default`); drives nothing (display resolves `DEFAULT_CURRENCY`) until multi-currency lands |
 | `deletedAt` | `DateTime?` | optional | Soft delete — set on account deletion request; sign-in blocked immediately; data purged after 30-day grace period |
 | `createdAt` | `DateTime` | `@default(now())` | |
 | `updatedAt` | `DateTime` | `@updatedAt` | |
@@ -46,7 +46,7 @@ The root identity record for every person using the app; all financial data casc
 ### Special rules
 
 - All child records cascade-delete when `User` is hard-deleted (after the 30-day grace period).
-- `preferredCurrency` is used only for display aggregation on the Dashboard; actual per-account currencies are stored on `FinancialAccount`. No exchange-rate conversion is applied in MVP — when mixed currencies are detected a visual warning appears.
+- `preferredCurrency` is **dormant in the EUR-only MVP** — it drives nothing. Budget/goal/account currency all resolve from `DEFAULT_CURRENCY` (EUR) server-side, and `formatCurrency` renders `€` directly. The field is retained, read-only on `/profile`, to be revived when multi-currency lands. Actual per-account currencies are stored on `FinancialAccount`; no exchange-rate conversion in MVP.
 - `password` is `null` for Google OAuth users. Never attempt a credentials sign-in check on an account where `password` is null.
 
 ---
@@ -62,7 +62,7 @@ A named container (checking account, credit card, cash envelope, etc.) that hold
 | `id` | `String` | `@id @default(cuid())` | |
 | `name` | `String` | required | User-defined label, e.g. "Chase Checking" |
 | `type` | `AccountType` | required | See enum below |
-| `currency` | `String` | `@default("USD")` | ISO 4217; stored for record-keeping. **MVP writes `DEFAULT_CURRENCY` (EUR) server-side** via `src/lib/currency.ts` — not user-selectable; the schema `"USD"` default is dormant (see § Special rules and the §10 multi-currency upgrade path) |
+| `currency` | `String` | `@default("EUR")` | ISO 4217; stored for record-keeping. **MVP writes `DEFAULT_CURRENCY` (EUR) server-side** via `src/lib/currency.ts` — not user-selectable. Schema default reconciled from `"USD"` (migration `reconcile_currency_eur_default`); see § Special rules and the §10 multi-currency upgrade path |
 | `startingBalance` | `Decimal` | `@default(0) @db.Decimal(12, 2)` | The balance at the moment tracking began; not updated thereafter. **Signed** — liability accounts (e.g. credit cards) may open negative; bounded by `±STARTING_BALANCE_MAX` |
 | `color` | `String?` | optional | Hex colour, e.g. `"#1D9E75"` |
 | `icon` | `String?` | optional | Lucide icon name, e.g. `"Wallet"` |
@@ -84,7 +84,7 @@ A named container (checking account, credit card, cash envelope, etc.) that hold
 
 ### Special rules
 
-- **Balance is derived, never stored.** The formula is `startingBalance + SUM(amount WHERE deletedAt IS NULL)`. This prevents reconciliation bugs that arise when a stored balance drifts out of sync. Caching in a read model is a post-MVP optimisation. Display uses the existing `$`-styled `formatCurrency` in MVP even though values are stored in EUR; per-row `€` formatting arrives with the multi-currency slice.
+- **Balance is derived, never stored.** The formula is `startingBalance + SUM(amount WHERE deletedAt IS NULL)`. This prevents reconciliation bugs that arise when a stored balance drifts out of sync. Caching in a read model is a post-MVP optimisation. Display uses `formatCurrency`, which renders `€` (switched from `$` in `feature/onboarding-currency`); per-row currency-aware formatting arrives with the multi-currency slice.
 - **Currency is EUR-only in MVP.** Accounts are created in `DEFAULT_CURRENCY` (EUR) resolved server-side; there is no currency picker and no cross-currency conversion. The `currency` column is retained so multi-currency needs no migration later.
 - **Archive-only — no hard delete in MVP.** `prisma.financialAccount.delete` is never called; `isArchived` is the only removal path. (The schema relations would cascade on a hard delete, but the app never triggers one.)
 - Archived accounts appear in Reports only when explicitly selected. They must not appear in account selector dropdowns, topbar filter pills, or Dashboard metrics.
@@ -214,7 +214,7 @@ A monthly spending ceiling for a specific category; one budget row per category 
 |---|---|---|---|
 | `id` | `String` | `@id @default(cuid())` | |
 | `amount` | `Decimal` | `@db.Decimal(12, 2)` | The ceiling (always positive) |
-| `currency` | `String` | required | Matches the user's `preferredCurrency` |
+| `currency` | `String` | required | Stamped `DEFAULT_CURRENCY` (EUR) server-side by `createBudget` / `seedPresetBudgets`. **No longer reads `preferredCurrency`** (changed in `feature/onboarding-currency`) |
 | `month` | `Int` | required | Calendar month 1–12 |
 | `year` | `Int` | required | Four-digit year, e.g. `2026` |
 | `isArchived` | `Boolean` | `@default(false)` | Hides the budget from the active list without deleting history |
