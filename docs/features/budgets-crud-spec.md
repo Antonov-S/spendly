@@ -5,7 +5,14 @@
 > feature (server-component reads via `src/lib/db/*`, `"use server"` mutations via
 > `src/actions/*`, Zod validation, row-level ownership, toast + snackbar undo).
 
-_Status: proposal • Feature: Budgets CRUD • Last updated: 2026-06-16_
+_Status: shipped • Feature: Budgets CRUD • Last updated: 2026-06-16_
+
+> **⚠ Superseded — budget currency no longer reads `preferredCurrency`.** This spec was written when
+> `createBudget` / `seedPresetBudgets` resolved `currency` from `user.preferredCurrency`. As of
+> `feature/onboarding-currency` (ROADMAP §0) both actions stamp `DEFAULT_CURRENCY` (EUR) server-side
+> and no longer query the user record. Read every "= `preferredCurrency`" / "resolve from
+> `preferredCurrency`" mention below as **`DEFAULT_CURRENCY` (EUR)**. The mixed-currency summary
+> machinery stays (dormant in EUR-only MVP). Everything else is accurate.
 
 Authoritative sources: `docs/project-overview.md` (Budgets feature, Design
 System, Onboarding), `docs/entity-types.md` (Budget fields/rules), and

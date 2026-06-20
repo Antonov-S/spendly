@@ -1,5 +1,15 @@
 # Onboarding + Currency Fixes — Implementation Spec
 
+> **✅ Shipped (`feature/onboarding-currency`).** Both parts are live; see `docs/ROADMAP.md` §0 + §1
+> and the `current-feature.md` History entry. Two deviations from this spec, baked in during build:
+> (1) **`formatCurrency` was hard-coded to `$`** app-wide — §5.2's claim that it "already defaults to
+> EUR" was wrong; it was switched to `€` (plus the `$`→`€` input-prefix in the budget/transaction/
+> recurring drawers, not just the account drawer). (2) **The flow uses a `?step=` URL marker**, not the
+> pure local-`useState` of §6.4 — a Server Action's implicit `/onboarding` refresh re-ran the reverse
+> guard and ejected the user the instant Step 1 created the account; the marker lets the reverse guard
+> bounce only *fresh* visits while a mid-flow refresh resumes correctly (`initialStep` derived
+> server-side). Everything else shipped as specified.
+
 > **Goal:** Guide a freshly registered user from an empty account to a usable dashboard, and fix the
 > latent USD/EUR currency drift that makes preset budgets disagree with every account and
 > transaction. Bundles [ROADMAP.md](../ROADMAP.md) **§1 (Onboarding / First-Run Gate)** and
