@@ -1,80 +1,12 @@
-# Current Feature: Reports Page
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- `/reports` renders inside `AppShell` with the sidebar "Reports" item active; guarded by `requireOnboarded()`
-- Period selector (This month / Last 3 months / Last 12 months) is URL-driven via `?period=`; default is "This month"
-- All four charts render for an account with enough data: spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars *(if a §7.1 balance-history fallback is taken, record the adjusted criteria here)*
-- Charts gate individually: category + balance render on data presence; only Income vs Expenses and Cashflow trend show the "Add N more transactions to see spending trends" nudge (N = `15 − count`, clamped ≥ 0) when in-scope transactions < 15
-- Global account selector scopes every chart (`?account=`); "All accounts" excludes archived, an explicitly selected account is honored by id
-- Free user selecting "Last 12 months" keeps their 3-month charts rendered with an upgrade banner above the grid (grid not replaced, no fake teaser), and the 12-month query never runs; Pro user gets the full 12-month charts
-- `isPro` is read from the DB (not assumed from the session)
-- Months with no activity still appear as zero columns/points across the 3- and 12-month windows
-- Transfers are excluded from income/expense/category and included in balance history; soft-deleted transactions are excluded everywhere
-- No `Decimal` crosses to a client chart; all amounts are `number`
-- `getCategoryBreakdown` resolves category metadata in one batched lookup (no N+1); null/SetNull categories render as Uncategorized via `UNCATEGORIZED` constant
-- Each chart SVG has `role="img"` + a data-summarizing `aria-label`, decorative shapes are `aria-hidden`, and the legend is real DOM text
-- `report-period.ts` and `reports.ts` pure helpers are unit-tested (period bounds incl. year wrap, Pro gate, month bucketing, balance reconstruction, threshold + nudge copy)
-- `npm run test:run` and `npm run build` pass; no schema change, no `db push`
-
 ## Notes
-
-### Architecture
-
-- **Read-only slice** — no server actions, no `revalidatePath`. All data flows through `src/lib/db/reports.ts` fetchers consumed directly by the server component.
-- **Charts: hand-rolled SVG** (consistent with `Sparkline`). Recharts is the fallback if `IncomeVsExpenses` grouped bars aren't rendering correctly within ~½ day of hand-rolling — switch at that point, don't discover the cost twice on `AccountBalanceHistory`.
-- **`isPro` fetched from DB** via `getReportProfile(userId)` — the session only carries `user.id`.
-- **Period tops out at 12 months** — no all-time window in MVP.
-
-### Key Files
-
-| Layer | File | Action |
-|---|---|---|
-| Period logic | `src/lib/report-period.ts` | create |
-| Pure helpers | `src/lib/reports.ts` | create |
-| DB reads | `src/lib/db/reports.ts` | create |
-| Types | `src/types/reports.ts` | create |
-| Constants (system) | `src/lib/system-constants.ts` | modify — add `REPORTS_MIN_TRANSACTIONS = 15`, `REPORTS_FREE_MAX_MONTHS = 3`, `ARIA_SUMMARY_MAX = 3` |
-| Constants (UI) | `src/lib/constants.ts` | modify — add `REPORT_PERIOD_OPTIONS`, `UNCATEGORIZED` constant |
-| Page | `src/app/reports/page.tsx` | create |
-| Components | `src/components/reports/` | create (8 components) |
-| Tests | `test/lib/report-period.test.ts` | create |
-| Tests | `test/lib/reports.test.ts` | create |
-
-### Implementation Order
-
-1. Constants + types (`src/types/reports.ts`)
-2. `src/lib/report-period.ts` + tests
-3. `src/lib/reports.ts` pure helpers + tests
-4. `src/lib/db/reports.ts` fetchers (`reportTxWhere`, 4 chart fetchers, `getReportTxCount`, `getReportProfile`)
-5. `/reports` page: guard, params, Pro clamp, `Promise.all`, `AppShell`, `Suspense`
-6. Components: `ChartCard` + `ChartEmptyState` + `PeriodSelector` + `UpgradePrompt` first, then chart SVGs (`IncomeVsExpenses`, `CashflowTrend`, `SpendingByCategory`, `AccountBalanceHistory` last as cut-candidate)
-7. `npm run test:run` + `npm run build`; manual browser pass
-
-### Data Rules
-
-- `deletedAt: null` on every query — soft-deleted rows never count
-- `amount` is signed: INCOME positive, EXPENSE negative; transfers are two signed legs
-- Dates are `@db.Date` (UTC midnight). Bucket with UTC math
-- Archived accounts: excluded from default view, included when explicitly selected via `?account=`
-- Transfers excluded from income/expense/category charts, included in balance history
-- `UNCATEGORIZED` constant extracted to `constants.ts` (retires hard-coded copies in `db/dashboard.ts`)
-
-### Account Balance History — Cut Candidate (§7.1)
-
-**Decision: full time-series shipped (no fallback taken).** Built as the full per-month running-balance grouped-bar chart via two queries (baseline `groupBy` for pre-window sums + in-window `findMany` → `reconstructBalanceHistory`). Hand-rolled SVG rendered correctly within budget — no Recharts needed (the `IncomeVsExpenses` canary rendered fine, so the bar/line charts stayed hand-rolled). Verified end-to-end with `demo-pro` (Apr–Jun data across 4 accounts incl. negative Cash/Credit Card balances). All four §20 acceptance criteria met as written; no criteria relaxed.
-
-Pre-approved fallbacks (unused, kept for the record): (1) current end-of-month balance only; (2) defer + `/accounts` linking empty state.
-
-### Pro Gate
-
-- Free: allowed `1m` and `3m`; `12m` is Pro-only
-- Free requesting `12m` → data clamps to 3 months; 3-month charts still render; upgrade banner above grid; 12-month query never runs
-- Gate reads real `isPro` from DB — do NOT hardcode `isPro = true`
 
 ## History
 
@@ -108,3 +40,4 @@ Pre-approved fallbacks (unused, kept for the record): (1) current end-of-month b
 - **Goals CRUD** — Full read/write stack for `/goals`. `src/types/goals.ts` (new): `GoalCard`, `EditableGoal`, `ContributionRow`. `src/lib/goals.ts` (new): `isGoalOverdue` (floors both sides to `startOfUtcDay`, strict `<`, so today-due is not overdue), `goalProgressPercent` (clamps `[0, 100]`), `mapGoalRow`, `mapGoalCard`. `src/lib/db/goals.ts` (new, single source of truth): `getGoals` (full, includes contributions desc), `getGoalsSummary` (active-only, feeds dashboard widget), `getGoalForEdit`. `src/lib/revalidation.ts` extended: `revalidateGoalViews()` (revalidates `/goals` + `/dashboard`). `src/actions/goals.ts` (new): `createGoal` (stamps `DEFAULT_CURRENCY`, `currentAmount: 0`), `updateGoal`, `completeGoal` (sole `isCompleted` setter — no auto-complete at 100%), `deleteGoal` (hard delete, cascades to contributions), `addContribution`, `deleteContribution`; atomic `$transaction` for both contribution actions to keep `currentAmount` invariant. `GOAL_COLORS` moved to `constants.ts`; `GOAL_AMOUNT_MAX = 1_000_000` added to `system-constants.ts`. Dashboard `getGoals` + inline overdue math deleted; dashboard page imports `getGoalsSummary` from `db/goals.ts`. Components in `src/components/goals/`: `GoalCard` (progress bar, overdue badge, Overfunded "Over 100%" pill when `saved > target`, overflow menu), `GoalFormDrawer` (Sheet, right panel ≥768px / bottom sheet <768px), `ContributionDrawer` (add contributions + withdrawals, history list with delete), `ConfirmDeleteDialog` (native `<dialog>`, contribution count from already-loaded card data — no extra query), `GoalsView` (active + completed sections, completed dimmed), `GoalEmptyState`. Dashboard `GoalsWidget` "View all →" wired to `/goals`. 37 new Vitest tests in `test/lib/goals.test.ts` and `test/actions/goals.test.ts` (325 total); build passes.
 - **Onboarding + Currency Fixes** — Bundled ROADMAP §0 (currency) + §1 (first-run gate). **Part A — currency:** `createBudget`/`seedPresetBudgets` now stamp `DEFAULT_CURRENCY` (EUR) instead of reading `User.preferredCurrency` (drops a DB round-trip and fixes the USD/EUR drift); migration `reconcile_currency_eur_default` flips the `User.preferredCurrency` + `FinancialAccount.currency` schema defaults to `"EUR"` and one-shot-backfills `'USD'`→`'EUR'` across all six currency columns (hand-edited `--create-only` migration; applied to the `development` Neon branch after a read-only pre-flight inventory; production deferred to launch). Discovered `formatCurrency` hard-coded `$` app-wide (the spec wrongly assumed it was already EUR) — fixed `src/lib/format.ts` to `€` and swapped the `$`→`€` input-prefix in the account/budget/transaction/recurring drawers (contribution drawer was already `€`). Added `DEFAULT_ACCOUNT_COLOR`/`DEFAULT_ACCOUNT_ICON` constants shared by the drawer + onboarding (no more `ACCOUNT_*[0]` index coupling). **Part B — onboarding:** `getActiveAccountCount` fetcher + `requireOnboarded`/`redirectIfOnboarded` server guards (derived "onboarded" = `activeAccountCount > 0`, no stored flag); `/onboarding` 3-step flow (inline account form → optional starter budgets → done) as its own centered surface reusing `AuthCard`/`InputFormField`/`SubmitButton` and the existing `createFinancialAccount`/`seedPresetBudgets` actions. Data surfaces (`/dashboard`, `/transactions`, `/budgets`, `/recurring`, `/goals`) swapped to `requireOnboarded()`; `/accounts` + `/profile` stay open as escape hatches; `/onboarding` added to `auth.config.ts` `isProtected`; dashboard gains a defensive `accounts.length === 0` zero-state card. **Fix during QA:** a Server Action's implicit current-route refresh re-ran the reverse guard and ejected the user to `/dashboard` the instant Step 1 created the account, skipping Steps 2–3. Resolved by marking the flow in-progress in the URL (`?step=budgets|done`, `ONBOARDING_STEP_PARAM`) so the reverse guard only bounces *fresh* visits; the account step sets the marker before its mutation and the page derives `initialStep` so reloads resume correctly. Manual QA (Playwright) covered: forward guard, reverse guard, full 3-step happy path with EUR-seeded budgets, and archived-account recovery. Updated `budgets`, `guards`, and `format` tests; 332 tests + build pass.
 - **Dashboard Insights Strip** — Actionable pill row on `/dashboard` (ROADMAP §4, confirmed 2026-06-20 after a prior removal). Three fixed signals below the metric strip: **budgets at risk** (≥ 80% spent, amber pill → `/budgets`), **recurring drafts pending** (blue pill → `/recurring`), **overdue goals** (amber pill → `/goals`). Strip renders nothing when all counts are zero. Architecture: at-risk and overdue counts are derived in-process from the page's existing `getBudgetsData` / `getGoalsSummary` arrays (zero extra queries); only the draft count is new (`getPendingDraftCount` — a `count` query in `src/lib/db/recurring.ts`). `BUDGET_AT_RISK_THRESHOLD = 0.8` added to `system-constants.ts`; `DashboardInsights` + `InsightItem` types added to `src/types/dashboard.ts`; pure helpers `countAtRiskBudgets` + `buildInsightItems` (with `plural`) in `src/lib/insights.ts` (reuses `budgetFraction`; NaN/zero-limit inputs safely produce `false`). `InsightsStrip` is a server component with a `TONE_CLASS` lookup and `lg:my-1 lg:gap-3` large-monitor breathing room; per-pill KPI cards and a "needs attention" wrapper were considered and rejected (information hierarchy + prior-removal precedent). Dashboard `Promise.all` extended to 7 fetchers; strip inserted between `<MetricStrip />` and the content grid inside the `accounts.length > 0` branch. Freshness already provisioned — all recurring mutations revalidate `/dashboard`. 13 new Vitest tests (345 total); build passes.
+- **Reports Page** — Full analytics module for `/reports` (ROADMAP §5). Read-only (no mutations): six server-only fetchers in `src/lib/db/reports.ts` (`getCategoryBreakdown` with one batched category lookup / no N+1, `getMonthlyComparison`, `getAccountBalanceHistory`, `getReportTxCount`, `getReportProfile`, exported pure `reportTxWhere`); cashflow derives from monthly-comparison buckets in-process (no extra query). Pure helpers: `src/lib/report-period.ts` (`parsePeriod`, `periodBounds` half-open UTC `[from,to)` with Dec→Jan wrap, `monthsInRange` — drives x-axis so zero-activity months render — `isPeriodAllowed`, `resolveEffectivePeriod`); `src/lib/reports.ts` (`bucketByMonth`, `reconstructBalanceHistory`, `hasCategoryData`, `hasBalanceData`, `hasEnoughForTrends`, `trendNudgeCopy`). Pro gate: `isPro` read from the DB via `getReportProfile` (not the session); a Free 12m request clamps the query to 3m via `resolveEffectivePeriod`, keeps the 3-month charts rendered, and shows an upgrade banner above the grid — the 12-month query never runs for Free. Four dependency-free SVG charts in `src/components/reports/`: spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars — account-balance shipped as the full per-month time-series (no §7.1 fallback taken); negative balances supported (Credit Card / Cash). Per-chart gating: category + balance on data presence; only the two trend charts hold out for `REPORTS_MIN_TRANSACTIONS = 15` with the spec's exact nudge copy. Each `<svg>` is `role="img"` with a data-summarizing `aria-label` (top `ARIA_SUMMARY_MAX = 3` entries then "and N more") + `aria-hidden` on decorative shapes + real-DOM legend; color never the only signal. `UNCATEGORIZED` constant extracted to `constants.ts`, retiring inline copies in `db/dashboard.ts` and `transaction-row.tsx`. New constants: `REPORTS_MIN_TRANSACTIONS`, `REPORTS_FREE_MAX_MONTHS`, `ARIA_SUMMARY_MAX` (system); `REPORT_PERIOD_OPTIONS`, `UNCATEGORIZED` (UI). 35 new Vitest tests (380 total); build passes; no schema change; Playwright QA verified Pro 12m, the Free clamp, account scoping (both params preserved), and the sparse-account nudge.
