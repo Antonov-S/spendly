@@ -3,6 +3,7 @@ import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatCurrency, formatSigned } from "@/lib/format";
 import { resolveIcon } from "@/lib/icon-map";
 import { TYPE_BORDER_COLOR } from "@/lib/transactions";
+import { UNCATEGORIZED } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { CategoryRef } from "@/types/dashboard";
 import type { FeedTransaction } from "@/types/transactions";
@@ -11,10 +12,10 @@ import type { FeedTransaction } from "@/types/transactions";
 const ROW_GRID =
   "grid items-center gap-3 grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1.7fr)_1.1fr_1fr_minmax(72px,auto)]";
 
-const UNCATEGORIZED: CategoryRef = {
-  name: "Uncategorized",
-  color: "#D1D5DB",
-  icon: resolveIcon("HelpCircle"),
+const UNCATEGORIZED_REF: CategoryRef = {
+  name: UNCATEGORIZED.name,
+  color: UNCATEGORIZED.color,
+  icon: resolveIcon(UNCATEGORIZED.icon),
 };
 
 export function TransactionRow({
@@ -34,7 +35,7 @@ export function TransactionRow({
         color: txn.category.color,
         icon: resolveIcon(txn.category.icon),
       }
-    : UNCATEGORIZED;
+    : UNCATEGORIZED_REF;
 
   const accountLabel =
     isTransfer && txn.counterpartyAccountName

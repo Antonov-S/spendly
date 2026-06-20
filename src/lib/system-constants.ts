@@ -86,6 +86,27 @@ export const STARTING_BALANCE_MAX = 100_000_000;
  */
 export const GOAL_AMOUNT_MAX = 1_000_000;
 
+/**
+ * Min in-scope transactions before the Reports *trend* charts (income vs
+ * expenses, cashflow) render instead of the "Add N more transactions to see
+ * spending trends" nudge. Drives the canonical nudge copy (`Add ${N - count}…`).
+ * The category + balance charts gate on data *presence*, not this count.
+ */
+export const REPORTS_MIN_TRANSACTIONS = 15;
+
+/**
+ * Free-tier reporting ceiling (months). Free is allowed the 1- and 3-month
+ * windows; Pro unlocks the full 12-month window.
+ */
+export const REPORTS_FREE_MAX_MONTHS = 3;
+
+/**
+ * Max entries listed in a chart's accessibility summary (`aria-label`) before
+ * it appends "and N more". Keeps the screen-reader summary readable rather than
+ * enumerating every month/account.
+ */
+export const ARIA_SUMMARY_MAX = 3;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav

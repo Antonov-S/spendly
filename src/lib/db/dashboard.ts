@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { resolveIcon } from "@/lib/icon-map";
+import { UNCATEGORIZED } from "@/lib/constants";
 import type {
   DashboardSummary,
   TransactionRow,
@@ -208,9 +209,9 @@ export async function getRecentTransactions(
           icon: resolveIcon(tx.category.icon),
         }
       : {
-          name: "Uncategorized",
-          color: "#D1D5DB",
-          icon: resolveIcon("HelpCircle"),
+          name: UNCATEGORIZED.name,
+          color: UNCATEGORIZED.color,
+          icon: resolveIcon(UNCATEGORIZED.icon),
         },
     dateLabel: toDateLabel(tx.date, today),
     account: tx.financialAccount.name,

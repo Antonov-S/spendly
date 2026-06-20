@@ -611,6 +611,17 @@ Separate analytics module, always accessible. When there is insufficient data, c
 
 Period selector applies to all charts (current month / last 3 months / last 12 months). Free tier is limited to the last 3 months; Pro unlocks the full 12-month range. Each chart is filterable by account via the global account selector.
 
+> **✅ Shipped (`feature/reports-page`).** The full `/reports` analytics module is live — four
+> dependency-free SVG charts (spending-by-category **donut**, income-vs-expenses grouped bars, cashflow
+> line, account-balance grouped bars), a URL-driven period selector (`?period=` 1m/3m/12m), and account
+> scoping via the global selector. **Read-only** (no mutations) — all data flows through server-only
+> fetchers in `src/lib/db/reports.ts`. The Free 3-month / Pro 12-month gate is **real now** (`isPro` read
+> from the DB via `getReportProfile`, not the session): a Free user requesting 12m keeps their 3-month
+> charts rendered with an upgrade banner above the grid, and the 12-month query never runs. Charts gate
+> **individually** — category + balance render on data presence; only the two trend charts hold out for
+> `REPORTS_MIN_TRANSACTIONS = 15`. The account-balance chart shipped as the full per-month running
+> time-series. See `docs/ROADMAP.md` §5 and `docs/features/reports-page-spec.md`.
+
 > **MVP note — "last 12 months" is the Pro ceiling, not unbounded "all time."** The period selector tops out at 12 months, so that is the concrete Pro reporting window in MVP. True all-time history (and the unbounded queries it implies) is post-MVP. The Monetization table below uses "Last 12 months" for Pro to match this selector.
 
 ---

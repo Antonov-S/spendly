@@ -30,6 +30,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Goals | Full read/write stack — `/goals` page, create/edit/complete/delete, signed contributions (withdrawals), atomic `currentAmount`, single-source fetcher shared with the dashboard widget |
 | Onboarding + Currency (1 + 0) | First-run gate (`requireOnboarded`/`redirectIfOnboarded` server guards, derived from `activeAccountCount > 0`) + `/onboarding` 3-step flow (account → starter budgets → done); budget currency resolves from `DEFAULT_CURRENCY` (EUR); schema currency defaults reconciled to EUR + USD→EUR backfill migration; `formatCurrency` switched to `€` app-wide |
 | Dashboard Insights Strip (4) | Actionable pill row on `/dashboard` (budgets at risk, pending recurring drafts, overdue goals) below the metric strip; derived in-process from the page's existing budget/goal arrays + one `count` query for drafts; pure helpers in `src/lib/insights.ts`; renders nothing when all counts are zero |
+| Reports Page (5) | `/reports` analytics module — four hand-rolled SVG charts (spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars); URL-driven period selector (1m/3m/12m) with Free 3-month clamp + upgrade banner (real `isPro` read from DB); per-chart data-sufficiency gating; account scoping via the global selector; pure helpers in `src/lib/report-period.ts` + `src/lib/reports.ts`, fetchers in `src/lib/db/reports.ts`; read-only (no mutations); `UNCATEGORIZED` extracted to `constants.ts` |
 
 ---
 
@@ -252,9 +253,38 @@ The spec describes "an actionable insights strip (budgets at risk, recurring dra
 
 ---
 
-### 5. Reports Page
+### 5. Reports Page ✅ Shipped
 
 **Effort: L · Value: high (major module) — required by MVP definition. Always accessible; empty state when insufficient data.**
+
+> **✅ Shipped (`feature/reports-page`).** Built per `docs/features/reports-page-spec.md`. Realized slice:
+> - **Read-only — no actions, no revalidation.** All data flows through six server-only fetchers in
+>   `src/lib/db/reports.ts` (`getCategoryBreakdown`, `getMonthlyComparison`, `getAccountBalanceHistory`,
+>   `getReportTxCount`, `getReportProfile`, + the exported pure `reportTxWhere` scoping builder).
+>   Cashflow derives in-process from the monthly-comparison buckets (no extra query).
+> - **Period logic** `src/lib/report-period.ts` (`parsePeriod`/`periodBounds`/`monthsInRange`/
+>   `isPeriodAllowed`/`resolveEffectivePeriod`) + **pure aggregation** `src/lib/reports.ts`
+>   (`bucketByMonth`, `reconstructBalanceHistory`, the four sufficiency gates, `trendNudgeCopy`) — both
+>   unit-tested (35 new Vitest tests, 380 total).
+> - **`isPro` read from the DB** via `getReportProfile` (the session only carries `user.id`). The gate is
+>   **real now** — a Free 12m request clamps the *query* to 3 months (`resolveEffectivePeriod`), keeps the
+>   3-month charts rendered, and shows an upgrade **banner above** the grid; the 12-month query never runs
+>   for Free. No `isPro = true` hardcode — §8's launch flip does not need to touch Reports.
+> - **Four hand-rolled SVG charts** (`src/components/reports/`), consistent with `Sparkline` — Recharts
+>   not needed (the `IncomeVsExpenses` canary rendered fine). Each `<svg>` is `role="img"` with a
+>   data-summarizing `aria-label` (capped at `ARIA_SUMMARY_MAX` then "and N more") + a real-DOM legend.
+> - **Per-chart gating, not one global gate:** category + balance render on data *presence*; only the two
+>   trend charts hold out for `REPORTS_MIN_TRANSACTIONS = 15` with the spec's exact nudge copy.
+> - **Account scoping** mirrors `/transactions` (`?account=`); archived honored only when explicitly
+>   selected (suffixed "(archived)" in the balance legend). Months with no activity still render as zero
+>   columns. **Account-balance chart shipped as the full time-series** (no §7.1 fallback taken).
+> - **`UNCATEGORIZED` extracted** to `src/lib/constants.ts`, retiring the inline copies in
+>   `getRecentTransactions` (`db/dashboard.ts`) and `transaction-row.tsx`. New constants:
+>   `REPORTS_MIN_TRANSACTIONS` / `REPORTS_FREE_MAX_MONTHS` / `ARIA_SUMMARY_MAX` (system),
+>   `REPORT_PERIOD_OPTIONS` (UI). The per-page `requireOnboarded()` guard was added here (per §1's note).
+>   No schema change. `npm run test:run` (380) + `npm run build` pass; Playwright QA covered Pro 12m,
+>   the Free clamp, account scoping, and the sparse-account nudge. The build plan below is retained for
+>   reference.
 
 No `/reports` page exists. Four charts are required.
 
@@ -376,7 +406,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | 1 | Goals CRUD (2) | L | Yes — new page | ✅ **Done.** Biggest missing headline feature; zero unbuilt deps. Insights Strip (#3) overdue-goals pill and Data Export (#5) JSON Goals dump dependencies now satisfied. |
 | 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | ✅ **Done.** Affects *every* new user's first run; bundled the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. Also switched `formatCurrency` to `€` app-wide. |
 | 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | ✅ **Done.** Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. Derived in-process from existing dashboard fetchers + one `count` query. |
-| 4 | Reports Page (5) | L | Yes — new page | Major analytics module; all deps done. Largest effort — see the balance-history simplification note. |
+| 4 | Reports Page (5) | L | Yes — new page | ✅ **Done.** Major analytics module — four hand-rolled SVG charts, URL-driven period selector with the real Free 3-month / Pro 12-month gate, per-chart sufficiency gating, account scoping. Read-only slice; balance-history shipped as the full time-series (no fallback taken). |
 | 5 | Data Export (6) | M | Yes — download | Trust feature, all tiers; JSON dump now includes Goals. |
 | 6 | Settings Page (7) | S | Yes — new page | Config surface; also the host for Stripe billing. |
 | 7 | Stripe Billing (8) | M | No (dev) / launch | Invisible while `isPro = true`; wire after Settings exists. |
