@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
-import { getSessionOrRedirect } from "@/lib/auth/guards";
+import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
 import { parseDateParam, parseType } from "@/lib/transactions";
@@ -26,7 +26,7 @@ interface TransactionsPageProps {
 export default async function TransactionsPage({
   searchParams,
 }: TransactionsPageProps) {
-  const session = await getSessionOrRedirect();
+  const session = await requireOnboarded();
   const userId = session.user.id;
 
   const sp = await searchParams;

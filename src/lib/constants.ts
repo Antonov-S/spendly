@@ -93,6 +93,43 @@ export const ACCOUNT_ICONS = [
 export const DEFAULT_ACCOUNT_COLOR = ACCOUNT_COLORS[0];
 export const DEFAULT_ACCOUNT_ICON = ACCOUNT_ICONS[0];
 
+/** Total steps in the first-run onboarding flow (account → budgets → done). */
+export const ONBOARDING_STEP_COUNT = 3;
+
+/**
+ * Search-param key marking the onboarding flow as in-progress past Step 1.
+ * Once the first account exists the page's reverse guard would bounce the user
+ * to /dashboard; this marker (`?step=budgets` | `?step=done`) tells the guard
+ * the user is mid-flow so the just-created account doesn't eject them before
+ * the optional budgets / confirmation steps.
+ */
+export const ONBOARDING_STEP_PARAM = "step";
+export const ONBOARDING_STEP_VALUES = {
+  budgets: "budgets",
+  done: "done",
+} as const;
+
+/** Copy for the first-run onboarding flow. Keeps strings out of the components. */
+export const ONBOARDING_COPY = {
+  account: {
+    title: "Create your first account",
+    subtitle:
+      "Add a checking, cash, or card account to start tracking. You can add more later.",
+  },
+  budgets: {
+    title: "Add starter budgets",
+    subtitle:
+      "Set spending ceilings for a few common categories this month. You can add these anytime from Budgets.",
+    primary: "Add starter budgets",
+    skip: "Skip for now",
+  },
+  done: {
+    title: "You're all set",
+    subtitle: "Your account is ready. Capture a transaction whenever you like.",
+    cta: "Go to dashboard",
+  },
+} as const;
+
 /** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
 export const BUDGET_AMOUNT_MAX = 1_000_000;
 
