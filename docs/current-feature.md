@@ -1,12 +1,80 @@
-# Current Feature
+# Current Feature: Reports Page
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `/reports` renders inside `AppShell` with the sidebar "Reports" item active; guarded by `requireOnboarded()`
+- Period selector (This month / Last 3 months / Last 12 months) is URL-driven via `?period=`; default is "This month"
+- All four charts render for an account with enough data: spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars *(if a §7.1 balance-history fallback is taken, record the adjusted criteria here)*
+- Charts gate individually: category + balance render on data presence; only Income vs Expenses and Cashflow trend show the "Add N more transactions to see spending trends" nudge (N = `15 − count`, clamped ≥ 0) when in-scope transactions < 15
+- Global account selector scopes every chart (`?account=`); "All accounts" excludes archived, an explicitly selected account is honored by id
+- Free user selecting "Last 12 months" keeps their 3-month charts rendered with an upgrade banner above the grid (grid not replaced, no fake teaser), and the 12-month query never runs; Pro user gets the full 12-month charts
+- `isPro` is read from the DB (not assumed from the session)
+- Months with no activity still appear as zero columns/points across the 3- and 12-month windows
+- Transfers are excluded from income/expense/category and included in balance history; soft-deleted transactions are excluded everywhere
+- No `Decimal` crosses to a client chart; all amounts are `number`
+- `getCategoryBreakdown` resolves category metadata in one batched lookup (no N+1); null/SetNull categories render as Uncategorized via `UNCATEGORIZED` constant
+- Each chart SVG has `role="img"` + a data-summarizing `aria-label`, decorative shapes are `aria-hidden`, and the legend is real DOM text
+- `report-period.ts` and `reports.ts` pure helpers are unit-tested (period bounds incl. year wrap, Pro gate, month bucketing, balance reconstruction, threshold + nudge copy)
+- `npm run test:run` and `npm run build` pass; no schema change, no `db push`
+
 ## Notes
+
+### Architecture
+
+- **Read-only slice** — no server actions, no `revalidatePath`. All data flows through `src/lib/db/reports.ts` fetchers consumed directly by the server component.
+- **Charts: hand-rolled SVG** (consistent with `Sparkline`). Recharts is the fallback if `IncomeVsExpenses` grouped bars aren't rendering correctly within ~½ day of hand-rolling — switch at that point, don't discover the cost twice on `AccountBalanceHistory`.
+- **`isPro` fetched from DB** via `getReportProfile(userId)` — the session only carries `user.id`.
+- **Period tops out at 12 months** — no all-time window in MVP.
+
+### Key Files
+
+| Layer | File | Action |
+|---|---|---|
+| Period logic | `src/lib/report-period.ts` | create |
+| Pure helpers | `src/lib/reports.ts` | create |
+| DB reads | `src/lib/db/reports.ts` | create |
+| Types | `src/types/reports.ts` | create |
+| Constants (system) | `src/lib/system-constants.ts` | modify — add `REPORTS_MIN_TRANSACTIONS = 15`, `REPORTS_FREE_MAX_MONTHS = 3`, `ARIA_SUMMARY_MAX = 3` |
+| Constants (UI) | `src/lib/constants.ts` | modify — add `REPORT_PERIOD_OPTIONS`, `UNCATEGORIZED` constant |
+| Page | `src/app/reports/page.tsx` | create |
+| Components | `src/components/reports/` | create (8 components) |
+| Tests | `test/lib/report-period.test.ts` | create |
+| Tests | `test/lib/reports.test.ts` | create |
+
+### Implementation Order
+
+1. Constants + types (`src/types/reports.ts`)
+2. `src/lib/report-period.ts` + tests
+3. `src/lib/reports.ts` pure helpers + tests
+4. `src/lib/db/reports.ts` fetchers (`reportTxWhere`, 4 chart fetchers, `getReportTxCount`, `getReportProfile`)
+5. `/reports` page: guard, params, Pro clamp, `Promise.all`, `AppShell`, `Suspense`
+6. Components: `ChartCard` + `ChartEmptyState` + `PeriodSelector` + `UpgradePrompt` first, then chart SVGs (`IncomeVsExpenses`, `CashflowTrend`, `SpendingByCategory`, `AccountBalanceHistory` last as cut-candidate)
+7. `npm run test:run` + `npm run build`; manual browser pass
+
+### Data Rules
+
+- `deletedAt: null` on every query — soft-deleted rows never count
+- `amount` is signed: INCOME positive, EXPENSE negative; transfers are two signed legs
+- Dates are `@db.Date` (UTC midnight). Bucket with UTC math
+- Archived accounts: excluded from default view, included when explicitly selected via `?account=`
+- Transfers excluded from income/expense/category charts, included in balance history
+- `UNCATEGORIZED` constant extracted to `constants.ts` (retires hard-coded copies in `db/dashboard.ts`)
+
+### Account Balance History — Cut Candidate (§7.1)
+
+**Decision: full time-series shipped (no fallback taken).** Built as the full per-month running-balance grouped-bar chart via two queries (baseline `groupBy` for pre-window sums + in-window `findMany` → `reconstructBalanceHistory`). Hand-rolled SVG rendered correctly within budget — no Recharts needed (the `IncomeVsExpenses` canary rendered fine, so the bar/line charts stayed hand-rolled). Verified end-to-end with `demo-pro` (Apr–Jun data across 4 accounts incl. negative Cash/Credit Card balances). All four §20 acceptance criteria met as written; no criteria relaxed.
+
+Pre-approved fallbacks (unused, kept for the record): (1) current end-of-month balance only; (2) defer + `/accounts` linking empty state.
+
+### Pro Gate
+
+- Free: allowed `1m` and `3m`; `12m` is Pro-only
+- Free requesting `12m` → data clamps to 3 months; 3-month charts still render; upgrade banner above grid; 12-month query never runs
+- Gate reads real `isPro` from DB — do NOT hardcode `isPro = true`
 
 ## History
 

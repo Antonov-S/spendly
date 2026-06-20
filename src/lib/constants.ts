@@ -149,6 +149,31 @@ export const GOAL_COLORS = [
 /** Max recurring template amount accepted by the form (UI guard). */
 export const RECURRING_AMOUNT_MAX = 1_000_000;
 
+/**
+ * Reports period selector options (UI data). `param` is the `?period=` value;
+ * `months` is the count of calendar months (including the current one) the
+ * window spans and drives the query bounds.
+ */
+export const REPORT_PERIOD_OPTIONS = [
+  { param: "1m", label: "This month", months: 1 },
+  { param: "3m", label: "Last 3 months", months: 3 },
+  { param: "12m", label: "Last 12 months", months: 12 },
+] as const;
+
+/**
+ * Single source of truth for the null-category fallback (raw icon name, resolved
+ * to a component client-side via `resolveIcon`). Shared by the Reports category
+ * breakdown, the dashboard recent-transactions feed (`getRecentTransactions`),
+ * and the transactions feed row — so the fallback can never drift between
+ * surfaces. Categories deleted via `onDelete: SetNull` leave `categoryId = null`
+ * and fall here.
+ */
+export const UNCATEGORIZED = {
+  name: "Uncategorized",
+  color: "#D1D5DB",
+  icon: "HelpCircle",
+} as const;
+
 /** Cadence options for the recurring template form select. */
 export const CADENCE_OPTIONS = [
   { value: "DAILY", label: "Daily" },
