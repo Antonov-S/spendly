@@ -74,9 +74,6 @@ describe("createBudget", () => {
 
   function setupOwnedCategory() {
     vi.mocked(prisma.category.findFirst).mockResolvedValue({ id: "c1" } as never);
-    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
-      preferredCurrency: "USD",
-    } as never);
   }
 
   it("rejects a category the user does not own or share (system)", async () => {
@@ -89,7 +86,7 @@ describe("createBudget", () => {
     expect(prisma.budget.upsert).not.toHaveBeenCalled();
   });
 
-  it("resolves currency from the user and inserts when no row exists", async () => {
+  it("stamps EUR currency and inserts when no row exists", async () => {
     signIn();
     setupOwnedCategory();
     vi.mocked(prisma.budget.findUnique).mockResolvedValue(null);
@@ -101,8 +98,10 @@ describe("createBudget", () => {
     const args = vi.mocked(prisma.budget.upsert).mock.calls[0][0] as {
       create: { currency: string; amount: number };
     };
-    expect(args.create.currency).toBe("USD");
+    expect(args.create.currency).toBe("EUR");
     expect(args.create.amount).toBe(250);
+    // Currency resolves from DEFAULT_CURRENCY, never the user record.
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
   it("revives an archived row via upsert (update branch), keeping its id", async () => {
@@ -126,7 +125,7 @@ describe("createBudget", () => {
     };
     expect(args.update).toEqual({
       amount: 250,
-      currency: "USD",
+      currency: "EUR",
       isArchived: false,
     });
     expect(args.where).toEqual({
@@ -137,6 +136,26 @@ describe("createBudget", () => {
         year: 2026,
       },
     });
+  });
+
+  it("ignores a USD preferredCurrency and still stamps EUR", async () => {
+    signIn();
+    setupOwnedCategory();
+    // A legacy user whose preferredCurrency is USD must not leak into the budget.
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
+      preferredCurrency: "USD",
+    } as never);
+    vi.mocked(prisma.budget.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.budget.upsert).mockResolvedValue({ id: "new" } as never);
+
+    const res = await createBudget(validInput());
+
+    expect(res.success).toBe(true);
+    const args = vi.mocked(prisma.budget.upsert).mock.calls[0][0] as {
+      create: { currency: string };
+    };
+    expect(args.create.currency).toBe("EUR");
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
   it("returns a friendly error for an active duplicate without upserting", async () => {
@@ -259,15 +278,8 @@ describe("archiveBudget / unarchiveBudget", () => {
 });
 
 describe("seedPresetBudgets", () => {
-  function setupUser() {
-    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
-      preferredCurrency: "USD",
-    } as never);
-  }
-
-  it("creates budgets for unbudgeted preset categories and reports the count", async () => {
+  it("creates EUR budgets for unbudgeted preset categories and reports the count", async () => {
     signIn();
-    setupUser();
     // All four presets resolve to system categories.
     vi.mocked(prisma.category.findMany).mockResolvedValue(
       BUDGET_PRESETS.map((p, i) => ({ id: `cat-${i}`, name: p.categoryName })) as never
@@ -283,16 +295,18 @@ describe("seedPresetBudgets", () => {
     expect(res.success).toBe(true);
     expect(res.data?.created).toBe(BUDGET_PRESETS.length);
     const args = vi.mocked(prisma.budget.createMany).mock.calls[0][0] as {
-      data: unknown[];
+      data: { currency: string }[];
       skipDuplicates: boolean;
     };
     expect(args.data).toHaveLength(BUDGET_PRESETS.length);
+    expect(args.data.every((d) => d.currency === "EUR")).toBe(true);
     expect(args.skipDuplicates).toBe(true);
+    // Currency comes from DEFAULT_CURRENCY, not the user record.
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
   it("skips categories already budgeted (archived or active) for the period", async () => {
     signIn();
-    setupUser();
     vi.mocked(prisma.category.findMany).mockResolvedValue(
       BUDGET_PRESETS.map((p, i) => ({ id: `cat-${i}`, name: p.categoryName })) as never
     );
@@ -316,7 +330,6 @@ describe("seedPresetBudgets", () => {
 
   it("drops unresolved preset names without erroring", async () => {
     signIn();
-    setupUser();
     // Only the first preset resolves.
     vi.mocked(prisma.category.findMany).mockResolvedValue([
       { id: "cat-0", name: BUDGET_PRESETS[0].categoryName },
@@ -335,7 +348,6 @@ describe("seedPresetBudgets", () => {
 
   it("returns created:0 and skips createMany when nothing resolves", async () => {
     signIn();
-    setupUser();
     vi.mocked(prisma.category.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.budget.findMany).mockResolvedValue([] as never);
 

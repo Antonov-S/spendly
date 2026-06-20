@@ -85,6 +85,14 @@ export const ACCOUNT_ICONS = [
   "TrendingUp",
 ] as const;
 
+/**
+ * Default account accent color and icon. Named constants so the create drawer
+ * and the onboarding first-account form share one source of truth — reordering
+ * the palettes above can never silently change the default.
+ */
+export const DEFAULT_ACCOUNT_COLOR = ACCOUNT_COLORS[0];
+export const DEFAULT_ACCOUNT_ICON = ACCOUNT_ICONS[0];
+
 /** Max budget ceiling accepted by the form (UI guard; DB is Decimal(12,2)). */
 export const BUDGET_AMOUNT_MAX = 1_000_000;
 

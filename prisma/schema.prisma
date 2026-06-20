@@ -21,7 +21,7 @@ model User {
   isPro                Boolean   @default(false)
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
-  preferredCurrency    String    @default("USD")
+  preferredCurrency    String    @default("EUR")
   deletedAt            DateTime? // soft delete — 30-day grace period before purge
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -115,7 +115,7 @@ model FinancialAccount {
   id              String      @id @default(cuid())
   name            String
   type            AccountType
-  currency        String      @default("USD")
+  currency        String      @default("EUR")
   startingBalance Decimal     @default(0) @db.Decimal(12, 2)
   color           String? // hex, e.g. "#1D9E75"
   icon            String? // Lucide icon name
