@@ -29,6 +29,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Financial Accounts | Full read/write stack — `/accounts` page, create/edit/archive/unarchive, derived balance, `isArchived` guard on transactions and recurring confirm |
 | Goals | Full read/write stack — `/goals` page, create/edit/complete/delete, signed contributions (withdrawals), atomic `currentAmount`, single-source fetcher shared with the dashboard widget |
 | Onboarding + Currency (1 + 0) | First-run gate (`requireOnboarded`/`redirectIfOnboarded` server guards, derived from `activeAccountCount > 0`) + `/onboarding` 3-step flow (account → starter budgets → done); budget currency resolves from `DEFAULT_CURRENCY` (EUR); schema currency defaults reconciled to EUR + USD→EUR backfill migration; `formatCurrency` switched to `€` app-wide |
+| Dashboard Insights Strip (4) | Actionable pill row on `/dashboard` (budgets at risk, pending recurring drafts, overdue goals) below the metric strip; derived in-process from the page's existing budget/goal arrays + one `count` query for drafts; pure helpers in `src/lib/insights.ts`; renders nothing when all counts are zero |
 
 ---
 
@@ -201,13 +202,39 @@ Ownership check: `category.userId === session.user.id AND category.isSystem === 
 
 ---
 
-### 4. Dashboard Insights Strip
+### 4. Dashboard Insights Strip ✅ Shipped
 
 **Effort: S · Value: medium (cheap visible win) — drives the Dashboard's "actionable" promise; needs Goals (2) for the overdue-goals pill.**
 
-The spec describes "an actionable insights strip (budgets at risk, recurring drafts pending, overdue goals)" as part of the Dashboard ([project-overview.md](../docs/project-overview.md) → Dashboard). This is currently missing.
+> **✅ Shipped (`feature/dashboard-insights-strip`).** Built per `docs/features/dashboard-insights-strip-spec.md`
+> (confirmed for build on 2026-06-20; the strip had been removed once in the Dashboard UI Mockup phase).
+> Realized slice — **deviates from the sketch below**, which proposed a monolithic `getInsights` fetcher:
+> - **Derive in-process, don't re-query.** The dashboard page already fetches budgets (`getBudgetsData`)
+>   and goals (`getGoalsSummary`) in its `Promise.all`, so at-risk and overdue counts are computed from
+>   those arrays via pure helpers — **zero extra queries**. Only the draft count needed new data: one
+>   lean `getPendingDraftCount(userId)` `count` in `src/lib/db/recurring.ts` (mirrors `getPendingDrafts`'
+>   ownership scoping; the dashboard does **not** run `generatePendingDrafts` — it only reports).
+> - **Single source of truth for each rule.** `countAtRiskBudgets` (`src/lib/insights.ts`) reuses
+>   `budgetFraction` with `BUDGET_AT_RISK_THRESHOLD = 0.8` (≥, consistent with `budgetState`; includes
+>   over-budget; zero-limit immune; NaN-safe). Overdue count reuses the already-materialized
+>   `GoalRow.overdue` flag (`isGoalOverdue`) — never re-derived.
+> - **Pure copy/label builder.** `buildInsightItems` emits an ordered `InsightItem[]` (fixed order
+>   budgets → drafts → goals; zero-count signals omitted; pluralization), so the component is a dumb
+>   renderer and the wording is unit-tested. `DashboardInsights` + `InsightItem` types in
+>   `src/types/dashboard.ts`.
+> - **Server component** `src/components/dashboard/insights-strip.tsx` — link pills only (no client JS),
+>   `TONE_CLASS` lookup (warning amber = the goals overdue badge; info blue = the "View all →" link),
+>   returns `null` when empty (calm = nothing rendered, no placeholder). `lg:my-1 lg:gap-3` adds
+>   large-monitor breathing room. Rendered between `<MetricStrip />` and the content grid, inside the
+>   `accounts.length > 0` branch only.
+> - **No KPI-card treatment.** Kept lightweight bare pills (rejected per-pill metric-style cards and a
+>   "needs attention" wrapper — the latter being exactly the generic card removed earlier).
+> - **Freshness already provisioned** — every recurring mutation revalidates `/dashboard`
+>   (`revalidateRecurringViews` / `revalidateTransactionViews`), so the draft count stays current with
+>   no new wiring. 13 new Vitest tests in `test/lib/insights.test.ts` (345 total);
+>   `npm run test:run` + `npm run build` pass. The build sketch below is retained for reference.
 
-> **Confirm before building — it was deliberately removed once.** The `current-feature.md` history (Dashboard UI Mockup) notes: *"An interim 'needs attention' insights strip was added then removed at user request."* The spec still lists it, so it stays in the MVP scope here, but check with the user that they want it back before implementing — the earlier removal may reflect a product preference the spec hasn't caught up to.
+The spec describes "an actionable insights strip (budgets at risk, recurring drafts pending, overdue goals)" as part of the Dashboard ([project-overview.md](../docs/project-overview.md) → Dashboard). This is currently missing.
 
 **What to build:**
 
@@ -348,7 +375,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 |---|---|---|---|---|
 | 1 | Goals CRUD (2) | L | Yes — new page | ✅ **Done.** Biggest missing headline feature; zero unbuilt deps. Insights Strip (#3) overdue-goals pill and Data Export (#5) JSON Goals dump dependencies now satisfied. |
 | 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | ✅ **Done.** Affects *every* new user's first run; bundled the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. Also switched `formatCurrency` to `€` app-wide. |
-| 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. |
+| 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | ✅ **Done.** Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. Derived in-process from existing dashboard fetchers + one `count` query. |
 | 4 | Reports Page (5) | L | Yes — new page | Major analytics module; all deps done. Largest effort — see the balance-history simplification note. |
 | 5 | Data Export (6) | M | Yes — download | Trust feature, all tiers; JSON dump now includes Goals. |
 | 6 | Settings Page (7) | S | Yes — new page | Config surface; also the host for Stripe billing. |

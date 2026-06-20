@@ -588,6 +588,16 @@ Virtual progress tracking. Progress is updated via an **"Add contribution"** act
 
 State screen only — never analytics. Shows: hero balance, monthly metric strip (Income / Expenses / Cashflow), sparkline chart, top budget bars, and an actionable insights strip (budgets at risk, recurring drafts pending, overdue goals). Goals widget with one-tap access to full Goals screen.
 
+> **✅ Shipped — insights strip (`feature/dashboard-insights-strip`).** The actionable insights strip is
+> live below the metric strip: up to three link pills — **budgets at risk** (≥ 80% spent, includes
+> over-budget), **pending recurring drafts**, and **overdue goals** — each linking to its page. It
+> renders nothing when all counts are zero (silence = nothing to act on). Counts are derived in-process
+> from the data the dashboard already fetches (`getBudgetsData` / `getGoalsSummary`) plus a single
+> draft `count`, with the at-risk and overdue rules each defined exactly once
+> (`countAtRiskBudgets` in `src/lib/insights.ts`; `isGoalOverdue` in `src/lib/goals.ts`). See
+> `docs/features/dashboard-insights-strip-spec.md` and `docs/ROADMAP.md` §4. (The strip was removed
+> once during the Dashboard UI Mockup phase and re-confirmed for build on 2026-06-20.)
+
 ### Reports
 
 Separate analytics module, always accessible. When there is insufficient data, charts show a helpful empty state with a progress nudge ("Add 15 more transactions to see spending trends") rather than a locked screen. Four charts in MVP:

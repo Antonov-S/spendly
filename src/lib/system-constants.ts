@@ -21,6 +21,14 @@ export const BUDGET_THRESHOLDS = {
   danger: 1.0 // >= 100% -> red
 } as const;
 
+/**
+ * Fraction of a budget's limit spent at or above which it is flagged "at risk"
+ * on the Dashboard insights strip. Distinct from BUDGET_THRESHOLDS (the
+ * green/amber/red progress-bar states): a budget can be "at risk" (>= 80%)
+ * while still in the amber band (60–<100%). Includes over-budget rows.
+ */
+export const BUDGET_AT_RISK_THRESHOLD = 0.8;
+
 /** Credentials auth security policy. */
 export const BCRYPT_SALT_ROUNDS = 12;
 export const PASSWORD_MIN_LENGTH = 8;

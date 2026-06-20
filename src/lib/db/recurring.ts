@@ -69,6 +69,13 @@ export async function getPendingDrafts(userId: string): Promise<DraftRow[]> {
   return rows.map(mapDraftRow);
 }
 
+/** Count of the user's PENDING recurring drafts (for the dashboard insights strip). */
+export async function getPendingDraftCount(userId: string): Promise<number> {
+  return prisma.recurringDraft.count({
+    where: { status: "PENDING", recurringTemplate: { userId } },
+  });
+}
+
 /** Editable pre-fill for a single template, scoped to the owner. */
 export async function getTemplateForEdit(
   userId: string,

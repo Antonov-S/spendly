@@ -85,3 +85,25 @@ export interface GoalRow {
   overdue?: boolean;
 }
 
+/** The three actionable counts surfaced on the Dashboard insights strip. */
+export interface DashboardInsights {
+  /** Current-month budgets at or over BUDGET_AT_RISK_THRESHOLD of their limit. */
+  atRiskBudgetCount: number;
+  /** PENDING recurring drafts awaiting confirmation. */
+  pendingDraftCount: number;
+  /** Active goals past their target date and still short of target. */
+  overdueGoalCount: number;
+}
+
+/** A single rendered pill in the strip (already resolved to copy + link). */
+export interface InsightItem {
+  /** Stable key / signal id. */
+  key: "budgets" | "drafts" | "goals";
+  /** Display copy, e.g. "3 budgets at risk". */
+  label: string;
+  /** Destination page for the signal. */
+  href: string;
+  /** Semantic tone driving the pill color. */
+  tone: "warning" | "info";
+}
+
