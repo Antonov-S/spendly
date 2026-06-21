@@ -1,4 +1,4 @@
-# Current Feature: Settings Page
+# Current Feature
 
 ## Status
 
@@ -6,54 +6,7 @@ Not Started
 
 ## Goals
 
-- Ship `/settings` route as the user-preferences and billing surface
-- Add `updateProfile` Server Action for editing the display name
-- Extract shared `getUserOverview` fetcher to `src/lib/db/user.ts` and migrate `/profile` onto it
-- Extract `PlanBadge` to `src/components/settings/plan-badge.tsx`, imported by both pages
-- Stand up the Billing card (plan state read-out only; Upgrade/Manage buttons deferred to Stripe slice §8)
-- Move Data Export (`<ExportLinks>`) from `/accounts` to a "Your data" section on `/settings` with an active-scope label
-- Add a Settings link to the sidebar bottom utility group between Accounts and Help
-- Add `/settings` to `auth.config.ts` `isProtected`
-
 ## Notes
-
-### Key constraints
-- S1: `/settings` is NOT onboarding-gated — it's an escape hatch like `/profile` and `/accounts`
-- S2/S3: `updateProfile` reads userId from session only; writes only the `name` column
-- S4: Billing plan state read from DB (`User.isPro`), not the session JWT
-- P2: NO Upgrade/Manage buttons yet — those ship with the Stripe slice (§8); dead UI violates principle #6
-- B3: Display names are NOT unique — no constraint, no uniqueness check
-- B4: Last-write-wins on name; double-submit prevented at UI only (SubmitButton disabled while pending); no optimistic UI
-
-### Data export move (§7)
-- Move `<ExportLinks>` from `/accounts` to `/settings` "Your data" section
-- Add scope label derived server-side from `?account=` searchParam: "Exporting: All accounts" / "Exporting: \<name\>"
-- Unknown/invalid `?account=` → normalize away, label "All accounts", forward no scope to export links
-- API routes (`/api/export/csv`, `/api/export/json`) are unchanged — only the UI entry point moves
-
-### Billing section (§6)
-- Ships now: Free/Pro badge + one-line plan summary ("You're on the Free plan." / "Pro · subscription active.")
-- Deferred to §8: "Upgrade to Pro" and "Manage subscription" buttons
-- Leave a single HTML comment as a seam for §8; ship no visible placeholder
-
-### Shared projection (§3.1)
-- New `src/lib/db/user.ts` → `getUserOverview(userId)` — one projection for both `/profile` and `/settings`
-- `/profile` migrated to use this helper (replacing its inline `findUnique`)
-- `password` and `image`/`createdAt` ride along for `/profile`'s needs; Settings ignores them
-
-### Validation
-- New `src/lib/validations/profile.ts` → `updateProfileSchema`
-- `PROFILE_NAME_MAX = 80` added to `system-constants.ts`
-
-### Page layout
-- Standalone centered surface (no AppShell), matching `/profile`
-- `max-w-lg` column, "Back to dashboard" link, then Preferences → Billing → Your data cards
-- Reads `?account=` searchParam for export scope label
-
-### Tests to write
-- `test/actions/profile.test.ts` — `updateProfile`: unauthenticated, valid name (trimmed, only `name` in data), whitespace-only rejected, over-length rejected
-- `test/lib/validations/profile.test.ts` — `updateProfileSchema`: trims, rejects empty/whitespace, rejects over max, accepts normal name
-- `test/lib/db/user.test.ts` — `getUserOverview` projection-shape guard (assert exact `select` columns and `where.id`)
 
 ## History
 
@@ -89,3 +42,4 @@ Not Started
 - **Dashboard Insights Strip** — Actionable pill row on `/dashboard` (ROADMAP §4, confirmed 2026-06-20 after a prior removal). Three fixed signals below the metric strip: **budgets at risk** (≥ 80% spent, amber pill → `/budgets`), **recurring drafts pending** (blue pill → `/recurring`), **overdue goals** (amber pill → `/goals`). Strip renders nothing when all counts are zero. Architecture: at-risk and overdue counts are derived in-process from the page's existing `getBudgetsData` / `getGoalsSummary` arrays (zero extra queries); only the draft count is new (`getPendingDraftCount` — a `count` query in `src/lib/db/recurring.ts`). `BUDGET_AT_RISK_THRESHOLD = 0.8` added to `system-constants.ts`; `DashboardInsights` + `InsightItem` types added to `src/types/dashboard.ts`; pure helpers `countAtRiskBudgets` + `buildInsightItems` (with `plural`) in `src/lib/insights.ts` (reuses `budgetFraction`; NaN/zero-limit inputs safely produce `false`). `InsightsStrip` is a server component with a `TONE_CLASS` lookup and `lg:my-1 lg:gap-3` large-monitor breathing room; per-pill KPI cards and a "needs attention" wrapper were considered and rejected (information hierarchy + prior-removal precedent). Dashboard `Promise.all` extended to 7 fetchers; strip inserted between `<MetricStrip />` and the content grid inside the `accounts.length > 0` branch. Freshness already provisioned — all recurring mutations revalidate `/dashboard`. 13 new Vitest tests (345 total); build passes.
 - **Reports Page** — Full analytics module for `/reports` (ROADMAP §5). Read-only (no mutations): six server-only fetchers in `src/lib/db/reports.ts` (`getCategoryBreakdown` with one batched category lookup / no N+1, `getMonthlyComparison`, `getAccountBalanceHistory`, `getReportTxCount`, `getReportProfile`, exported pure `reportTxWhere`); cashflow derives from monthly-comparison buckets in-process (no extra query). Pure helpers: `src/lib/report-period.ts` (`parsePeriod`, `periodBounds` half-open UTC `[from,to)` with Dec→Jan wrap, `monthsInRange` — drives x-axis so zero-activity months render — `isPeriodAllowed`, `resolveEffectivePeriod`); `src/lib/reports.ts` (`bucketByMonth`, `reconstructBalanceHistory`, `hasCategoryData`, `hasBalanceData`, `hasEnoughForTrends`, `trendNudgeCopy`). Pro gate: `isPro` read from the DB via `getReportProfile` (not the session); a Free 12m request clamps the query to 3m via `resolveEffectivePeriod`, keeps the 3-month charts rendered, and shows an upgrade banner above the grid — the 12-month query never runs for Free. Four dependency-free SVG charts in `src/components/reports/`: spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars — account-balance shipped as the full per-month time-series (no §7.1 fallback taken); negative balances supported (Credit Card / Cash). Per-chart gating: category + balance on data presence; only the two trend charts hold out for `REPORTS_MIN_TRANSACTIONS = 15` with the spec's exact nudge copy. Each `<svg>` is `role="img"` with a data-summarizing `aria-label` (top `ARIA_SUMMARY_MAX = 3` entries then "and N more") + `aria-hidden` on decorative shapes + real-DOM legend; color never the only signal. `UNCATEGORIZED` constant extracted to `constants.ts`, retiring inline copies in `db/dashboard.ts` and `transaction-row.tsx`. New constants: `REPORTS_MIN_TRANSACTIONS`, `REPORTS_FREE_MAX_MONTHS`, `ARIA_SUMMARY_MAX` (system); `REPORT_PERIOD_OPTIONS`, `UNCATEGORIZED` (UI). 35 new Vitest tests (380 total); build passes; no schema change; Playwright QA verified Pro 12m, the Free clamp, account scoping (both params preserved), and the sparse-account nudge.
 - **Data Export** — `GET /api/export/csv` and `GET /api/export/json` — the first non-auth API routes (ROADMAP §6). CSV: flat RFC-4180 ledger, UTF-8 BOM + `sep=,` Excel hint (so columns split on double-click in European-locale Excel), formula-injection-safe free-text columns (`escapeCsvTextField`), transfers as two rows. JSON: versioned envelope `{ schemaVersion: 1, exportedAt, data }` (pretty-printed), derived account balances, user-owned categories only, budgets, goals + nested contributions, recurring templates, non-deleted transactions; Decimal→number, `@db.Date`→`YYYY-MM-DD`. Three-layer split: pure helpers `src/lib/export/{csv,json,filename}.ts` → model `src/lib/db/export.ts` (`exportTxWhere`, `getTransactionsForExport`, `getFullExport`, `EXPORT_ENTITY_CLASS`) → thin route glue; ESLint `no-restricted-imports` enforces no Prisma in routes. Auth-guarded (401 JSON, no redirect), `userId`-scoped, tier-agnostic (no `isPro` read, S6); per-user rate limit (`RATE_LIMITS.export`, 10/min, fail-open); unified `{ error, code }` failure contract for 401/429/413 (`tooManyRequestsResponse` gained `code: "rate_limited"`); 10K-tx size cap (CSV `#` marker / JSON 413); empty export valid (D7). `?account=` scoping with the intentional C2 asymmetry (account-bound entities scope; budgets/goals/categories always full). Entry: `<ExportLinks>` on `/accounts` page carrying `?account=`. 37 new Vitest tests (417 total); build passes; no schema change.
+- **Settings Page** — `/settings` route with three cards: **Preferences** (display-name edit via `updateProfile` Server Action with 5-second auto-dismissing success banner, email read-only), **Billing** (Free/Pro badge + plan summary from DB, Upgrade/Manage buttons deferred to Stripe slice §8 with HTML comment seam), **Your data** (Data Export relocated from `/accounts`, scope label derived from `?account=` searchParam). Architecture: `getUserOverview` shared projection added to `src/lib/db/profile.ts` (both `/settings` and `/profile` use it — drift prevention); `getAccountLabels` lightweight fetcher in `src/lib/db/accounts.ts` for scope resolution (active + archived, `{id, name, isArchived}` only, no balance computation); `updateProfileSchema` + `PROFILE_NAME_MAX = 80` in `src/lib/validations/profile.ts` / `system-constants.ts`; `PlanBadge` extracted to `src/components/settings/plan-badge.tsx` (imported by both pages). `/settings` is NOT onboarding-gated (escape hatch like `/accounts` and `/profile`); added to `auth.config.ts` `isProtected`. Settings sidebar link added between Accounts and Help. `<ExportLinks>` removed from `/accounts`. Two corrections from spec: `getUserOverview` landed in `profile.ts` (not a new `user.ts`); `getAccountLabels` is new (the spec assumed an active+archived fetcher existed). Fixes: `w-full` on both page containers (width discrepancy between `/profile` and `/settings`); auto-dismiss banner uses `at` nonce from action + `dismissedAt` client state (plain `useState` + Sonner both fail post-action because route refresh resets state / drops toast). 11 new Vitest tests (429 total); build passes.
