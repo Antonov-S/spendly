@@ -91,6 +91,13 @@ export const STARTING_BALANCE_MAX = 100_000_000;
 export const GOAL_AMOUNT_MAX = 1_000_000;
 
 /**
+ * Max length of a user's display name (UI + Zod guard on `updateProfile`).
+ * Matches the goal-name ceiling used elsewhere; `name` is a presentation label,
+ * not an identifier (no uniqueness constraint).
+ */
+export const PROFILE_NAME_MAX = 80;
+
+/**
  * Min in-scope transactions before the Reports *trend* charts (income vs
  * expenses, cashflow) render instead of the "Add N more transactions to see
  * spending trends" nudge. Drives the canonical nudge copy (`Add ${N - count}…`).

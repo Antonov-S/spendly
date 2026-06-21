@@ -6,12 +6,12 @@ interface ExportLinksProps {
 }
 
 /**
- * "Export CSV" / "Export JSON" download links for `/accounts` (data-export-spec
- * §8). Plain `<a download>` GETs — a file download can't be a Server Action. The
- * current `?account=` scope is carried so the export matches what the user sees;
- * the server's `Content-Disposition` still wins for the saved filename. Renders
- * regardless of account count (empty export is valid, D7). Host-agnostic: takes
- * only `accountId`, so it can move to `/settings` later with no route change.
+ * "Export CSV" / "Export JSON" download links for the Settings "Your data"
+ * section (data-export-spec §8). Plain `<a download>` GETs — a file download
+ * can't be a Server Action. The current `?account=` scope is carried so the
+ * export matches what the user sees; the server's `Content-Disposition` still
+ * wins for the saved filename. Renders regardless of account count (empty export
+ * is valid, D7). Host-agnostic: takes only `accountId`.
  */
 export function ExportLinks({ accountId }: ExportLinksProps) {
   const query = accountId ? `?account=${accountId}` : "";

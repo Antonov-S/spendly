@@ -18,7 +18,8 @@ export default {
       const isProtected =
         pathname.startsWith("/dashboard") ||
         pathname.startsWith("/profile") ||
-        pathname.startsWith("/onboarding")
+        pathname.startsWith("/onboarding") ||
+        pathname.startsWith("/settings")
 
       // Signed-in users have no reason to see sign-in/register.
       if (isAuthPage) {

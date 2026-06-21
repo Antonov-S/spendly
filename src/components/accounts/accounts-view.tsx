@@ -11,13 +11,10 @@ import {
 import { AccountList } from "@/components/accounts/account-list";
 import { AccountEmptyState } from "@/components/accounts/account-empty-state";
 import { AccountFormDrawer } from "@/components/accounts/account-form-drawer";
-import { ExportLinks } from "@/components/accounts/export-links";
 import type { AccountListRow } from "@/types/accounts";
 
 interface AccountsViewProps {
   accounts: AccountListRow[];
-  /** Current topbar account scope carried onto the export links. */
-  exportAccountId?: string;
 }
 
 interface DrawerState {
@@ -25,7 +22,7 @@ interface DrawerState {
   editId: string | null;
 }
 
-export function AccountsView({ accounts, exportAccountId }: AccountsViewProps) {
+export function AccountsView({ accounts }: AccountsViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [drawer, setDrawer] = useState<DrawerState>({
@@ -83,19 +80,14 @@ export function AccountsView({ accounts, exportAccountId }: AccountsViewProps) {
           </p>
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          {/* Quiet secondary affordance; renders regardless of account count (D7). */}
-          <ExportLinks accountId={exportAccountId} />
-
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-1.5 rounded-lg bg-success px-3 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Add account</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="ml-auto flex items-center gap-1.5 rounded-lg bg-success px-3 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+        >
+          <Plus size={16} />
+          <span className="hidden sm:inline">Add account</span>
+        </button>
       </header>
 
       {accounts.length === 0 ? (

@@ -1,9 +1,50 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth, signOut } from "@/auth";
 import { changeUserPassword } from "@/lib/auth/change-password";
 import { softDeleteAccount } from "@/lib/auth/account";
+import { updateProfileSchema } from "@/lib/validations/profile";
+
+/** Result returned to the settings name form's `useActionState` hook. */
+export interface UpdateProfileState {
+  success?: boolean;
+  /** Timestamp of the successful save; a fresh value each call so the client can
+   *  re-trigger its auto-dismissing banner even when the name is unchanged. */
+  at?: number;
+  error?: string;
+}
+
+/**
+ * Update the signed-in user's display name. Reads the session server-side (S2)
+ * and writes only the `name` column of the user's own row (S3) — never `email`,
+ * `isPro`, `preferredCurrency`, or `stripe*`. Last-write-wins on a single owned
+ * scalar; re-applying the same name is an idempotent no-op write.
+ */
+export async function updateProfile(
+  _prevState: UpdateProfileState,
+  formData: FormData
+): Promise<UpdateProfileState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "You must be signed in to update your profile." };
+  }
+
+  const parsed = updateProfileSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid name." };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id }, // session-derived (S2)
+    data: { name: parsed.data.name }, // name only (S3)
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/profile");
+  return { success: true, at: Date.now() };
+}
 
 /** Result returned to the change-password form's `useActionState` hook. */
 export interface ChangePasswordState {

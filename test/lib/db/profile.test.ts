@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getProfileStats } from "@/lib/db/profile";
+import { getProfileStats, getUserOverview } from "@/lib/db/profile";
 import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: vi.fn() },
     financialAccount: { count: vi.fn() },
     transaction: { count: vi.fn() },
     budget: { count: vi.fn() },
@@ -17,6 +18,7 @@ const transactionCount = vi.mocked(prisma.transaction.count);
 const budgetCount = vi.mocked(prisma.budget.count);
 const goalCount = vi.mocked(prisma.goal.count);
 const recurringCount = vi.mocked(prisma.recurringTemplate.count);
+const userFindUnique = vi.mocked(prisma.user.findUnique);
 
 describe("getProfileStats", () => {
   beforeEach(() => {
@@ -62,6 +64,34 @@ describe("getProfileStats", () => {
     expect(goalCount).toHaveBeenCalledWith({ where: { userId: "user-1" } });
     expect(recurringCount).toHaveBeenCalledWith({
       where: { userId: "user-1" },
+    });
+  });
+});
+
+describe("getUserOverview", () => {
+  beforeEach(() => {
+    userFindUnique.mockReset();
+  });
+
+  // The projection is a drift-prevention contract shared by /profile and
+  // /settings — pin its exact shape so an accidental column drop/add is caught.
+  it("scopes by id and selects exactly the agreed columns", async () => {
+    userFindUnique.mockResolvedValue(null as never);
+
+    await getUserOverview("u1");
+
+    expect(userFindUnique).toHaveBeenCalledTimes(1);
+    const arg = userFindUnique.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: "u1" });
+    expect(arg.select).toEqual({
+      name: true,
+      email: true,
+      image: true,
+      password: true,
+      isPro: true,
+      stripeSubscriptionId: true,
+      preferredCurrency: true,
+      createdAt: true,
     });
   });
 });

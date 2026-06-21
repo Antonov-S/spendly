@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Settings Page
 
 ## Status
 
@@ -6,7 +6,54 @@ Not Started
 
 ## Goals
 
+- Ship `/settings` route as the user-preferences and billing surface
+- Add `updateProfile` Server Action for editing the display name
+- Extract shared `getUserOverview` fetcher to `src/lib/db/user.ts` and migrate `/profile` onto it
+- Extract `PlanBadge` to `src/components/settings/plan-badge.tsx`, imported by both pages
+- Stand up the Billing card (plan state read-out only; Upgrade/Manage buttons deferred to Stripe slice §8)
+- Move Data Export (`<ExportLinks>`) from `/accounts` to a "Your data" section on `/settings` with an active-scope label
+- Add a Settings link to the sidebar bottom utility group between Accounts and Help
+- Add `/settings` to `auth.config.ts` `isProtected`
+
 ## Notes
+
+### Key constraints
+- S1: `/settings` is NOT onboarding-gated — it's an escape hatch like `/profile` and `/accounts`
+- S2/S3: `updateProfile` reads userId from session only; writes only the `name` column
+- S4: Billing plan state read from DB (`User.isPro`), not the session JWT
+- P2: NO Upgrade/Manage buttons yet — those ship with the Stripe slice (§8); dead UI violates principle #6
+- B3: Display names are NOT unique — no constraint, no uniqueness check
+- B4: Last-write-wins on name; double-submit prevented at UI only (SubmitButton disabled while pending); no optimistic UI
+
+### Data export move (§7)
+- Move `<ExportLinks>` from `/accounts` to `/settings` "Your data" section
+- Add scope label derived server-side from `?account=` searchParam: "Exporting: All accounts" / "Exporting: \<name\>"
+- Unknown/invalid `?account=` → normalize away, label "All accounts", forward no scope to export links
+- API routes (`/api/export/csv`, `/api/export/json`) are unchanged — only the UI entry point moves
+
+### Billing section (§6)
+- Ships now: Free/Pro badge + one-line plan summary ("You're on the Free plan." / "Pro · subscription active.")
+- Deferred to §8: "Upgrade to Pro" and "Manage subscription" buttons
+- Leave a single HTML comment as a seam for §8; ship no visible placeholder
+
+### Shared projection (§3.1)
+- New `src/lib/db/user.ts` → `getUserOverview(userId)` — one projection for both `/profile` and `/settings`
+- `/profile` migrated to use this helper (replacing its inline `findUnique`)
+- `password` and `image`/`createdAt` ride along for `/profile`'s needs; Settings ignores them
+
+### Validation
+- New `src/lib/validations/profile.ts` → `updateProfileSchema`
+- `PROFILE_NAME_MAX = 80` added to `system-constants.ts`
+
+### Page layout
+- Standalone centered surface (no AppShell), matching `/profile`
+- `max-w-lg` column, "Back to dashboard" link, then Preferences → Billing → Your data cards
+- Reads `?account=` searchParam for export scope label
+
+### Tests to write
+- `test/actions/profile.test.ts` — `updateProfile`: unauthenticated, valid name (trimmed, only `name` in data), whitespace-only rejected, over-length rejected
+- `test/lib/validations/profile.test.ts` — `updateProfileSchema`: trims, rejects empty/whitespace, rejects over max, accepts normal name
+- `test/lib/db/user.test.ts` — `getUserOverview` projection-shape guard (assert exact `select` columns and `where.id`)
 
 ## History
 

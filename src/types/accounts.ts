@@ -27,6 +27,18 @@ export interface AccountListRow {
 }
 
 /**
+ * Minimal account label including archive state, for resolving a `?account=`
+ * scope id to a display name (e.g. the Settings export scope label). Covers
+ * active *and* archived accounts so a scoped export of an archived account still
+ * resolves to its name.
+ */
+export interface AccountLabel {
+  id: string;
+  name: string;
+  isArchived: boolean;
+}
+
+/**
  * Pre-fill shape for the edit drawer. `type` and `startingBalance` are shown but
  * immutable in MVP; only name/color/icon are editable.
  */
