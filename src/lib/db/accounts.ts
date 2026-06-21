@@ -2,7 +2,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { mapAccountRow } from "@/lib/account";
 import type { AccountOption } from "@/types/transactions";
-import type { AccountListRow, EditableAccount } from "@/types/accounts";
+import type {
+  AccountLabel,
+  AccountListRow,
+  EditableAccount,
+} from "@/types/accounts";
 
 /**
  * Non-archived accounts for the global topbar selector, ordered by name.
@@ -21,6 +25,23 @@ export async function getUserAccounts(
   return prisma.financialAccount.findMany({
     where: { userId, isArchived: false },
     select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/**
+ * All of the user's accounts — active **and** archived — as `{ id, name,
+ * isArchived }`, ordered by name. Lightweight (no balance computation, unlike
+ * `getAccountsWithBalances`): used only to resolve a `?account=` scope id to a
+ * display name (e.g. the Settings export scope label), where an archived but
+ * still-owned account must resolve rather than fall through to "all".
+ */
+export async function getAccountLabels(
+  userId: string
+): Promise<AccountLabel[]> {
+  return prisma.financialAccount.findMany({
+    where: { userId },
+    select: { id: true, name: true, isArchived: true },
     orderBy: { name: "asc" },
   });
 }

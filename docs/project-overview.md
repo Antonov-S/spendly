@@ -738,7 +738,7 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/goals`        | Goal tracking                                 |
 | `/reports`      | Analytics and trends                          |
 | `/accounts`     | Financial account management — list, create, edit, archive |
-| `/settings`     | User settings & billing (account management lives at `/accounts`; settings page not yet built) |
+| `/settings`     | User preferences (display-name edit), billing plan read-out, and data export ("Your data"). Account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page`); Stripe upgrade/manage buttons land with §8. |
 
 ### API Routes
 
@@ -848,8 +848,9 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 > Both are `auth()`-guarded and `userId`-scoped, **tier-agnostic (no `isPro` read)**, per-user
 > rate-limited with a unified `{ error, code }` 401/429/413 contract, and scoped by the `?account=`
 > filter (account-bound entities scope; budgets/goals/categories stay full — the intentional
-> asymmetry). Entry point: "Export CSV / JSON" links on `/accounts`. See `docs/ROADMAP.md` §6 and
-> `docs/features/data-export-spec.md`.
+> asymmetry). Entry point: the "Export CSV / JSON" links now live in the `/settings` "Your data"
+> section (relocated from `/accounts` by `feature/settings-page`), with an active-scope label. See
+> `docs/ROADMAP.md` §6 + §7 and `docs/features/data-export-spec.md`.
 
 ---
 

@@ -32,6 +32,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Dashboard Insights Strip (4) | Actionable pill row on `/dashboard` (budgets at risk, pending recurring drafts, overdue goals) below the metric strip; derived in-process from the page's existing budget/goal arrays + one `count` query for drafts; pure helpers in `src/lib/insights.ts`; renders nothing when all counts are zero |
 | Reports Page (5) | `/reports` analytics module — four hand-rolled SVG charts (spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars); URL-driven period selector (1m/3m/12m) with Free 3-month clamp + upgrade banner (real `isPro` read from DB); per-chart data-sufficiency gating; account scoping via the global selector; pure helpers in `src/lib/report-period.ts` + `src/lib/reports.ts`, fetchers in `src/lib/db/reports.ts`; read-only (no mutations); `UNCATEGORIZED` extracted to `constants.ts` |
 | Data Export (6) | `GET /api/export/{csv,json}` — the first non-auth API routes. CSV flat ledger (UTF-8 BOM + Excel `sep=,` hint, RFC-4180 + formula-injection-safe, transfers as two rows) and a versioned JSON dump (`{ schemaVersion: 1, exportedAt, data }`, derived balances, user-owned categories, nested goal contributions); pure helpers `src/lib/export/*`, fetchers `src/lib/db/export.ts` (`exportTxWhere` mirrors `reportTxWhere`, `EXPORT_ENTITY_CLASS` ownership map); per-`userId` rate limit, unified `{ error, code }` 401/429/413 contract, 10K size cap; tier-agnostic (no `isPro`); entry on `/accounts`; ESLint boundary forbids Prisma in the routes |
+| Settings Page (7) | `/settings` route — standalone centered surface with three cards: **Preferences** (display-name edit via the new `updateProfile` action), **Billing** (Free/Pro `PlanBadge` + plan summary read from the DB; no Upgrade/Manage buttons — §8 seam only), and **Your data** (the relocated `<ExportLinks>` + a server-derived `?account=` scope label). Shared `getUserOverview` projection added to `src/lib/db/profile.ts` (both `/settings` and `/profile` consume it); `PlanBadge` extracted to a shared component; new lightweight `getAccountLabels` fetcher (active + archived). Sidebar Settings link between Accounts and Help; `/settings` added to `auth.config.ts` `isProtected` |
 
 ---
 
@@ -375,9 +376,41 @@ Both routes:
 
 ---
 
-### 7. Settings Page
+### 7. Settings Page ✅ Shipped
 
 **Effort: S · Value: low (surface for Stripe) — the route is listed in the spec; currently `/profile` covers identity but not app configuration.**
+
+> **✅ Shipped (`feature/settings-page`).** Built per `docs/features/settings-page-spec.md`. Realized slice:
+> - **`/settings` page** (`src/app/settings/page.tsx`) — standalone centered surface (no `AppShell`,
+>   mirrors `/profile`), `getSessionOrRedirect` + `getUserOverview`, **not** onboarding-gated (escape
+>   hatch, S1). Three cards: **Preferences**, **Billing**, **Your data**.
+> - **`updateProfile`** added to `src/actions/profile.ts` — session-scoped (S2), writes **only** `name`
+>   (S3), Zod-validated via new `src/lib/validations/profile.ts` (`updateProfileSchema`,
+>   `PROFILE_NAME_MAX = 80`), revalidates `/settings` + `/profile`. The form uses `useActionState` (so
+>   `SubmitButton`'s `useFormStatus` spinner works) with an **auto-dismissing** success banner
+>   (derived visibility + a hide-only timeout, lint-safe; the action returns a fresh `at` nonce so a
+>   repeat save re-shows it). No optimistic UI (B4).
+> - **Billing** reads `isPro` / `stripeSubscriptionId` from the **DB** (S4) — Free/Pro `PlanBadge`
+>   (extracted to `src/components/settings/plan-badge.tsx`, shared with `/profile`) + a one-line plan
+>   summary. **No Upgrade/Manage buttons** — a single HTML-comment seam marks where §8 plugs in (P2).
+> - **Data export relocated** from `/accounts` into the "Your data" card. The host-agnostic
+>   `<ExportLinks>` moved unchanged; a server-derived label reflects the active `?account=` scope
+>   ("All accounts" / "\<name\>" / "(archived)"), with an **unresolvable id normalized away** so the
+>   label and the actual download never disagree. The `/api/export/*` routes are untouched.
+> - **Two spec corrections, both resolved with the user.** (1) `getUserOverview` lives in the existing
+>   `src/lib/db/profile.ts` (alongside `getProfileStats`), **not** a new `src/lib/db/user.ts` as the
+>   spec's decision #5 said — avoids file sprawl; `/profile` was migrated onto it. (2) The spec assumed
+>   a lightweight `{id,name,isArchived}` accounts fetcher existed — it didn't (`getUserAccounts` is
+>   active-only, `{id,name}`), so a new `getAccountLabels` (active + archived) was added to
+>   `src/lib/db/accounts.ts` for scope-label resolution.
+> - **Nav + protection:** sidebar **Settings** link between Accounts and Help; `/settings` added to
+>   `auth.config.ts` `isProtected`. **UI fix:** both `/settings` and `/profile` containers gained
+>   `w-full` — the flex-column `<body>` + `mx-auto` was collapsing the column to content width, so the
+>   two pages now render at a consistent `max-w-lg` (512px).
+> - **Tests:** `test/actions/profile.test.ts` (`updateProfile`), `test/lib/validations/profile.test.ts`,
+>   and a `getUserOverview` projection-shape guard added to the existing `test/lib/db/profile.test.ts`.
+>   429 Vitest tests pass; `npm run build` passes; no schema change. The build plan below is retained
+>   for reference.
 
 The `/settings` page is meant for user preferences and billing. With EUR-only MVP, preference settings are minimal, but Stripe integration lives here.
 
@@ -440,7 +473,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | ✅ **Done.** Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. Derived in-process from existing dashboard fetchers + one `count` query. |
 | 4 | Reports Page (5) | L | Yes — new page | ✅ **Done.** Major analytics module — four hand-rolled SVG charts, URL-driven period selector with the real Free 3-month / Pro 12-month gate, per-chart sufficiency gating, account scoping. Read-only slice; balance-history shipped as the full time-series (no fallback taken). |
 | 5 | Data Export (6) | M | Yes — download | ✅ **Done.** Trust feature, all tiers (no `isPro` read). Two streaming GET routes — RFC-4180 CSV (BOM + Excel `sep=,` hint) and a versioned JSON dump (incl. Goals + contributions); `?account=` scoping with the C2 asymmetry; per-user rate limit + unified error contract; ESLint-enforced no-Prisma-in-routes boundary. |
-| 6 | Settings Page (7) | S | Yes — new page | Config surface; also the host for Stripe billing. |
+| 6 | Settings Page (7) | S | Yes — new page | ✅ **Done.** Config surface — Preferences (display-name edit via `updateProfile`), Billing plan read-out (DB `isPro`, no buttons yet), and the relocated data-export "Your data" section with a scope label. Stands up the host for Stripe billing (#7). |
 | 7 | Stripe Billing (8) | M | No (dev) / launch | Invisible while `isPro = true`; wire after Settings exists. |
 | 8 | User Category Management (3) | M | Yes — pickers | **Deferrable power-user feature** — no downstream deps. Pushed near the end; first candidate to cut to post-launch if the schedule tightens. |
 | 9 | Pre-Launch Polish (9) | M | — | Security review, isPro enforcement, responsive + empty-state QA. Last. |

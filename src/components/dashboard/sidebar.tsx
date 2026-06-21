@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HelpCircle, PanelLeftClose, PanelLeftOpen, Wallet } from "lucide-react";
+import {
+  HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Wallet,
+} from "lucide-react";
 import { Logo } from "@/components/dashboard/logo";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -122,6 +128,25 @@ export function Sidebar({
             strokeWidth={2}
           />
           <span className={cn("text-[13px]", labelClass)}>Accounts</span>
+        </Link>
+
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          title={!isMobile && collapsed ? "Settings" : undefined}
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 transition-colors",
+            pathname === "/settings"
+              ? "border border-line bg-surface text-ink"
+              : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+          )}
+        >
+          <Settings
+            size={16}
+            className={cn("shrink-0", pathname === "/settings" && "text-success")}
+            strokeWidth={2}
+          />
+          <span className={cn("text-[13px]", labelClass)}>Settings</span>
         </Link>
 
         <Link
