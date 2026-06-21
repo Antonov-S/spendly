@@ -839,6 +839,18 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 - Both exports scoped to the current account filter (all accounts or one)
 - Exports generated server-side and streamed as a file download
 
+> **✅ Shipped (`feature/data-export`).** Live at `GET /api/export/csv` and `GET /api/export/json` —
+> the first non-auth API routes (a file download can't be a Server Action). CSV is a flat RFC-4180
+> ledger (UTF-8 BOM + an Excel `sep=,` hint so it opens straight into columns; formula-injection-safe
+> free-text columns; transfers as two rows so `SUM(Amount)` reconciles). JSON is a versioned envelope
+> `{ schemaVersion: 1, exportedAt, data }` with derived account balances, **user-owned categories
+> only**, budgets, goals + nested contributions, recurring templates, and non-deleted transactions.
+> Both are `auth()`-guarded and `userId`-scoped, **tier-agnostic (no `isPro` read)**, per-user
+> rate-limited with a unified `{ error, code }` 401/429/413 contract, and scoped by the `?account=`
+> filter (account-bound entities scope; budgets/goals/categories stay full — the intentional
+> asymmetry). Entry point: "Export CSV / JSON" links on `/accounts`. See `docs/ROADMAP.md` §6 and
+> `docs/features/data-export-spec.md`.
+
 ---
 
 ## Security

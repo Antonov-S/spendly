@@ -68,7 +68,11 @@ export const RATE_LIMITS = {
   register: { limit: 3, window: "1 h" },
   forgotPassword: { limit: 3, window: "1 h" },
   resetPassword: { limit: 5, window: "15 m" },
-  resendVerification: { limit: 3, window: "15 m" }
+  resendVerification: { limit: 3, window: "15 m" },
+  // The export pair is the heaviest authenticated read and a download link is
+  // trivially re-triggerable. Keyed per-userId (not IP); both /api/export/csv
+  // and /api/export/json share this one budget.
+  export: { limit: 10, window: "1 m" }
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -106,6 +110,24 @@ export const REPORTS_FREE_MAX_MONTHS = 3;
  * enumerating every month/account.
  */
 export const ARIA_SUMMARY_MAX = 3;
+
+/**
+ * Bump on ANY structural change to the JSON export envelope (data-export-spec
+ * §6.2): renaming/removing a key, changing a field's type/units, or changing
+ * the date/number encoding. Lets a future importer detect format generations.
+ */
+export const EXPORT_JSON_SCHEMA_VERSION = 1;
+
+/** Download filename stem: `spendly-export-YYYY-MM-DD.<ext>`. */
+export const EXPORT_FILENAME_PREFIX = "spendly-export";
+
+/**
+ * Hard cap on transactions per export (data-export-spec D8 / §7.2). The fetcher
+ * takes `cap + 1` so overflow is detectable: CSV truncates with a marker row,
+ * JSON returns 413. A safety rail (MVP ceiling is ≤10K tx/user), not the
+ * expected path.
+ */
+export const EXPORT_MAX_TRANSACTIONS = 10_000;
 
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {

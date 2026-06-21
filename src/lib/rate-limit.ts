@@ -90,8 +90,10 @@ export function getClientIp(headers: Headers): string {
 
 /**
  * Standard 429 response for the plain API route handlers (register,
- * forgot/reset password, resend verification). Includes a `Retry-After`
- * header and a user-facing minutes message for the toast.
+ * forgot/reset password, resend verification, export). Includes a `Retry-After`
+ * header, a user-facing minutes message, and a stable `code` so the export
+ * routes' unified failure contract (`{ error, code }`, data-export-spec §7.1.1)
+ * is one shape across 401/429/413.
  */
 export function tooManyRequestsResponse(retryAfterSeconds: number): NextResponse {
   const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
@@ -100,6 +102,7 @@ export function tooManyRequestsResponse(retryAfterSeconds: number): NextResponse
       error: `Too many attempts. Please try again in ${minutes} minute${
         minutes === 1 ? "" : "s"
       }.`,
+      code: "rate_limited",
     },
     { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
   );

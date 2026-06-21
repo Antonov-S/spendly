@@ -2,6 +2,17 @@
 
 Spendly uses a three-layer data access pattern: **async server components** call **server-only Prisma fetchers** (`src/lib/db/`) for reads, and **`"use server"` Server Actions** (`src/actions/`) for mutations. API routes (`src/app/api/`) are reserved for Stripe webhooks, third-party integrations, and the endpoints listed in the project spec that need to be callable outside the Next.js render cycle. Every layer enforces row-level ownership by scoping all Prisma queries to `session.user.id`.
 
+> **✅ Realized non-auth API route (`feature/data-export`).** The **data-export** routes
+> (`GET /api/export/csv`, `GET /api/export/json`) are the first non-auth API routes in the codebase and
+> the canonical example of this "callable outside the render cycle" exception — a file download needs
+> `Content-Disposition` + streaming, which a Server Action cannot do. They keep the three-layer split
+> intact: reads go through a server-only fetcher (`src/lib/db/export.ts` — `exportTxWhere`,
+> `getTransactionsForExport`, `getFullExport`), pure transforms live in `src/lib/export/*`, and the
+> route handler is HTTP/stream glue only (`auth()` → rate-limit → fetch → stream). The boundary is
+> enforced by an ESLint `no-restricted-imports` override forbidding `@/lib/prisma` in
+> `src/app/api/export/**`. Read-only — no Server Actions, no `revalidate*`. See `docs/ROADMAP.md` §6
+> and `docs/features/data-export-spec.md`.
+
 ---
 
 ## Transaction
@@ -444,7 +455,7 @@ System categories (`isSystem = true`) are never mutated through the app. Any att
 | DB fetchers (reads) | `src/lib/db/<entity>.ts` | `import "server-only"` at top; Prisma queries only; returns typed domain objects |
 | Server Actions (mutations) | `src/actions/<entity>.ts` | `"use server"` directive; Zod validation; `auth()` session check; `{ success, data?, error? }` return |
 | Server components (pages) | `src/app/(app)/<route>/page.tsx` | `async` function; calls DB fetchers directly via `Promise.all`; passes typed props to client components |
-| API routes | `src/app/api/<route>/route.ts` | Only for webhooks, file uploads, or spec-listed endpoints callable outside the render cycle |
+| API routes | `src/app/api/<route>/route.ts` | Only for webhooks, file uploads, or spec-listed endpoints callable outside the render cycle. ✅ Realized: the data-export streaming routes `src/app/api/export/{csv,json}/route.ts` (DB only via `src/lib/db/export.ts`; ESLint-enforced) |
 
 ### Soft-delete pattern
 

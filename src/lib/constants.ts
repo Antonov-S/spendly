@@ -174,6 +174,33 @@ export const UNCATEGORIZED = {
   icon: "HelpCircle",
 } as const;
 
+/**
+ * CSV export column headers, in output order (data-export-spec §5). Drives both
+ * `EXPORT_CSV_HEADER` and the per-row builder, so the header line and the cell
+ * order can never drift. Date/Amount/Type are controlled columns; the remaining
+ * four are free-text and get formula-injection neutralization.
+ */
+export const EXPORT_CSV_COLUMNS = [
+  "Date",
+  "Amount",
+  "Type",
+  "Category",
+  "Account",
+  "Merchant",
+  "Note",
+] as const;
+
+/**
+ * Excel delimiter hint emitted as the CSV's first line (before the header) so
+ * Excel splits our comma-delimited file into columns on double-click — without
+ * it, European-locale Excel (where `,` is the decimal separator) defaults to
+ * `;` and dumps each row into one cell. Google Sheets / LibreOffice honor it too.
+ * A transport concern: the route stream prepends it after the BOM, so the pure
+ * `transactionsToCsv` stays a clean header+rows transform. Strict RFC-4180
+ * consumers (a future importer) must skip this non-data line.
+ */
+export const EXPORT_CSV_EXCEL_HINT = "sep=,";
+
 /** Cadence options for the recurring template form select. */
 export const CADENCE_OPTIONS = [
   { value: "DAILY", label: "Daily" },

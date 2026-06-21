@@ -31,6 +31,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Onboarding + Currency (1 + 0) | First-run gate (`requireOnboarded`/`redirectIfOnboarded` server guards, derived from `activeAccountCount > 0`) + `/onboarding` 3-step flow (account → starter budgets → done); budget currency resolves from `DEFAULT_CURRENCY` (EUR); schema currency defaults reconciled to EUR + USD→EUR backfill migration; `formatCurrency` switched to `€` app-wide |
 | Dashboard Insights Strip (4) | Actionable pill row on `/dashboard` (budgets at risk, pending recurring drafts, overdue goals) below the metric strip; derived in-process from the page's existing budget/goal arrays + one `count` query for drafts; pure helpers in `src/lib/insights.ts`; renders nothing when all counts are zero |
 | Reports Page (5) | `/reports` analytics module — four hand-rolled SVG charts (spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars); URL-driven period selector (1m/3m/12m) with Free 3-month clamp + upgrade banner (real `isPro` read from DB); per-chart data-sufficiency gating; account scoping via the global selector; pure helpers in `src/lib/report-period.ts` + `src/lib/reports.ts`, fetchers in `src/lib/db/reports.ts`; read-only (no mutations); `UNCATEGORIZED` extracted to `constants.ts` |
+| Data Export (6) | `GET /api/export/{csv,json}` — the first non-auth API routes. CSV flat ledger (UTF-8 BOM + Excel `sep=,` hint, RFC-4180 + formula-injection-safe, transfers as two rows) and a versioned JSON dump (`{ schemaVersion: 1, exportedAt, data }`, derived balances, user-owned categories, nested goal contributions); pure helpers `src/lib/export/*`, fetchers `src/lib/db/export.ts` (`exportTxWhere` mirrors `reportTxWhere`, `EXPORT_ENTITY_CLASS` ownership map); per-`userId` rate limit, unified `{ error, code }` 401/429/413 contract, 10K size cap; tier-agnostic (no `isPro`); entry on `/accounts`; ESLint boundary forbids Prisma in the routes |
 
 ---
 
@@ -323,9 +324,40 @@ No `/reports` page exists. Four charts are required.
 
 ---
 
-### 6. Data Export
+### 6. Data Export ✅ Shipped
 
 **Effort: M · Value: medium (trust feature) — in MVP definition; available to all tiers (not a Pro gate).**
+
+> **✅ Shipped (`feature/data-export`).** Built per `docs/features/data-export-spec.md`. Realized slice:
+> - **Two GET routes — the first non-auth API routes** (`src/app/api/export/{csv,json}/route.ts`),
+>   `runtime="nodejs"` + `dynamic="force-dynamic"`, streamed via `ReadableStream`. Read-only — no
+>   actions, no `revalidate*` (like Reports).
+> - **Pure ↔ model ↔ HTTP split.** Pure helpers `src/lib/export/{csv,json,filename}.ts` (RFC-4180
+>   `escapeCsvField` + formula-injection-safe `escapeCsvTextField`, `buildExportEnvelope`,
+>   `exportFilename` — all unit-tested); model `src/lib/db/export.ts` (`exportTxWhere` mirroring
+>   `reportTxWhere`, `getTransactionsForExport`, `getFullExport`, the `EXPORT_ENTITY_CLASS` ownership
+>   map); routes are HTTP/stream glue only. An ESLint `no-restricted-imports` override forbids Prisma in
+>   `src/app/api/export/**`, so route handlers reach the DB only through `db/export.ts`.
+> - **CSV** = flat ledger, one row per non-deleted tx (transfers = two rows), signed bare-number
+>   amounts, 7 `EXPORT_CSV_COLUMNS`, UTF-8 BOM. **Added beyond the spec:** a leading `sep=,` line so
+>   Excel splits columns on double-click (European-locale Excel otherwise defaults to `;` and dumps each
+>   row into one cell) — emitted as a transport-level line in the route, leaving the pure
+>   `transactionsToCsv` a clean header+rows transform; strict RFC-4180 consumers must skip it.
+> - **JSON** = versioned envelope `{ schemaVersion: 1, exportedAt, data }`, pretty-printed; derived
+>   account balances, **user-owned categories only**, budgets, goals + nested contributions, recurring
+>   templates, non-deleted transactions. Decimal→number, `@db.Date`→`YYYY-MM-DD`.
+> - **Security/scoping:** `auth()`-guarded (401 JSON, no redirect), every query `userId`-scoped,
+>   **tier-agnostic — `isPro` is never read** (S6). `?account=` scopes account-bound entities; budgets/
+>   goals/categories stay full (the deliberate C2 asymmetry — do not "normalize"). Per-`userId` rate
+>   limit (`RATE_LIMITS.export`, 10/min, fail-open) + a unified `{ error, code }` shape for 401/429/413
+>   (the shared `tooManyRequestsResponse` gained `code: "rate_limited"`); 10K-tx size cap (CSV `#` marker
+>   row / JSON 413). Empty export is valid (header-only CSV / empty-arrays JSON) — never 500/redirect.
+> - **Entry point:** `<ExportLinks>` on `/accounts` carrying the current `?account=`. New constants:
+>   `EXPORT_JSON_SCHEMA_VERSION` / `EXPORT_FILENAME_PREFIX` / `EXPORT_MAX_TRANSACTIONS` + `RATE_LIMITS.export`
+>   (system); `EXPORT_CSV_COLUMNS` / `EXPORT_CSV_EXCEL_HINT` (UI). 37 new Vitest tests (417 total);
+>   `npm run test:run` + `npm run build` pass; **no schema change**. Playwright QA confirmed CSV
+>   BOM/`sep=,`/columns, the JSON envelope + C2 asymmetry, account scoping, and the 401 path. The build
+>   plan below is retained for reference.
 
 **What to build:**
 
@@ -407,7 +439,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | 2 | Onboarding + currency fixes (1 + 0) | M | Yes — new signups | ✅ **Done.** Affects *every* new user's first run; bundled the Step 0 currency/empty-state fixes (same surfaces). Completes the core capture loop for a brand-new account. Also switched `formatCurrency` to `€` app-wide. |
 | 3 | Dashboard Insights Strip (4) | S | Yes — dashboard | ✅ **Done.** Cheap visible win; Goals (1st) is done so the overdue-goals pill is real. Derived in-process from existing dashboard fetchers + one `count` query. |
 | 4 | Reports Page (5) | L | Yes — new page | ✅ **Done.** Major analytics module — four hand-rolled SVG charts, URL-driven period selector with the real Free 3-month / Pro 12-month gate, per-chart sufficiency gating, account scoping. Read-only slice; balance-history shipped as the full time-series (no fallback taken). |
-| 5 | Data Export (6) | M | Yes — download | Trust feature, all tiers; JSON dump now includes Goals. |
+| 5 | Data Export (6) | M | Yes — download | ✅ **Done.** Trust feature, all tiers (no `isPro` read). Two streaming GET routes — RFC-4180 CSV (BOM + Excel `sep=,` hint) and a versioned JSON dump (incl. Goals + contributions); `?account=` scoping with the C2 asymmetry; per-user rate limit + unified error contract; ESLint-enforced no-Prisma-in-routes boundary. |
 | 6 | Settings Page (7) | S | Yes — new page | Config surface; also the host for Stripe billing. |
 | 7 | Stripe Billing (8) | M | No (dev) / launch | Invisible while `isPro = true`; wire after Settings exists. |
 | 8 | User Category Management (3) | M | Yes — pickers | **Deferrable power-user feature** — no downstream deps. Pushed near the end; first candidate to cut to post-launch if the schedule tightens. |

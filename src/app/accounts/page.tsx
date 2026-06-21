@@ -6,9 +6,17 @@ import { getUserAccounts, getAccountsWithBalances } from "@/lib/db/accounts";
 import { AppShell } from "@/components/layout/app-shell";
 import { AccountsView } from "@/components/accounts/accounts-view";
 
-export default async function AccountsPage() {
+interface AccountsPageProps {
+  searchParams: Promise<{ account?: string }>;
+}
+
+export default async function AccountsPage({ searchParams }: AccountsPageProps) {
   const session = await getSessionOrRedirect();
   const userId = session.user.id;
+
+  // The current topbar scope — carried onto the export links so a download
+  // matches what the user sees.
+  const accountId = (await searchParams).account || undefined;
 
   // The management list includes archived accounts (shown in a separate
   // section); `accounts` is shell chrome for the topbar selector (active-only).
@@ -27,7 +35,7 @@ export default async function AccountsPage() {
       }}
     >
       <Suspense key={rows.length}>
-        <AccountsView accounts={rows} />
+        <AccountsView accounts={rows} exportAccountId={accountId} />
       </Suspense>
     </AppShell>
   );

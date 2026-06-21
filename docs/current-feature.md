@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature — Data Export
 
 ## Status
 
@@ -6,7 +6,64 @@ Not Started
 
 ## Goals
 
+- Ship `GET /api/export/csv` — UTF-8 BOM, 7-column flat ledger, one row per non-deleted transaction (transfers = two rows), RFC-4180 quoting, formula-injection neutralization, `Content-Disposition` filename
+- Ship `GET /api/export/json` — versioned envelope `{ schemaVersion: 1, exportedAt, data }`, pretty-printed, full structured dump with derived account balances and nested goal contributions
+- Auth-guard both routes (`401`, no redirect); scope every query by `session.user.id`; no `isPro` gate (Free and Pro both export)
+- Account scoping via `?account=`: all-accounts → active only; explicit id → honored (archived allowed); foreign id → empty
+- Rate limit: shared `export` policy, keyed by `userId`, 10 req/min sliding window, fail-open
+- Unified pre-stream failure contract: `401`/`429`/`413` all return `{ error, code }` JSON
+- Size cap: `EXPORT_MAX_TRANSACTIONS = 10_000`; CSV truncates with marker row, JSON returns `413`
+- Empty export is valid (D7): header-only CSV / empty-arrays JSON — never 500 or redirect
+- Entry point on `/accounts` page: "Export CSV" / "Export JSON" links carrying current `?account=`
+- Unit tests: pure helpers + DB query-contract (mocked Prisma); `npm run test:run` + `npm run build` green; no schema change
+
 ## Notes
+
+### Architecture
+
+- **API routes, not Server Actions** — file downloads need `Content-Disposition`, streaming, and `<a href>` GET; Server Actions can't do this (first non-auth API route in the codebase — by design)
+- `runtime = "nodejs"`, `dynamic = "force-dynamic"` on both routes (Prisma + Web streams)
+- Hard separation: pure helpers (`src/lib/export/*`) → model (`src/lib/db/export.ts`) → route handlers (HTTP/stream glue only)
+- ESLint `no-restricted-imports` on `src/app/api/export/**` to forbid direct Prisma access (routes go through `db/export.ts` only)
+
+### Key contract rules (§1)
+
+- **S5** CSV free-text columns (Category, Account, Merchant, Note) use `escapeCsvTextField` (formula-prefix + RFC-4180); controlled columns (Date, Amount, Type) use `escapeCsvField` only — `Amount`'s leading `-` must survive
+- **C1** `exportTxWhere(userId, accountId)` is the single scoping source — `deletedAt: null` always, no accountId → `isArchived: false`, explicit id → no `isArchived` filter
+- **C2** JSON scoping asymmetry: account-bound entities scope to `?account=`; budgets/goals/categories are always included in full (scoping them to an account is meaningless — do not "normalize" this)
+- **D4** Transfers export as both legs (CSV = two rows, JSON = `transferPairId` + `isTransferLeg`); no display-time collapse
+- **D6** `EXPORT_ENTITY_CLASS` map: `financialAccount`/`transaction`/`recurringTemplate` = `"bound"`, `category`/`budget`/`goal` = `"global"`, `recurringDraft`/`user` = `"never"`; categories: `isSystem: false` only
+
+### Entry point (§8)
+
+- Plain links (MAY: Popover menu) in `/accounts` page header area
+- Renders even with zero accounts (empty export is valid)
+- Component `<ExportLinks accountId? />` — host-agnostic for future `/settings` reuse
+
+### Open choices
+
+- Popover menu vs plain links → **plain links** (simpler)
+- Rate-limit window tuning → ship at `{ limit: 10, window: "1 m" }`, tune upward after real traffic
+
+### File plan
+
+| File | Action |
+|---|---|
+| `src/lib/export/csv.ts` | create — `escapeCsvField`, `escapeCsvTextField`, `csvRow`, `transactionsToCsv`, `EXPORT_CSV_HEADER` |
+| `src/lib/export/json.ts` | create — `buildExportEnvelope` |
+| `src/lib/export/filename.ts` | create — `exportFilename` |
+| `src/lib/db/export.ts` | create — `exportTxWhere`, `getTransactionsForExport`, `getFullExport`, `EXPORT_ENTITY_CLASS` |
+| `src/types/export.ts` | create — `ExportTransactionRow`, `FullExport`, `ExportEnvelope<T>` |
+| `src/lib/system-constants.ts` | modify — add `EXPORT_JSON_SCHEMA_VERSION`, `EXPORT_FILENAME_PREFIX`, `EXPORT_MAX_TRANSACTIONS`, `RATE_LIMITS.export` |
+| `src/lib/constants.ts` | modify — add `EXPORT_CSV_COLUMNS` |
+| `src/app/api/export/csv/route.ts` | create |
+| `src/app/api/export/json/route.ts` | create |
+| `src/components/accounts/export-links.tsx` | create |
+| `src/app/accounts/page.tsx` | modify — read `?account=`, render `<ExportLinks>` |
+| `test/lib/export/csv.test.ts` | create |
+| `test/lib/export/json.test.ts` | create |
+| `test/lib/export/filename.test.ts` | create |
+| `test/lib/db/export.test.ts` | create |
 
 ## History
 
