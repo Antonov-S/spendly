@@ -1,63 +1,16 @@
-# Current Feature — Stripe Billing (ROADMAP §8)
+# Current Feature
 
 ## Status
 
-In Progress — implementation complete (478 tests + build pass); pending manual Stripe-CLI acceptance + commit
+Not Started
 
 ## Goals
 
-- Free users can subscribe to Pro (€3/mo or €25/yr) from `/settings`
-- Pro users can manage/cancel their subscription via the Stripe Customer Portal
-- A Stripe webhook reconciles `User.isPro` / `stripeCustomerId` / `stripeSubscriptionId` so the plan flips without a re-sign-in
-- The existing Reports 12-month gate becomes meaningful (Free users who subscribe immediately unlock the full history)
-- Account deletion cancels the Stripe subscription (no orphan billing after soft-delete)
+<!-- Add feature goals here -->
 
 ## Notes
 
-### Key constraints from spec
-
-- **No schema migration** — `User.isPro`, `User.stripeCustomerId`, `User.stripeSubscriptionId` already exist
-- **Webhook is the only surface that may set `isPro = true`** (S2) — no action or page may grant Pro directly
-- **`isPro` is never threaded through the session JWT** — all billing UI reads fresh from DB via `getUserOverview`/`getReportProfile` (existing pattern)
-- **Webhook uses `updateMany` for subscription events** (not `update`) so out-of-order delivery is a safe no-op, not a P2025 crash (R1/R6)
-- **`active` and `trialing` → Pro; all other statuses → Free** (R2)
-- **Return-side reconciliation** — `success_url` includes `{CHECKOUT_SESSION_ID}`; on `?checkout=success` the settings page calls `reconcileCheckoutReturn(userId)` to close the webhook-race gap at first paint (§5/§12.7, ship enabled)
-- **Marketing `PRICING.currency` flips `"$"` → `"€"`** (§12.1) to unify display, billing, and finance data on EUR
-- **Extract `getBaseUrl()`** to `src/lib/url.ts` (§12.3) — currently duplicated in both email helpers; billing makes a third consumer
-- **No new rate limiter** — webhook is signature-authenticated (S5); checkout/portal are auth()-guarded (§12.4)
-- **Cancel-on-delete** — soft-delete path cancels the Stripe subscription before marking `deletedAt`; Stripe errors are swallowed (§9)
-- **Stripe SDK**: `stripe@^22.2.2`, `apiVersion: "2026-05-27.dahlia"`
-- **⚠ Basil breaking change**: `subscription.current_period_end` now lives at `subscription.items.data[i].current_period_end` — handler never reads it (derives Pro from `status` only), but don't reintroduce the old field
-
-### New files
-- `src/lib/stripe.ts` — SDK singleton, `STRIPE_PRICE_IDS`, `BillingPeriod`
-- `src/lib/stripe/events.ts` — pure event→intent mapper (unit-tested)
-- `src/lib/db/billing.ts` — `linkCheckout` / `syncSubscription` / `clearSubscription` / `reconcileCheckoutReturn`
-- `src/lib/url.ts` — shared `getBaseUrl()`
-- `src/actions/billing.ts` — `createCheckoutSession` / `createPortalSession`
-- `src/app/api/stripe/webhook/route.ts` — verified webhook glue
-- `src/components/settings/billing-actions.tsx` — Free/Pro action buttons + `?checkout=` banner
-- `test/lib/stripe/events.test.ts`, `test/lib/db/billing.test.ts`, `test/actions/billing.test.ts`
-
-### Modified files
-- `package.json` + lockfile — add `stripe@^22.2.2`
-- `.env.example` — standardize on `STRIPE_PRICE_ID_MONTHLY/YEARLY`, remove `STRIPE_PUBLISHABLE_KEY`
-- `src/app/settings/page.tsx` — replace `{/* §8 … */}` seam with `<BillingActions/>`; read `?checkout=` + `?session_id=`; call `reconcileCheckoutReturn`
-- `src/actions/profile.ts` or `src/lib/auth/account.ts` — cancel-on-delete
-- `src/lib/email/send-verification-email.ts` + `send-password-reset-email.ts` — import shared `getBaseUrl()`
-- `src/lib/marketing/pricing.ts` — `PRICING.currency` `"$"` → `"€"`
-- `test/actions/profile.test.ts` — extend for cancel-on-delete
-- `test/lib/marketing/pricing.test.ts` — update `$` → `€` assertion
-- `docs/project-overview.md` — reconcile env-var names in the table
-
-### Implementation order
-1. SDK + env — add `stripe`, `src/lib/stripe.ts`, clean `.env.example`, extract `getBaseUrl()`
-2. DB writers + pure mapper — `billing.ts`, `events.ts`, with unit tests
-3. Webhook route — verify with `stripe trigger`
-4. Billing actions — `createCheckoutSession` / `createPortalSession` + tests
-5. Settings UI — `<BillingActions/>`, `?checkout=` banner
-6. Cancel-on-delete — extend profile tests
-7. Verify gate + acceptance; reconcile docs
+<!-- Add feature notes here -->
 
 ## History
 
@@ -94,3 +47,4 @@ In Progress — implementation complete (478 tests + build pass); pending manual
 - **Reports Page** — Full analytics module for `/reports` (ROADMAP §5). Read-only (no mutations): six server-only fetchers in `src/lib/db/reports.ts` (`getCategoryBreakdown` with one batched category lookup / no N+1, `getMonthlyComparison`, `getAccountBalanceHistory`, `getReportTxCount`, `getReportProfile`, exported pure `reportTxWhere`); cashflow derives from monthly-comparison buckets in-process (no extra query). Pure helpers: `src/lib/report-period.ts` (`parsePeriod`, `periodBounds` half-open UTC `[from,to)` with Dec→Jan wrap, `monthsInRange` — drives x-axis so zero-activity months render — `isPeriodAllowed`, `resolveEffectivePeriod`); `src/lib/reports.ts` (`bucketByMonth`, `reconstructBalanceHistory`, `hasCategoryData`, `hasBalanceData`, `hasEnoughForTrends`, `trendNudgeCopy`). Pro gate: `isPro` read from the DB via `getReportProfile` (not the session); a Free 12m request clamps the query to 3m via `resolveEffectivePeriod`, keeps the 3-month charts rendered, and shows an upgrade banner above the grid — the 12-month query never runs for Free. Four dependency-free SVG charts in `src/components/reports/`: spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars — account-balance shipped as the full per-month time-series (no §7.1 fallback taken); negative balances supported (Credit Card / Cash). Per-chart gating: category + balance on data presence; only the two trend charts hold out for `REPORTS_MIN_TRANSACTIONS = 15` with the spec's exact nudge copy. Each `<svg>` is `role="img"` with a data-summarizing `aria-label` (top `ARIA_SUMMARY_MAX = 3` entries then "and N more") + `aria-hidden` on decorative shapes + real-DOM legend; color never the only signal. `UNCATEGORIZED` constant extracted to `constants.ts`, retiring inline copies in `db/dashboard.ts` and `transaction-row.tsx`. New constants: `REPORTS_MIN_TRANSACTIONS`, `REPORTS_FREE_MAX_MONTHS`, `ARIA_SUMMARY_MAX` (system); `REPORT_PERIOD_OPTIONS`, `UNCATEGORIZED` (UI). 35 new Vitest tests (380 total); build passes; no schema change; Playwright QA verified Pro 12m, the Free clamp, account scoping (both params preserved), and the sparse-account nudge.
 - **Data Export** — `GET /api/export/csv` and `GET /api/export/json` — the first non-auth API routes (ROADMAP §6). CSV: flat RFC-4180 ledger, UTF-8 BOM + `sep=,` Excel hint (so columns split on double-click in European-locale Excel), formula-injection-safe free-text columns (`escapeCsvTextField`), transfers as two rows. JSON: versioned envelope `{ schemaVersion: 1, exportedAt, data }` (pretty-printed), derived account balances, user-owned categories only, budgets, goals + nested contributions, recurring templates, non-deleted transactions; Decimal→number, `@db.Date`→`YYYY-MM-DD`. Three-layer split: pure helpers `src/lib/export/{csv,json,filename}.ts` → model `src/lib/db/export.ts` (`exportTxWhere`, `getTransactionsForExport`, `getFullExport`, `EXPORT_ENTITY_CLASS`) → thin route glue; ESLint `no-restricted-imports` enforces no Prisma in routes. Auth-guarded (401 JSON, no redirect), `userId`-scoped, tier-agnostic (no `isPro` read, S6); per-user rate limit (`RATE_LIMITS.export`, 10/min, fail-open); unified `{ error, code }` failure contract for 401/429/413 (`tooManyRequestsResponse` gained `code: "rate_limited"`); 10K-tx size cap (CSV `#` marker / JSON 413); empty export valid (D7). `?account=` scoping with the intentional C2 asymmetry (account-bound entities scope; budgets/goals/categories always full). Entry: `<ExportLinks>` on `/accounts` page carrying `?account=`. 37 new Vitest tests (417 total); build passes; no schema change.
 - **Settings Page** — `/settings` route with three cards: **Preferences** (display-name edit via `updateProfile` Server Action with 5-second auto-dismissing success banner, email read-only), **Billing** (Free/Pro badge + plan summary from DB, Upgrade/Manage buttons deferred to Stripe slice §8 with HTML comment seam), **Your data** (Data Export relocated from `/accounts`, scope label derived from `?account=` searchParam). Architecture: `getUserOverview` shared projection added to `src/lib/db/profile.ts` (both `/settings` and `/profile` use it — drift prevention); `getAccountLabels` lightweight fetcher in `src/lib/db/accounts.ts` for scope resolution (active + archived, `{id, name, isArchived}` only, no balance computation); `updateProfileSchema` + `PROFILE_NAME_MAX = 80` in `src/lib/validations/profile.ts` / `system-constants.ts`; `PlanBadge` extracted to `src/components/settings/plan-badge.tsx` (imported by both pages). `/settings` is NOT onboarding-gated (escape hatch like `/accounts` and `/profile`); added to `auth.config.ts` `isProtected`. Settings sidebar link added between Accounts and Help. `<ExportLinks>` removed from `/accounts`. Two corrections from spec: `getUserOverview` landed in `profile.ts` (not a new `user.ts`); `getAccountLabels` is new (the spec assumed an active+archived fetcher existed). Fixes: `w-full` on both page containers (width discrepancy between `/profile` and `/settings`); auto-dismiss banner uses `at` nonce from action + `dismissedAt` client state (plain `useState` + Sonner both fail post-action because route refresh resets state / drops toast). 11 new Vitest tests (429 total); build passes.
+- **Stripe Billing** — Pro subscriptions (€3/mo, €25/yr) via Stripe Checkout + Customer Portal (ROADMAP §8). `src/lib/stripe.ts`: lazy SDK singleton (`stripe@^22.2.2`, `apiVersion: "2026-05-27.dahlia"`), `STRIPE_PRICE_IDS`, `BillingPeriod`. `src/lib/stripe/events.ts`: pure event→intent mapper (Vitest-safe, no Prisma). `src/lib/db/billing.ts`: `linkCheckout` / `syncSubscription` (updateMany — out-of-order safe) / `clearSubscription` / `reconcileCheckoutReturn`. `src/lib/url.ts`: shared `getBaseUrl()` extracted from email helpers. `src/actions/billing.ts`: `createCheckoutSession` / `createPortalSession`. `src/app/api/stripe/webhook/route.ts`: signature-verified webhook; 500 on handler throw (Stripe retries), 200 on unknown events. `src/components/settings/billing-actions.tsx`: Free upgrade buttons + Pro manage button + `?checkout=success/cancelled` inline banners (no Sonner — /settings renders outside AppShell). Webhook is the only surface that sets `isPro = true` (S2); `isPro` never threaded through JWT — read fresh from DB at every consumption point. Return-side reconciliation closes the webhook/redirect race at first paint. Cancel-on-delete: `softDeleteAccount` cancels the Stripe subscription before stamping `deletedAt`; Stripe errors swallowed (keeps `stripeCustomerId` for audit). `PRICING.currency` `$` → `€`. ESLint `no-restricted-imports` extended to `src/app/api/stripe/**`. No schema migration (columns already existed). 57 new Vitest tests (478 total); build passes.
