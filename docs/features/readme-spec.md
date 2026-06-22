@@ -271,9 +271,8 @@ EMAIL_VERIFICATION_ENABLED=   # "false" disables verification; otherwise on
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
-# Stripe (billing)
+# Stripe (billing; server-only — no browser Stripe.js, so no publishable key)
 STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_ID_MONTHLY=
 STRIPE_PRICE_ID_YEARLY=

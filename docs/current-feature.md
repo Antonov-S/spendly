@@ -1,12 +1,63 @@
-# Current Feature
+# Current Feature — Stripe Billing (ROADMAP §8)
 
 ## Status
 
-Not Started
+In Progress — implementation complete (478 tests + build pass); pending manual Stripe-CLI acceptance + commit
 
 ## Goals
 
+- Free users can subscribe to Pro (€3/mo or €25/yr) from `/settings`
+- Pro users can manage/cancel their subscription via the Stripe Customer Portal
+- A Stripe webhook reconciles `User.isPro` / `stripeCustomerId` / `stripeSubscriptionId` so the plan flips without a re-sign-in
+- The existing Reports 12-month gate becomes meaningful (Free users who subscribe immediately unlock the full history)
+- Account deletion cancels the Stripe subscription (no orphan billing after soft-delete)
+
 ## Notes
+
+### Key constraints from spec
+
+- **No schema migration** — `User.isPro`, `User.stripeCustomerId`, `User.stripeSubscriptionId` already exist
+- **Webhook is the only surface that may set `isPro = true`** (S2) — no action or page may grant Pro directly
+- **`isPro` is never threaded through the session JWT** — all billing UI reads fresh from DB via `getUserOverview`/`getReportProfile` (existing pattern)
+- **Webhook uses `updateMany` for subscription events** (not `update`) so out-of-order delivery is a safe no-op, not a P2025 crash (R1/R6)
+- **`active` and `trialing` → Pro; all other statuses → Free** (R2)
+- **Return-side reconciliation** — `success_url` includes `{CHECKOUT_SESSION_ID}`; on `?checkout=success` the settings page calls `reconcileCheckoutReturn(userId)` to close the webhook-race gap at first paint (§5/§12.7, ship enabled)
+- **Marketing `PRICING.currency` flips `"$"` → `"€"`** (§12.1) to unify display, billing, and finance data on EUR
+- **Extract `getBaseUrl()`** to `src/lib/url.ts` (§12.3) — currently duplicated in both email helpers; billing makes a third consumer
+- **No new rate limiter** — webhook is signature-authenticated (S5); checkout/portal are auth()-guarded (§12.4)
+- **Cancel-on-delete** — soft-delete path cancels the Stripe subscription before marking `deletedAt`; Stripe errors are swallowed (§9)
+- **Stripe SDK**: `stripe@^22.2.2`, `apiVersion: "2026-05-27.dahlia"`
+- **⚠ Basil breaking change**: `subscription.current_period_end` now lives at `subscription.items.data[i].current_period_end` — handler never reads it (derives Pro from `status` only), but don't reintroduce the old field
+
+### New files
+- `src/lib/stripe.ts` — SDK singleton, `STRIPE_PRICE_IDS`, `BillingPeriod`
+- `src/lib/stripe/events.ts` — pure event→intent mapper (unit-tested)
+- `src/lib/db/billing.ts` — `linkCheckout` / `syncSubscription` / `clearSubscription` / `reconcileCheckoutReturn`
+- `src/lib/url.ts` — shared `getBaseUrl()`
+- `src/actions/billing.ts` — `createCheckoutSession` / `createPortalSession`
+- `src/app/api/stripe/webhook/route.ts` — verified webhook glue
+- `src/components/settings/billing-actions.tsx` — Free/Pro action buttons + `?checkout=` banner
+- `test/lib/stripe/events.test.ts`, `test/lib/db/billing.test.ts`, `test/actions/billing.test.ts`
+
+### Modified files
+- `package.json` + lockfile — add `stripe@^22.2.2`
+- `.env.example` — standardize on `STRIPE_PRICE_ID_MONTHLY/YEARLY`, remove `STRIPE_PUBLISHABLE_KEY`
+- `src/app/settings/page.tsx` — replace `{/* §8 … */}` seam with `<BillingActions/>`; read `?checkout=` + `?session_id=`; call `reconcileCheckoutReturn`
+- `src/actions/profile.ts` or `src/lib/auth/account.ts` — cancel-on-delete
+- `src/lib/email/send-verification-email.ts` + `send-password-reset-email.ts` — import shared `getBaseUrl()`
+- `src/lib/marketing/pricing.ts` — `PRICING.currency` `"$"` → `"€"`
+- `test/actions/profile.test.ts` — extend for cancel-on-delete
+- `test/lib/marketing/pricing.test.ts` — update `$` → `€` assertion
+- `docs/project-overview.md` — reconcile env-var names in the table
+
+### Implementation order
+1. SDK + env — add `stripe`, `src/lib/stripe.ts`, clean `.env.example`, extract `getBaseUrl()`
+2. DB writers + pure mapper — `billing.ts`, `events.ts`, with unit tests
+3. Webhook route — verify with `stripe trigger`
+4. Billing actions — `createCheckoutSession` / `createPortalSession` + tests
+5. Settings UI — `<BillingActions/>`, `?checkout=` banner
+6. Cancel-on-delete — extend profile tests
+7. Verify gate + acceptance; reconcile docs
 
 ## History
 

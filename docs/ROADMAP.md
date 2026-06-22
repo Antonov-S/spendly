@@ -33,6 +33,7 @@ How this roadmap reconciles the three governing docs where they disagree:
 | Reports Page (5) | `/reports` analytics module — four hand-rolled SVG charts (spending-by-category donut, income-vs-expenses grouped bars, cashflow line, account-balance bars); URL-driven period selector (1m/3m/12m) with Free 3-month clamp + upgrade banner (real `isPro` read from DB); per-chart data-sufficiency gating; account scoping via the global selector; pure helpers in `src/lib/report-period.ts` + `src/lib/reports.ts`, fetchers in `src/lib/db/reports.ts`; read-only (no mutations); `UNCATEGORIZED` extracted to `constants.ts` |
 | Data Export (6) | `GET /api/export/{csv,json}` — the first non-auth API routes. CSV flat ledger (UTF-8 BOM + Excel `sep=,` hint, RFC-4180 + formula-injection-safe, transfers as two rows) and a versioned JSON dump (`{ schemaVersion: 1, exportedAt, data }`, derived balances, user-owned categories, nested goal contributions); pure helpers `src/lib/export/*`, fetchers `src/lib/db/export.ts` (`exportTxWhere` mirrors `reportTxWhere`, `EXPORT_ENTITY_CLASS` ownership map); per-`userId` rate limit, unified `{ error, code }` 401/429/413 contract, 10K size cap; tier-agnostic (no `isPro`); entry on `/accounts`; ESLint boundary forbids Prisma in the routes |
 | Settings Page (7) | `/settings` route — standalone centered surface with three cards: **Preferences** (display-name edit via the new `updateProfile` action), **Billing** (Free/Pro `PlanBadge` + plan summary read from the DB; no Upgrade/Manage buttons — §8 seam only), and **Your data** (the relocated `<ExportLinks>` + a server-derived `?account=` scope label). Shared `getUserOverview` projection added to `src/lib/db/profile.ts` (both `/settings` and `/profile` consume it); `PlanBadge` extracted to a shared component; new lightweight `getAccountLabels` fetcher (active + archived). Sidebar Settings link between Accounts and Help; `/settings` added to `auth.config.ts` `isProtected` |
+| Stripe Billing (8) | Real Stripe-backed Pro subscription flow. Lazy SDK singleton (`src/lib/stripe.ts`, `apiVersion 2026-05-27.dahlia`); pure event→intent mapper (`src/lib/stripe/events.ts`) + idempotent DB writers (`src/lib/db/billing.ts`, `updateMany` for subscription events); signature-verified webhook (`/api/stripe/webhook`, Prisma-free, ESLint-enforced); `createCheckoutSession`/`createPortalSession` actions; Free/Pro `<BillingActions>` on `/settings` fills the §8 seam; `?checkout=success` return-side reconciliation closes the webhook race; cancel-on-delete in `softDeleteAccount`. `getUserOverview` extended with `stripeCustomerId`; marketing `PRICING.currency` `$`→`€`; shared `getBaseUrl()` extracted to `src/lib/url.ts`. No schema migration. 49 new Vitest tests (478 total) |
 
 ---
 
@@ -423,9 +424,44 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 
 ---
 
-### 8. Stripe Billing Integration
+### 8. Stripe Billing Integration ✅ Shipped
 
 **Effort: M · Value: low in dev / required for launch — invisible while `isPro = true` for all users in dev; enforces the Free vs Pro gate at launch.**
+
+> **✅ Shipped (`feature/stripe-billing`).** Built per `docs/features/stripe-billing-spec.md`. Realized slice:
+> - **Layered like data-export — pure → DB writer → thin glue.** Pure event→intent mapper
+>   `src/lib/stripe/events.ts` (`active`/`trialing` → Pro, everything else → Free; narrows string-vs-expanded
+>   ids; `client_reference_id ?? metadata.userId`) is unit-tested without pulling `next/server` into Vitest.
+>   Idempotent DB writers `src/lib/db/billing.ts` are the **only** module touching the `User` billing
+>   columns: `linkCheckout` (`update` by id), `syncSubscription`/`clearSubscription` (**`updateMany`** by
+>   `stripeCustomerId`, so an out-of-order `subscription.*` arriving before the customer link matches zero
+>   rows — a safe no-op, never a P2025), plus `reconcileCheckoutReturn`.
+> - **Webhook `src/app/api/stripe/webhook/route.ts`** — verify → map → write glue. Signature checked against
+>   `STRIPE_WEBHOOK_SECRET` on every request (raw `request.text()`); 400 on bad signature, 500 on a handler
+>   throw (Stripe retries), 200 on unknown/no-match. No Prisma import — the export route's ESLint
+>   `no-restricted-imports` boundary was **extended to `src/app/api/stripe/**`**. Not rate-limited (the
+>   signature authenticates; S5).
+> - **Actions `src/actions/billing.ts`** — `createCheckoutSession(period)` (`auth()`-guarded, rejects
+>   already-Pro, lets Checkout create the Customer, `success_url` carries `{CHECKOUT_SESSION_ID}`) and
+>   `createPortalSession()`; both `redirect()` on success. Prices single-sourced — display from `PRICING`,
+>   `price_…` IDs from `STRIPE_PRICE_IDS` env resolvers.
+> - **Settings UI** — `<BillingActions>` fills the §8 seam: Free → two "Upgrade — €3/mo / €25/yr" buttons,
+>   Pro → "Manage subscription"; `?checkout=success|cancelled` banner. **Errors render inline, not via
+>   Sonner** (`/settings` is outside `AppShell`, where no `<Toaster/>` is mounted — matches the sibling
+>   name form). On `?checkout=success` the page runs `reconcileCheckoutReturn` to close the first-paint
+>   webhook race. `isPro` is read fresh from the DB (`getUserOverview`, now also selecting
+>   `stripeCustomerId`) — **never threaded through the JWT** (D1).
+> - **Cancel-on-delete** — `softDeleteAccount` now loads `stripeSubscriptionId` and best-effort
+>   `stripe.subscriptions.cancel`s it (logged-and-swallowed so a Stripe outage never blocks deletion);
+>   the Customer is kept (R5). The cancel-on-delete test lives in the existing `test/lib/auth/account.test.ts`,
+>   not `profile.test.ts` (which mocks `softDeleteAccount`).
+> - **Shared `getBaseUrl()`** extracted to `src/lib/url.ts` (both email helpers + billing import it);
+>   marketing `PRICING.currency` flipped `$`→`€`; `.env.example` dropped `STRIPE_PUBLISHABLE_KEY` (server-only
+>   integration). **No schema migration** — the three `User` Stripe columns already existed. 49 new Vitest
+>   tests (478 total); `npm run test:run` + `npm run build` pass. **Remaining for launch:** the Stripe
+>   Dashboard setup (create "Spendly Pro" + two EUR prices, activate the Customer Portal, register the
+>   webhook endpoint) and the live Stripe-CLI acceptance walkthrough (§13) — these need real Stripe keys.
+>   The build plan below is retained for reference.
 
 **What to build:**
 
@@ -444,7 +480,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 - Reports period selector (lock "Last 12 months" for Free users).
 - Any future Pro-only features.
 
-**Environment variables** — Already in `.env.example`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_MONTHLY_PRICE_ID`, `STRIPE_PRO_YEARLY_PRICE_ID`.
+**Environment variables** — In `.env.example`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_MONTHLY`, `STRIPE_PRICE_ID_YEARLY` (the price-ID names the code reads; `STRIPE_PUBLISHABLE_KEY` was removed — server-only integration, no browser Stripe.js).
 
 ---
 
@@ -474,7 +510,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | 4 | Reports Page (5) | L | Yes — new page | ✅ **Done.** Major analytics module — four hand-rolled SVG charts, URL-driven period selector with the real Free 3-month / Pro 12-month gate, per-chart sufficiency gating, account scoping. Read-only slice; balance-history shipped as the full time-series (no fallback taken). |
 | 5 | Data Export (6) | M | Yes — download | ✅ **Done.** Trust feature, all tiers (no `isPro` read). Two streaming GET routes — RFC-4180 CSV (BOM + Excel `sep=,` hint) and a versioned JSON dump (incl. Goals + contributions); `?account=` scoping with the C2 asymmetry; per-user rate limit + unified error contract; ESLint-enforced no-Prisma-in-routes boundary. |
 | 6 | Settings Page (7) | S | Yes — new page | ✅ **Done.** Config surface — Preferences (display-name edit via `updateProfile`), Billing plan read-out (DB `isPro`, no buttons yet), and the relocated data-export "Your data" section with a scope label. Stands up the host for Stripe billing (#7). |
-| 7 | Stripe Billing (8) | M | No (dev) / launch | Invisible while `isPro = true`; wire after Settings exists. |
+| 7 | Stripe Billing (8) | M | No (dev) / launch | ✅ **Done.** Real Pro subscription flow — signature-verified webhook (Prisma-free, ESLint-enforced) + idempotent `updateMany` reconcilers, `createCheckoutSession`/`createPortalSession` actions, `<BillingActions>` filling the §8 seam, `?checkout=success` return-side reconciliation, and cancel-on-delete. Makes the existing Reports gate reachable; no schema change. Stripe Dashboard setup + live CLI acceptance remain as launch steps. |
 | 8 | User Category Management (3) | M | Yes — pickers | **Deferrable power-user feature** — no downstream deps. Pushed near the end; first candidate to cut to post-launch if the schedule tightens. |
 | 9 | Pre-Launch Polish (9) | M | — | Security review, isPro enforcement, responsive + empty-state QA. Last. |
 

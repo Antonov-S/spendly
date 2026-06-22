@@ -530,7 +530,9 @@ const systemCategories = [
 ];
 ```
 
-> **Development note:** During development, all users have access to all Pro features. The `isPro` flag is the gate — flip enforcement when ready.
+> **Note:** `isPro` is the gate, and it is **real and DB-driven** — there is no dev-wide "all users Pro"
+> override in the codebase. The only Pro-gated feature is Reports history (Free ≤ 3 months, Pro ≤ 12); a
+> real user becomes Pro via Stripe Checkout (`feature/stripe-billing`).
 
 ---
 
@@ -738,7 +740,7 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/goals`        | Goal tracking                                 |
 | `/reports`      | Analytics and trends                          |
 | `/accounts`     | Financial account management — list, create, edit, archive |
-| `/settings`     | User preferences (display-name edit), billing plan read-out, and data export ("Your data"). Account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page`); Stripe upgrade/manage buttons land with §8. |
+| `/settings`     | User preferences (display-name edit), billing (plan read-out + Upgrade/Manage buttons), and data export ("Your data"). Account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page` + `feature/stripe-billing`); the §8 Stripe Upgrade/Manage buttons are now live via `<BillingActions>`. |
 
 ### API Routes
 
@@ -794,16 +796,31 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 
 ### Pricing
 
-| Plan        | Price          |
-| ----------- | -------------- |
-| **Monthly** | ~$3–5 / month  |
-| **Annual**  | ~$25–40 / year |
+| Plan        | Price        |
+| ----------- | ------------ |
+| **Monthly** | €3 / month   |
+| **Annual**  | €25 / year   |
 
-> Exact pricing TBD at launch based on comparable products. Annual plan targets ~25% discount vs monthly.
+> Prices are single-sourced from `PRICING` in `src/lib/marketing/pricing.ts` (`currency: "€"`) and must
+> match the Stripe Prices configured for the "Spendly Pro" product. The annual plan is a ~31% discount vs
+> paying monthly (`yearlyDiscountPercent`, derived — never hardcoded).
+
+> **✅ Shipped — Stripe billing (`feature/stripe-billing`, ROADMAP §8).** Free users can subscribe to Pro
+> (€3/mo or €25/yr) from `/settings`, and Pro users manage/cancel via the Stripe Customer Portal. A
+> signature-verified webhook (`POST /api/stripe/webhook`) reconciles `User.isPro` / `stripeCustomerId` /
+> `stripeSubscriptionId` so the plan flips **without a re-sign-in** (all billing UI reads `isPro` fresh from
+> the DB — never the JWT). The webhook is the **only** surface that may grant Pro; subscription events use
+> `updateMany` so out-of-order delivery is a safe no-op. Account deletion best-effort cancels the live
+> subscription. This makes the existing Reports 12-month gate reachable; no new gate was added. See
+> `docs/ROADMAP.md` §8 and `docs/features/stripe-billing-spec.md`.
 
 **Account deletion:** 30-day grace period. Account deactivated immediately, data preserved. User is prompted to export before deletion. After 30 days, all data permanently purged.
 
-> **Development note:** During development, all users have `isPro = true`. The `isPro` flag is the single gate — flip enforcement when ready to launch.
+> **Note:** `User.isPro` is the single gate, and it is **real and DB-driven today** — there is no dev-wide
+> `isPro = true` override (the seed creates both `demo-pro` and `demo-nonpro`, and every gate reads the
+> real column via `getReportProfile`/`getUserOverview`). The only Pro-gated feature is Reports history
+> (Free ≤ 3 months, Pro ≤ 12). As of `feature/stripe-billing`, a real user can become Pro through Stripe
+> Checkout, so the gate is fully exercisable end-to-end.
 
 ---
 
@@ -824,8 +841,8 @@ AUTH_GOOGLE_SECRET=
 # Stripe
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_PRO_MONTHLY_PRICE_ID=
-STRIPE_PRO_YEARLY_PRICE_ID=
+STRIPE_PRICE_ID_MONTHLY=
+STRIPE_PRICE_ID_YEARLY=
 ```
 
 ---
