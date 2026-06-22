@@ -42,6 +42,32 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Same boundary for the Stripe webhook (stripe-billing-spec §12.6): the
+    // route reaches the DB ONLY through src/lib/db/billing.ts, never Prisma.
+    files: ["src/app/api/stripe/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/prisma",
+              message:
+                "Stripe route handlers must go through src/lib/db/billing.ts, not Prisma directly (stripe-billing-spec §12.6).",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/generated/prisma", "@/generated/prisma/*"],
+              message:
+                "Stripe route handlers must go through src/lib/db/billing.ts, not the Prisma client directly (stripe-billing-spec §12.6).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -89,6 +89,7 @@ describe("getUserOverview", () => {
       image: true,
       password: true,
       isPro: true,
+      stripeCustomerId: true,
       stripeSubscriptionId: true,
       preferredCurrency: true,
       createdAt: true,

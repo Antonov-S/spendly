@@ -1,11 +1,7 @@
 import "server-only";
 import { resend } from "@/lib/email/resend";
 import { EMAIL_FROM } from "@/lib/system-constants";
-
-/** Base URL for reset links; falls back to local dev. */
-function baseUrl(): string {
-  return process.env.AUTH_URL ?? "http://localhost:3000";
-}
+import { getBaseUrl } from "@/lib/url";
 
 function passwordResetHtml(link: string): string {
   return `
@@ -43,7 +39,7 @@ export async function sendPasswordResetEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const link = `${baseUrl()}/reset-password?token=${token}`;
+  const link = `${getBaseUrl()}/reset-password?token=${token}`;
 
   await resend.emails.send({
     from: EMAIL_FROM,

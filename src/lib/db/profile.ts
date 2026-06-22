@@ -21,6 +21,7 @@ export async function getUserOverview(userId: string) {
       image: true, //                /profile avatar
       password: true, //             /profile only: gates the change-password card (null ⇒ OAuth)
       isPro: true, //                /settings billing plan badge (DB read, S4)
+      stripeCustomerId: true, //     /settings billing: drives the Free/Pro action branch (§8)
       stripeSubscriptionId: true, // /settings billing "subscription active" affordance (§8)
       preferredCurrency: true, //    /profile read-only row; /settings omits it
       createdAt: true, //            /profile "member since"

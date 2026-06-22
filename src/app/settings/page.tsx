@@ -5,17 +5,34 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { getUserOverview } from "@/lib/db/profile";
+import { reconcileCheckoutReturn } from "@/lib/db/billing";
 import { getAccountLabels } from "@/lib/db/accounts";
 import { PlanBadge } from "@/components/settings/plan-badge";
 import { SettingsNameForm } from "@/components/settings/settings-name-form";
+import {
+  BillingActions,
+  type CheckoutResult,
+} from "@/components/settings/billing-actions";
 import { ExportLinks } from "@/components/accounts/export-links";
 
 interface SettingsPageProps {
-  searchParams: Promise<{ account?: string }>;
+  searchParams: Promise<{
+    account?: string;
+    checkout?: string;
+    session_id?: string;
+  }>;
 }
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const session = await getSessionOrRedirect();
+  const sp = await searchParams;
+
+  // Return-side reconciliation (§5/§12.7): if the browser redirect from Checkout
+  // beat the webhook, close the gap before first paint. Idempotent + swallows
+  // errors, so a successful payment never renders as an error.
+  if (sp.checkout === "success") {
+    await reconcileCheckoutReturn(session.user.id, sp.session_id);
+  }
 
   // Settings is an escape hatch like /profile — reachable for a zero-account
   // user, so it is NOT behind requireOnboarded().
@@ -24,10 +41,17 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     redirect("/sign-in");
   }
 
+  const checkoutResult: CheckoutResult =
+    sp.checkout === "success"
+      ? "success"
+      : sp.checkout === "cancelled"
+        ? "cancelled"
+        : undefined;
+
   // Resolve the active export scope from `?account=` against the user's own
   // accounts (active + archived). An unresolvable id is normalized away so the
   // label and the actual download never disagree (avoids a silently-empty file).
-  const requestedAccountId = (await searchParams).account || undefined;
+  const requestedAccountId = sp.account || undefined;
   const accounts = await getAccountLabels(session.user.id);
   const scoped = requestedAccountId
     ? accounts.find((a) => a.id === requestedAccountId)
@@ -79,7 +103,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           <PlanBadge isPro={user.isPro} />
         </div>
         <p className="mt-2 text-[12px] text-ink-2">{planSummary}</p>
-        {/* §8 (Stripe) wires "Upgrade to Pro" / "Manage subscription" here. */}
+        <BillingActions
+          isPro={user.isPro}
+          hasCustomer={!!user.stripeCustomerId}
+          checkoutResult={checkoutResult}
+        />
       </section>
 
       {/* Your data */}

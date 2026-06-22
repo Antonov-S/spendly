@@ -8,7 +8,7 @@ export type BillingPeriod = "monthly" | "yearly";
 
 /** Pro prices and display currency. Free is rendered from a 0 amount. */
 export const PRICING = {
-  currency: "$",
+  currency: "€",
   monthly: 3,
   yearly: 25,
 } as const;
