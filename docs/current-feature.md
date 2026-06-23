@@ -1,4 +1,4 @@
-# Current Feature — User Category Management
+# Current Feature
 
 ## Status
 
@@ -6,60 +6,11 @@ Not Started
 
 ## Goals
 
-- Users can create, edit, and delete their own custom categories (name + icon + color)
-- Inline "+ New category" affordance in transaction, budget, and recurring drawers; auto-selects the new category on create
-- "Categories" management section on `/settings` to view, edit, and delete user categories
-- System categories (20 seeded) remain immutable — no edit/delete affordance for them
-- Name dedup is case-insensitive, spanning system + own categories (three-layer: app pre-check, functional DB index, P2002 catch)
-- Delete impact shown in confirm dialog: transactions/templates go Uncategorized (SetNull), budgets are cascade-deleted
+<!-- Add goals here -->
 
 ## Notes
 
-### Scope
-- **No new route** — management lives inline in pickers + a card section on `/settings`
-- **No schema model change** — `Category` already has `isSystem`, nullable `userId`, `@@unique([name, userId])`
-- One `--create-only` migration adds a functional unique index `(lower(name), userId)` for race-proof case-insensitive own-name dedup
-- Not a Pro gate; no category count limit
-- Not added to onboarding — seeded categories suffice; just-in-time picker creation is the right entry point
-
-### Key files
-| File | Action |
-|---|---|
-| `prisma/migrations/<ts>_category_name_ci_unique/` | create (raw SQL functional index) |
-| `src/lib/validations/category.ts` | create — `createCategorySchema`, `updateCategorySchema` |
-| `src/actions/categories.ts` | create — `createCategory` (returns `CategoryOption`), `updateCategory`, `deleteCategory`, `getCategoryForEdit` |
-| `src/lib/db/categories.ts` | modify — add `getManageableCategories` (own + usage counts); keep `getUserCategories` unchanged |
-| `src/lib/constants.ts` | modify — `CATEGORY_ICONS`, `CATEGORY_COLORS`, `DEFAULT_CATEGORY_COLOR`, `DEFAULT_CATEGORY_ICON` |
-| `src/lib/icon-map.ts` | modify — register any new icons |
-| `src/types/categories.ts` | create — `ManageableCategory`, `EditableCategory` |
-| `src/lib/revalidation.ts` | modify — add `revalidateCategoryViews()` |
-| `src/components/categories/category-form-drawer.tsx` | create — Sheet, name + icon grid + color swatches + live preview |
-| `src/components/categories/category-picker-field.tsx` | create — wraps `<select>` + "+ New category" affordance |
-| `src/components/categories/manage-categories.tsx` | create — `/settings` list (edit/delete user categories) |
-| `src/components/categories/confirm-delete-dialog.tsx` | create — native `<dialog>`, three-relation impact copy |
-| `src/components/transactions/transaction-drawer.tsx` | modify — swap inline category `<select>` with `<CategoryPickerField>` |
-| `src/components/budgets/budget-form-drawer.tsx` | modify — same picker swap |
-| `src/components/recurring/template-form-drawer.tsx` | modify — same picker swap (create mode only) |
-| `src/app/settings/page.tsx` | modify — render `<ManageCategories>` + fetch `getManageableCategories` |
-| `test/actions/categories.test.ts` | create |
-| `test/lib/validations/category.test.ts` | create (incl. icon↔map guard) |
-
-### Critical behaviors
-- `createCategory` returns `{ success: true; data: CategoryOption }` so the picker can auto-select the real row immediately (no optimistic guess)
-- Delete is hard delete — FK: transactions/templates → SetNull (Uncategorized), budgets → Cascade (deleted). Dialog must state both outcomes
-- Ownership gate: `where: { id, userId, isSystem: false }` on all mutations; system/foreign rows → `"Category not found."`
-- Stored name keeps user's casing; uniqueness comparison is case-insensitive
-- Recurring template drawer: "+ New category" only in create mode (edit locks the category)
-
-### Implementation order
-1. Constants + icon-map registration + types + Zod schemas + icon↔map test
-2. Migration (`--create-only` functional index) → apply to dev branch → manual index verification SQL
-3. `getManageableCategories` in `db/categories.ts`
-4. `revalidateCategoryViews()` in `revalidation.ts`
-5. Server actions + `test/actions/categories.test.ts`
-6. `category-form-drawer.tsx` + `category-picker-field.tsx` → swap into the three drawers
-7. `manage-categories.tsx` + `confirm-delete-dialog.tsx` → render on `/settings`
-8. `npm run test:run` + `npm run build` + manual QA
+<!-- Add notes here -->
 
 ## History
 
@@ -97,3 +48,4 @@ Not Started
 - **Data Export** — `GET /api/export/csv` and `GET /api/export/json` — the first non-auth API routes (ROADMAP §6). CSV: flat RFC-4180 ledger, UTF-8 BOM + `sep=,` Excel hint (so columns split on double-click in European-locale Excel), formula-injection-safe free-text columns (`escapeCsvTextField`), transfers as two rows. JSON: versioned envelope `{ schemaVersion: 1, exportedAt, data }` (pretty-printed), derived account balances, user-owned categories only, budgets, goals + nested contributions, recurring templates, non-deleted transactions; Decimal→number, `@db.Date`→`YYYY-MM-DD`. Three-layer split: pure helpers `src/lib/export/{csv,json,filename}.ts` → model `src/lib/db/export.ts` (`exportTxWhere`, `getTransactionsForExport`, `getFullExport`, `EXPORT_ENTITY_CLASS`) → thin route glue; ESLint `no-restricted-imports` enforces no Prisma in routes. Auth-guarded (401 JSON, no redirect), `userId`-scoped, tier-agnostic (no `isPro` read, S6); per-user rate limit (`RATE_LIMITS.export`, 10/min, fail-open); unified `{ error, code }` failure contract for 401/429/413 (`tooManyRequestsResponse` gained `code: "rate_limited"`); 10K-tx size cap (CSV `#` marker / JSON 413); empty export valid (D7). `?account=` scoping with the intentional C2 asymmetry (account-bound entities scope; budgets/goals/categories always full). Entry: `<ExportLinks>` on `/accounts` page carrying `?account=`. 37 new Vitest tests (417 total); build passes; no schema change.
 - **Settings Page** — `/settings` route with three cards: **Preferences** (display-name edit via `updateProfile` Server Action with 5-second auto-dismissing success banner, email read-only), **Billing** (Free/Pro badge + plan summary from DB, Upgrade/Manage buttons deferred to Stripe slice §8 with HTML comment seam), **Your data** (Data Export relocated from `/accounts`, scope label derived from `?account=` searchParam). Architecture: `getUserOverview` shared projection added to `src/lib/db/profile.ts` (both `/settings` and `/profile` use it — drift prevention); `getAccountLabels` lightweight fetcher in `src/lib/db/accounts.ts` for scope resolution (active + archived, `{id, name, isArchived}` only, no balance computation); `updateProfileSchema` + `PROFILE_NAME_MAX = 80` in `src/lib/validations/profile.ts` / `system-constants.ts`; `PlanBadge` extracted to `src/components/settings/plan-badge.tsx` (imported by both pages). `/settings` is NOT onboarding-gated (escape hatch like `/accounts` and `/profile`); added to `auth.config.ts` `isProtected`. Settings sidebar link added between Accounts and Help. `<ExportLinks>` removed from `/accounts`. Two corrections from spec: `getUserOverview` landed in `profile.ts` (not a new `user.ts`); `getAccountLabels` is new (the spec assumed an active+archived fetcher existed). Fixes: `w-full` on both page containers (width discrepancy between `/profile` and `/settings`); auto-dismiss banner uses `at` nonce from action + `dismissedAt` client state (plain `useState` + Sonner both fail post-action because route refresh resets state / drops toast). 11 new Vitest tests (429 total); build passes.
 - **Stripe Billing** — Pro subscriptions (€3/mo, €25/yr) via Stripe Checkout + Customer Portal (ROADMAP §8). `src/lib/stripe.ts`: lazy SDK singleton (`stripe@^22.2.2`, `apiVersion: "2026-05-27.dahlia"`), `STRIPE_PRICE_IDS`, `BillingPeriod`. `src/lib/stripe/events.ts`: pure event→intent mapper (Vitest-safe, no Prisma). `src/lib/db/billing.ts`: `linkCheckout` / `syncSubscription` (updateMany — out-of-order safe) / `clearSubscription` / `reconcileCheckoutReturn`. `src/lib/url.ts`: shared `getBaseUrl()` extracted from email helpers. `src/actions/billing.ts`: `createCheckoutSession` / `createPortalSession`. `src/app/api/stripe/webhook/route.ts`: signature-verified webhook; 500 on handler throw (Stripe retries), 200 on unknown events. `src/components/settings/billing-actions.tsx`: Free upgrade buttons + Pro manage button + `?checkout=success/cancelled` inline banners (no Sonner — /settings renders outside AppShell). Webhook is the only surface that sets `isPro = true` (S2); `isPro` never threaded through JWT — read fresh from DB at every consumption point. Return-side reconciliation closes the webhook/redirect race at first paint. Cancel-on-delete: `softDeleteAccount` cancels the Stripe subscription before stamping `deletedAt`; Stripe errors swallowed (keeps `stripeCustomerId` for audit). `PRICING.currency` `$` → `€`. ESLint `no-restricted-imports` extended to `src/app/api/stripe/**`. No schema migration (columns already existed). 57 new Vitest tests (478 total); build passes.
+- **User Category Management** — Full create/edit/delete stack for user-owned categories (ROADMAP §3). No new route — management lives inline in pickers + a "Categories" card on `/settings`. No schema model change — `Category` already had `isSystem`, nullable `userId`, `@@unique([name, userId])`; one `--create-only` migration adds a functional unique index `(lower(name), userId)` for race-proof case-insensitive dedup. `CATEGORY_ICONS` (20-name tuple) + `CATEGORY_COLORS` (12-hex tuple) + `DEFAULT_CATEGORY_ICON/COLOR` added to `constants.ts`. `src/types/categories.ts` (new): `ManageableCategory` (own rows + usage counts) + `EditableCategory`. `src/lib/validations/category.ts` (new): `createCategorySchema` / `updateCategorySchema` (Zod, icon enum whitelist, hex color regex). `src/lib/db/categories.ts` extended: `getManageableCategories` (own rows + `_count` scoped to visible linked records, ordered by name) + `getCategoryForEdit`. `revalidateCategoryViews()` added to `src/lib/revalidation.ts` (touches `/settings`, `/transactions`, `/budgets`, `/recurring`, `/dashboard`, `/reports`). `src/actions/categories.ts` (new, `"use server"`): module-private `assertNameAvailable` (case-insensitive cross-system+own pre-check) + `mapCategoryWriteError` (P2002 → friendly message); `createCategory` returns `CategoryOption` for auto-select; `updateCategory`, `deleteCategory`, `getCategoryForEdit` — all ownership-gated `where: { id, userId, isSystem: false }`; system/foreign rows → `"Category not found."`. `src/components/categories/category-form-drawer.tsx` (new): Sheet, name input + icon grid + color swatches + live `PreviewChip`; `onCreated` prop for auto-select. `src/components/categories/category-picker-field.tsx` (new): wraps `<select>` + "+ New category" button; `appended` state for inline-created rows; `disabled` prop hides the button (recurring edit mode). Swapped into all three drawers: transaction drawer (`emptyLabel="Uncategorized"`), budget form drawer (create branch only), recurring template drawer (`disabled={isEdit}`). `src/components/categories/manage-categories.tsx` + `confirm-delete-dialog.tsx` (new): `/settings` card showing usage line (omits zero clauses) + edit/delete per row; native `<dialog>` confirm with SetNull/Cascade impact copy. `src/app/settings/page.tsx` extended: `getManageableCategories` fetched in `Promise.all`, `<ManageCategories>` rendered between Billing and "Your data". 28 new Vitest tests (506 total); build passes.
