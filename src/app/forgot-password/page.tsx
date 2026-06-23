@@ -3,6 +3,8 @@ import { redirectIfAuthenticated } from "@/lib/auth/guards";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 
+export const metadata = { title: "Forgot password" };
+
 export default async function ForgotPasswordPage() {
   await redirectIfAuthenticated();
 

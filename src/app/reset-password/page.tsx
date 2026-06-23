@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
+export const metadata = { title: "Reset password" };
+
 interface ResetPasswordPageProps {
   searchParams: Promise<{ token?: string }>;
 }

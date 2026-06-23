@@ -895,6 +895,15 @@ Fintrack handles personal financial data. Minimum security requirements before s
 - `AUTH_SECRET` rotated before production; never committed to version control
 - No cross-user data exposure — all Prisma queries scoped to the authenticated user's `userId`
 
+> **✅ Shipped — pre-launch polish (`feature/pre-launch-polish`, ROADMAP §9, code + audit slice).** The §9
+> audit confirmed every invariant above holds in code: `auth()` + `userId` guards on all 40 server
+> actions, row-level ownership including join-through cases (goal contributions, recurring drafts), the
+> signature-verified Stripe webhook, `server-only` on all DB fetchers, and no financial data in URL
+> params — no cross-user exposure, no code gaps. Live HTTPS, `AUTH_SECRET` rotation, the Google prod OAuth
+> callback, and the Stripe live-mode webhook are operator launch-day items (see `docs/ROADMAP.md` §9 +
+> `docs/features/pre-launch-polish-spec.md`). Also landed in §9: an app-level `error.tsx` boundary, a
+> styled `not-found.tsx`, and page-title metadata (`%s — Spendly`) across all app pages.
+
 ---
 
 ## Out of Scope (Post-MVP)

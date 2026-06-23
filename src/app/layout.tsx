@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Spendly",
+  title: { default: "Spendly", template: "%s — Spendly" },
   description: "A personal finance tracker built for intentional awareness.",
 };
 

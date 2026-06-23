@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ResendVerification } from "@/components/auth/resend-verification";
 
+export const metadata = { title: "Verify email" };
+
 interface VerifyEmailPageProps {
   searchParams: Promise<{ email?: string; error?: string }>;
 }

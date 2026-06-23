@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Get started" };
+
 import {
   getSessionOrRedirect,
   redirectIfOnboarded,
