@@ -150,6 +150,59 @@ export const GOAL_COLORS = [
 export const RECURRING_AMOUNT_MAX = 1_000_000;
 
 /**
+ * Category icon whitelist for the create/edit picker. A tuple so the Zod schema
+ * can `z.enum` it. EVERY name must be registered in `icon-map.ts` (a test guards
+ * against drift). Superset of the seeded system-category icons so a user's
+ * palette feels familiar.
+ */
+export const CATEGORY_ICONS = [
+  "ShoppingCart",
+  "UtensilsCrossed",
+  "Bus",
+  "Home",
+  "Zap",
+  "Heart",
+  "Gamepad2",
+  "Briefcase",
+  "Laptop",
+  "Tv",
+  "Shirt",
+  "BookOpen",
+  "Shield",
+  "Gift",
+  "Plane",
+  "Landmark",
+  "PawPrint",
+  "TrendingUp",
+  "MoreHorizontal",
+  "HelpCircle",
+] as const;
+
+/** Category accent swatches offered in the drawer (semantic-system aligned). */
+export const CATEGORY_COLORS = [
+  "#EF9F27",
+  "#D85A30",
+  "#7F77DD",
+  "#1D9E75",
+  "#F59E0B",
+  "#D4537E",
+  "#378ADD",
+  "#6366F1",
+  "#EC4899",
+  "#0EA5E9",
+  "#10B981",
+  "#888780",
+] as const;
+
+/**
+ * Default category accent color and icon. Named constants so the create drawer
+ * has one source of truth — reordering the palettes above can never silently
+ * change the default (mirrors `DEFAULT_ACCOUNT_*`).
+ */
+export const DEFAULT_CATEGORY_COLOR = CATEGORY_COLORS[0];
+export const DEFAULT_CATEGORY_ICON = CATEGORY_ICONS[0];
+
+/**
  * Reports period selector options (UI data). `param` is the `?period=` value;
  * `months` is the count of calendar months (including the current one) the
  * window spans and drives the query bounds.

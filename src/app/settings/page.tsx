@@ -7,7 +7,9 @@ import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { getUserOverview } from "@/lib/db/profile";
 import { reconcileCheckoutReturn } from "@/lib/db/billing";
 import { getAccountLabels } from "@/lib/db/accounts";
+import { getManageableCategories } from "@/lib/db/categories";
 import { PlanBadge } from "@/components/settings/plan-badge";
+import { ManageCategories } from "@/components/categories/manage-categories";
 import { SettingsNameForm } from "@/components/settings/settings-name-form";
 import {
   BillingActions,
@@ -52,7 +54,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   // accounts (active + archived). An unresolvable id is normalized away so the
   // label and the actual download never disagree (avoids a silently-empty file).
   const requestedAccountId = sp.account || undefined;
-  const accounts = await getAccountLabels(session.user.id);
+  const [accounts, categories] = await Promise.all([
+    getAccountLabels(session.user.id),
+    getManageableCategories(session.user.id),
+  ]);
   const scoped = requestedAccountId
     ? accounts.find((a) => a.id === requestedAccountId)
     : undefined;
@@ -109,6 +114,9 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           checkoutResult={checkoutResult}
         />
       </section>
+
+      {/* Categories */}
+      <ManageCategories categories={categories} />
 
       {/* Your data */}
       <section

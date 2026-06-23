@@ -17,6 +17,7 @@ import {
   getBudgetForEdit,
   type MutationResult,
 } from "@/actions/budgets";
+import { CategoryPickerField } from "@/components/categories/category-picker-field";
 import { BREAKPOINTS } from "@/lib/system-constants";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -156,19 +157,11 @@ export function BudgetFormDrawer({
                 {editCategoryName ?? "—"}
               </p>
             ) : (
-              <select
+              <CategoryPickerField
+                categories={availableCategories}
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                disabled={noCategories}
-                className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none disabled:opacity-60"
-              >
-                {noCategories && <option value="">No categories left</option>}
-                {availableCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setCategoryId}
+              />
             )}
           </div>
 
@@ -191,15 +184,16 @@ export function BudgetFormDrawer({
 
         <SheetFooter>
           {error && <p className="text-[12px] text-danger">{error}</p>}
-          {noCategories && (
+          {noCategories && !categoryId && (
             <p className="text-[12px] text-ink-3">
-              Every category already has a budget this month.
+              Every category already has a budget this month. Create a new one to
+              budget it.
             </p>
           )}
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={busy || noCategories}
+            disabled={busy || (!isEdit && !categoryId)}
             className="w-full rounded-lg bg-success py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {busy ? "Saving…" : "Save budget"}
