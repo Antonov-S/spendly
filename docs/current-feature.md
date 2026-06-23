@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature — User Category Management
 
 ## Status
 
@@ -6,11 +6,60 @@ Not Started
 
 ## Goals
 
-<!-- Add feature goals here -->
+- Users can create, edit, and delete their own custom categories (name + icon + color)
+- Inline "+ New category" affordance in transaction, budget, and recurring drawers; auto-selects the new category on create
+- "Categories" management section on `/settings` to view, edit, and delete user categories
+- System categories (20 seeded) remain immutable — no edit/delete affordance for them
+- Name dedup is case-insensitive, spanning system + own categories (three-layer: app pre-check, functional DB index, P2002 catch)
+- Delete impact shown in confirm dialog: transactions/templates go Uncategorized (SetNull), budgets are cascade-deleted
 
 ## Notes
 
-<!-- Add feature notes here -->
+### Scope
+- **No new route** — management lives inline in pickers + a card section on `/settings`
+- **No schema model change** — `Category` already has `isSystem`, nullable `userId`, `@@unique([name, userId])`
+- One `--create-only` migration adds a functional unique index `(lower(name), userId)` for race-proof case-insensitive own-name dedup
+- Not a Pro gate; no category count limit
+- Not added to onboarding — seeded categories suffice; just-in-time picker creation is the right entry point
+
+### Key files
+| File | Action |
+|---|---|
+| `prisma/migrations/<ts>_category_name_ci_unique/` | create (raw SQL functional index) |
+| `src/lib/validations/category.ts` | create — `createCategorySchema`, `updateCategorySchema` |
+| `src/actions/categories.ts` | create — `createCategory` (returns `CategoryOption`), `updateCategory`, `deleteCategory`, `getCategoryForEdit` |
+| `src/lib/db/categories.ts` | modify — add `getManageableCategories` (own + usage counts); keep `getUserCategories` unchanged |
+| `src/lib/constants.ts` | modify — `CATEGORY_ICONS`, `CATEGORY_COLORS`, `DEFAULT_CATEGORY_COLOR`, `DEFAULT_CATEGORY_ICON` |
+| `src/lib/icon-map.ts` | modify — register any new icons |
+| `src/types/categories.ts` | create — `ManageableCategory`, `EditableCategory` |
+| `src/lib/revalidation.ts` | modify — add `revalidateCategoryViews()` |
+| `src/components/categories/category-form-drawer.tsx` | create — Sheet, name + icon grid + color swatches + live preview |
+| `src/components/categories/category-picker-field.tsx` | create — wraps `<select>` + "+ New category" affordance |
+| `src/components/categories/manage-categories.tsx` | create — `/settings` list (edit/delete user categories) |
+| `src/components/categories/confirm-delete-dialog.tsx` | create — native `<dialog>`, three-relation impact copy |
+| `src/components/transactions/transaction-drawer.tsx` | modify — swap inline category `<select>` with `<CategoryPickerField>` |
+| `src/components/budgets/budget-form-drawer.tsx` | modify — same picker swap |
+| `src/components/recurring/template-form-drawer.tsx` | modify — same picker swap (create mode only) |
+| `src/app/settings/page.tsx` | modify — render `<ManageCategories>` + fetch `getManageableCategories` |
+| `test/actions/categories.test.ts` | create |
+| `test/lib/validations/category.test.ts` | create (incl. icon↔map guard) |
+
+### Critical behaviors
+- `createCategory` returns `{ success: true; data: CategoryOption }` so the picker can auto-select the real row immediately (no optimistic guess)
+- Delete is hard delete — FK: transactions/templates → SetNull (Uncategorized), budgets → Cascade (deleted). Dialog must state both outcomes
+- Ownership gate: `where: { id, userId, isSystem: false }` on all mutations; system/foreign rows → `"Category not found."`
+- Stored name keeps user's casing; uniqueness comparison is case-insensitive
+- Recurring template drawer: "+ New category" only in create mode (edit locks the category)
+
+### Implementation order
+1. Constants + icon-map registration + types + Zod schemas + icon↔map test
+2. Migration (`--create-only` functional index) → apply to dev branch → manual index verification SQL
+3. `getManageableCategories` in `db/categories.ts`
+4. `revalidateCategoryViews()` in `revalidation.ts`
+5. Server actions + `test/actions/categories.test.ts`
+6. `category-form-drawer.tsx` + `category-picker-field.tsx` → swap into the three drawers
+7. `manage-categories.tsx` + `confirm-delete-dialog.tsx` → render on `/settings`
+8. `npm run test:run` + `npm run build` + manual QA
 
 ## History
 

@@ -172,9 +172,38 @@ All auth-guarded, Zod-validated, ownership-checked. Return `{ success, data?, er
 
 ---
 
-### 3. User Category Management
+### 3. User Category Management ✅ Shipped
 
 **Effort: M · Value: medium (power users) — nice-to-have, not a launch blocker. Safe to defer if timelines tighten.**
+
+> **✅ Shipped (`feature/user-category-management`).** Built per
+> `docs/features/user-category-management-spec.md`. Realized slice:
+> - **Server actions** `src/actions/categories.ts` — `createCategory` (returns the persisted
+>   `CategoryOption` so the inline picker auto-selects the real row, no optimistic guess),
+>   `updateCategory`, `deleteCategory`, `getCategoryForEdit` proxy. Ownership gate
+>   `where: { id, userId, isSystem: false }` collapses system/foreign rows to `"Category not found."`
+>   (non-enumerable). Module-private `assertNameAvailable` + `mapCategoryWriteError` shared by create/update.
+> - **Three-layer case-insensitive dedup** — app pre-check spanning system + own (the only enforcement
+>   of the system-name collision rule), a **functional unique index `(lower(name), userId)`** via the
+>   `--create-only` migration `category_name_ci_unique` (applied to the `development` Neon branch; no
+>   `schema.prisma` change — the `@@unique([name, userId])` stays), and a `P2002` catch mapping the rare
+>   race to the same friendly message. Stored `name` keeps the user's casing (recasing your own is allowed).
+> - **DB fetchers** `src/lib/db/categories.ts` — `getManageableCategories` (own non-system rows + three
+>   `_count`s scoped to *user-visible* rows: non-deleted transactions, active budgets, active templates)
+>   and `getCategoryForEdit`; `getUserCategories` untouched.
+> - **Inline create** via one shared `<CategoryPickerField>` ("+ New category" → `CategoryFormDrawer`,
+>   appends + selects the returned row) swapped into the transaction, budget, and recurring drawers
+>   (recurring shows it in create mode only; budget can now create a category even when all existing are
+>   budgeted). `CategoryFormDrawer` = Sheet with name + icon grid + color swatches + live preview.
+> - **Management on `/settings`** — `<ManageCategories>` card (list with usage line, edit/delete, empty
+>   state) + `ConfirmDeleteCategoryDialog` (native `<dialog>`) stating the FK impact: transactions +
+>   recurring templates go **Uncategorized** (SetNull), budgets are **deleted** (Cascade).
+> - `revalidateCategoryViews()` added (fans out to settings/transactions/budgets/recurring/dashboard/
+>   reports). `CATEGORY_ICONS` / `CATEGORY_COLORS` / `DEFAULT_CATEGORY_*` in `constants.ts` (all icons
+>   already registered in `icon-map.ts` — verified by a drift-guard test, so no map edit was needed).
+>   Not a Pro gate, no count limit, **not** added to onboarding. 28 new Vitest tests (506 total);
+>   `npm run test:run` + `npm run build` pass; no schema model change. The build plan below is retained
+>   for reference.
 
 > **Re-scoped: this is a power-user enhancement, not a hard MVP requirement.** The app is fully functional today with the 20 seeded system categories — a user can capture, budget, and report without ever creating a custom one. The MVP definition lists "user extensions" but the core loop (`capture → organize → control → understand`) closes without it. **If schedule pressure appears, this is the first feature to defer to post-launch** — it has no downstream dependencies (nothing else in this roadmap needs it). Kept in the MVP list for completeness, but slotted late in the delivery sequence accordingly.
 
@@ -511,7 +540,7 @@ The `/settings` page is meant for user preferences and billing. With EUR-only MV
 | 5 | Data Export (6) | M | Yes — download | ✅ **Done.** Trust feature, all tiers (no `isPro` read). Two streaming GET routes — RFC-4180 CSV (BOM + Excel `sep=,` hint) and a versioned JSON dump (incl. Goals + contributions); `?account=` scoping with the C2 asymmetry; per-user rate limit + unified error contract; ESLint-enforced no-Prisma-in-routes boundary. |
 | 6 | Settings Page (7) | S | Yes — new page | ✅ **Done.** Config surface — Preferences (display-name edit via `updateProfile`), Billing plan read-out (DB `isPro`, no buttons yet), and the relocated data-export "Your data" section with a scope label. Stands up the host for Stripe billing (#7). |
 | 7 | Stripe Billing (8) | M | No (dev) / launch | ✅ **Done.** Real Pro subscription flow — signature-verified webhook (Prisma-free, ESLint-enforced) + idempotent `updateMany` reconcilers, `createCheckoutSession`/`createPortalSession` actions, `<BillingActions>` filling the §8 seam, `?checkout=success` return-side reconciliation, and cancel-on-delete. Makes the existing Reports gate reachable; no schema change. Stripe Dashboard setup + live CLI acceptance remain as launch steps. |
-| 8 | User Category Management (3) | M | Yes — pickers | **Deferrable power-user feature** — no downstream deps. Pushed near the end; first candidate to cut to post-launch if the schedule tightens. |
+| 8 | User Category Management (3) | M | Yes — pickers | ✅ **Done.** Deferrable power-user feature (no downstream deps) — full read/write stack: server actions with three-layer case-insensitive dedup (app pre-check + functional `(lower(name), userId)` index + P2002 catch), `getManageableCategories` with usage counts, one shared `<CategoryPickerField>` ("+ New category" auto-select) across the three drawers, and a `/settings` manage card with FK-impact delete dialog. No schema model change. |
 | 9 | Pre-Launch Polish (9) | M | — | Security review, isPro enforcement, responsive + empty-state QA. Last. |
 
 **Rationale — fastest path to a usable MVP:** front-load first-user experience (Onboarding up to 2nd) and complete the core budgeting/savings workflow early (Goals 1st, Insights 3rd), while pushing the least critical power-user feature (custom categories) to just before launch where it's safe to defer entirely.

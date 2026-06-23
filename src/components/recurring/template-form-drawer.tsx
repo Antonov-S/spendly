@@ -17,6 +17,7 @@ import {
   getTemplateForEdit,
   type MutationResult,
 } from "@/actions/recurring";
+import { CategoryPickerField } from "@/components/categories/category-picker-field";
 import { CADENCE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -255,19 +256,13 @@ export function TemplateFormDrawer({
           {/* Category — optional, fixed in edit mode */}
           <div>
             <Label>Category (optional)</Label>
-            <select
+            <CategoryPickerField
+              categories={categories}
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={setCategoryId}
+              emptyLabel="No category"
               disabled={isEdit}
-              className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none disabled:opacity-60"
-            >
-              <option value="">No category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 

@@ -530,6 +530,18 @@ const systemCategories = [
 ];
 ```
 
+> **✅ Shipped — user category management (`feature/user-category-management`, ROADMAP §3).** Beyond the
+> 20 seeded system categories, users can now **create / edit / delete their own** categories (name + icon
+> + color). Creation is inline in the transaction / budget / recurring pickers via a shared
+> `<CategoryPickerField>` ("+ New category" auto-selects the new row); edit/delete live in a "Categories"
+> card on `/settings`. System categories (`isSystem = true`, `userId = null`) stay **immutable** — every
+> mutation is scoped `where: { id, userId, isSystem: false }`. Name dedup is **case-insensitive** across
+> system + own (app pre-check + a functional `(lower(name), userId)` unique index + `P2002` catch). Delete
+> is a hard delete whose confirm dialog states the FK impact: transactions + recurring templates go
+> **Uncategorized** (`SetNull`), budgets are **deleted** (`Cascade`). Not a Pro gate, no count limit, not
+> in onboarding. No schema model change. See `docs/ROADMAP.md` §3 and
+> `docs/features/user-category-management-spec.md`.
+
 > **Note:** `isPro` is the gate, and it is **real and DB-driven** — there is no dev-wide "all users Pro"
 > override in the codebase. The only Pro-gated feature is Reports history (Free ≤ 3 months, Pro ≤ 12); a
 > real user becomes Pro via Stripe Checkout (`feature/stripe-billing`).

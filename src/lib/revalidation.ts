@@ -40,3 +40,19 @@ export function revalidateGoalViews() {
   revalidatePath("/goals");
   revalidatePath("/dashboard");
 }
+
+/**
+ * Revalidate every surface that lists or assigns categories. Categories fan out
+ * widely — every transaction/budget/recurring/report surface renders a category
+ * name or color — so this touches more paths than the other helpers. A rename or
+ * recolor must propagate everywhere the category is shown; a delete must clear it
+ * from feeds and charts.
+ */
+export function revalidateCategoryViews() {
+  revalidatePath("/settings"); // the manage list
+  revalidatePath("/transactions"); // pickers + the feed's category labels
+  revalidatePath("/budgets"); // picker + budget rows
+  revalidatePath("/recurring"); // picker + template rows
+  revalidatePath("/dashboard"); // recent-transactions + budget panel
+  revalidatePath("/reports"); // spending-by-category chart
+}
