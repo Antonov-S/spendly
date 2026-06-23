@@ -4,6 +4,8 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { RegisterForm } from "@/components/auth/register-form";
 import { EMAIL_VERIFICATION_ENABLED } from "@/lib/system-constants";
 
+export const metadata = { title: "Create account" };
+
 export default async function RegisterPage() {
   await redirectIfAuthenticated();
 

@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Dashboard" };
+
 import { requireOnboarded } from "@/lib/auth/guards";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { MetricStrip } from "@/components/dashboard/metric-strip";

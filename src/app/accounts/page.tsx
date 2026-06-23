@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Accounts" };
+
 import { Suspense } from "react";
 import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { getUserAccounts, getAccountsWithBalances } from "@/lib/db/accounts";

@@ -4,6 +4,8 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { EMAIL_VERIFICATION_ENABLED } from "@/lib/system-constants";
 
+export const metadata = { title: "Sign in" };
+
 interface SignInPageProps {
   searchParams: Promise<{
     registered?: string;
