@@ -10,13 +10,14 @@ The core thesis is simple: small moments of conscious engagement with each trans
 
 ## Project Status
 
-Spendly is under active development. The foundation is in place; the transactional product surface is being built on top of a complete data model.
+The MVP is **complete**. A real user can run the full financial loop end-to-end — capture → organize → control → understand — on top of a complete data model. What remains are operator launch-day tasks, not product work.
 
 **Shipped**
 
 - Authentication — email/password and Google OAuth, with email verification, password reset, and rate limiting
 - Profile & account management — usage stats, change password, soft-delete with a 30-day grace period
-- Dashboard — a live state screen reading real data from PostgreSQL via Prisma
+- Onboarding — first-run gate that guides a new signup to create their first account before the data surfaces
+- Dashboard — a live state screen reading real data from PostgreSQL via Prisma, with an actionable insights strip (budgets at risk, pending drafts, overdue goals)
 - Marketing landing page
 - Full Prisma data model for every financial entity (accounts, transactions, budgets, recurring templates/drafts, goals/contributions)
 - Transactions — full read/write stack (list with filters + search, create/edit/delete drawer, transfers, soft-delete undo)
@@ -24,12 +25,18 @@ Spendly is under active development. The foundation is in place; the transaction
 - Recurring templates — full read/write stack (templates + drafts inbox, confirm/dismiss)
 - Financial accounts — `/accounts` management (create/edit/archive/unarchive, derived balance)
 - Goals — `/goals` management (create/edit/complete/delete, contributions + withdrawals)
+- Reports — four hand-rolled SVG charts with a period selector and the Free 3-month / Pro 12-month gate
+- Data export — CSV and JSON download, available on all tiers
+- Settings — display-name edit, billing, data export, and category management
+- User categories — create / edit / delete your own categories alongside the system defaults
+- Stripe Pro billing — Checkout, Customer Portal, and a signature-verified webhook
+- Pre-launch polish — error boundary, styled 404, and per-page titles
 
-**In progress**
+**Remaining for launch** (operator tasks, not code)
 
-- Reports & analytics
-- Data export (CSV / JSON)
-- Stripe Pro billing
+- Stripe **live** keys, webhook endpoint, and Customer Portal configuration
+- Production env validation — `AUTH_URL` on the prod domain, Google production OAuth callback
+- Backup / rollback drill and observability / alerting
 
 See the [Roadmap](#roadmap) for the detailed status of each capability.
 
@@ -56,14 +63,16 @@ Spendly's product design centers on conscious capture and a strict separation be
 - **Recurring templates** — generate confirmation **drafts** instead of silent ledger entries, preserving the conscious-capture moment without the typing burden.
 - **Goals** — virtual progress tracking with manual contributions and withdrawals; goals never touch account balances or budgets.
 - **Dashboard** — a state screen only: hero balance, monthly metric strip (income / expenses / cashflow), sparkline, and top budgets.
-- **Reports** — a separate analytics module with category, income-vs-expense, cashflow, and account-balance views (Free: last 3 months; Pro: full history).
+- **Reports** — a separate analytics module with four charts (spending by category, income vs expenses, cashflow trend, account balance over time), a period selector, and per-chart empty-state nudges (Free: last 3 months; Pro: last 12 months).
 - **Data export (CSV / JSON)** — available on **all** tiers, never Pro-gated; withholding a user's own data erodes trust.
+- **Settings** — display-name edit, billing (plan read-out + Upgrade / Manage), data export, and category management on a single `/settings` surface.
+- **User categories** — create, edit, and delete your own categories (name + icon + color) inline in the pickers, alongside the immutable system defaults.
 - **Authentication** — email/password and Google OAuth, with email verification and password reset.
-- **Pro billing** — Stripe-powered subscription (monthly / annual).
+- **Pro billing** — Stripe-powered subscription (monthly / annual) via Checkout and the Customer Portal.
 - **Responsive web app** — mobile-first in layout, desktop-first in density.
 - **Security** — row-level ownership on every query, hashed passwords, verification/reset tokens hashed at rest, and auth rate limiting.
 
-> Implementation status varies by feature — see [Project Status](#project-status) and the [Roadmap](#roadmap). Per the project principle *"never UI without backing function,"* shipped surfaces are wired to real data, not placeholders.
+> Per the project principle *"never UI without backing function,"* every shipped surface is wired to real data, not placeholders. See [Project Status](#project-status) and the [Roadmap](#roadmap).
 
 ---
 
@@ -100,7 +109,7 @@ Backend logic is implemented with Next.js Server Actions and a small set of API 
 
 | Technology | Version | Purpose |
 | ---------- | ------- | ------- |
-| Stripe     | —       | Subscription billing (planned) |
+| Stripe     | ^22.2.2 | Subscription billing — Checkout, Customer Portal, signature-verified webhook |
 | Resend     | ^6.12.4 | Transactional email (verification, password reset) |
 | @upstash/ratelimit | ^2.0.8 | Auth rate limiting — fails open when unconfigured |
 | @upstash/redis     | ^1.38.0 | Backing store for rate limiting |
@@ -192,15 +201,11 @@ EMAIL_VERIFICATION_ENABLED=   # "false" disables verification; anything else (in
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
-# Stripe (billing)
+# Stripe (server-only billing — no browser Stripe.js, so no publishable key)
 STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_ID_MONTHLY=
 STRIPE_PRICE_ID_YEARLY=
-
-# OpenAI (post-MVP / optional)
-OPENAI_API_KEY=
 ```
 
 ---
@@ -249,9 +254,9 @@ npm run lint       # ESLint
 
 ```text
 src/
-├── app/                 # App Router pages + API route handlers (auth flows)
-├── components/          # UI components by feature (auth, dashboard, marketing, profile, ui)
-├── actions/             # Server Actions (auth, profile)
+├── app/                 # App Router pages + API route handlers (auth, export, stripe webhook)
+├── components/          # UI components by feature (accounts, budgets, goals, reports, settings, …)
+├── actions/             # Server Actions (transactions, budgets, goals, billing, categories, …)
 ├── lib/                 # Utilities, db fetchers, auth helpers, validations, marketing data
 ├── types/               # Shared TypeScript types
 ├── generated/prisma/    # Generated Prisma client (gitignored)
@@ -260,9 +265,9 @@ src/
 └── proxy.ts             # Next.js 16 proxy/middleware re-export
 ```
 
-- **`app/`** — routes and pages. The auth flows live under `app/api/auth/*` as route handlers; everything else is a Server Component page.
-- **`components/`** — feature-grouped React components (`auth`, `dashboard`, `marketing`, `profile`, `ui`).
-- **`actions/`** — Server Actions for form submissions and mutations.
+- **`app/`** — routes and pages. Most are Server Component pages; API route handlers are reserved for work that must run outside the render cycle — `app/api/auth/*`, the data-export streams (`app/api/export/*`), and the Stripe webhook (`app/api/stripe/webhook`).
+- **`components/`** — feature-grouped React components (`accounts`, `auth`, `budgets`, `categories`, `dashboard`, `goals`, `layout`, `marketing`, `onboarding`, `profile`, `recurring`, `reports`, `settings`, `transactions`, `ui`).
+- **`actions/`** — Server Actions for form submissions and mutations (`transactions`, `budgets`, `recurring`, `goals`, `categories`, `financial-accounts`, `billing`, `profile`, `auth`).
 - **`lib/`** — utilities (`format.ts`, `budget.ts`), database fetchers (`lib/db/*`), auth helpers (`lib/auth/*`), Zod schemas (`lib/validations/*`), and marketing data (`lib/marketing/*`).
 - **`types/`** — shared TypeScript types and the NextAuth module augmentation.
 
@@ -309,8 +314,10 @@ Authentication is built on **NextAuth v5 (Auth.js)** with the Prisma adapter and
 - [ ] `npm run db:deploy` runs before app start (`prisma migrate deploy`)
 - [ ] `AUTH_SECRET` is a fresh production secret (never committed)
 - [ ] `AUTH_URL` points to the production domain
-- [ ] Stripe webhook endpoint configured and `STRIPE_WEBHOOK_SECRET` set
+- [ ] Google production OAuth callback registered
+- [ ] Stripe **live** keys, webhook endpoint (`STRIPE_WEBHOOK_SECRET`), and Customer Portal configured
 - [ ] HTTPS enforced
+- [ ] Backup / rollback drill and observability / alerting in place
 
 ---
 
@@ -328,14 +335,22 @@ Authentication is built on **NextAuth v5 (Auth.js)** with the Prisma adapter and
 - [x] Recurring templates with confirmation drafts
 - [x] Financial account management (`/accounts`)
 - [x] Goals management
-- [ ] Reports & analytics
-- [ ] Data export (CSV / JSON)
-- [ ] Stripe Pro billing
-- [ ] Automatic transaction categorization _(post-MVP)_
-- [ ] Subscription detection _(post-MVP)_
-- [ ] Bank sync via Open Banking _(post-MVP)_
-- [ ] Cross-currency aggregation _(post-MVP)_
-- [ ] Native mobile app _(post-MVP)_
+- [x] Onboarding / first-run gate
+- [x] Dashboard insights strip
+- [x] Reports & analytics
+- [x] Data export (CSV / JSON)
+- [x] Settings page
+- [x] User category management
+- [x] Stripe Pro billing
+- [x] Pre-launch polish (error boundary, 404, page titles)
+
+**Post-MVP**
+
+- [ ] Automatic transaction categorization
+- [ ] Subscription detection
+- [ ] Bank sync via Open Banking
+- [ ] Cross-currency aggregation
+- [ ] Native mobile app
 
 ---
 
