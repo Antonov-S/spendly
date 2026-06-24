@@ -41,8 +41,12 @@ export async function updateProfile(
     data: { name: parsed.data.name }, // name only (S3)
   });
 
+  // The JWT session strategy freezes `name` into the token at sign-in, so we do
+  // not try to refresh it here — the sidebar reads the name fresh from the DB
+  // (getSidebarUser) on each page render instead. Revalidate /settings so its
+  // own server render reflects the new name; /profile refreshes on its own next
+  // render (DB-sourced too) so it need not be revalidated from this hot path.
   revalidatePath("/settings");
-  revalidatePath("/profile");
   return { success: true, at: Date.now() };
 }
 

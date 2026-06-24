@@ -19,6 +19,7 @@ import {
 import { getGoalsSummary } from "@/lib/db/goals";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getPendingDraftCount } from "@/lib/db/recurring";
+import { getSidebarUser } from "@/lib/db/profile";
 import { countAtRiskBudgets, buildInsightItems } from "@/lib/insights";
 
 export default async function DashboardPage() {
@@ -30,7 +31,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals, accounts, pendingDraftCount] =
+  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals, accounts, pendingDraftCount, sidebarUser] =
     await Promise.all([
       getDashboardSummary(userId, month, year),
       getBalanceTrend(userId, month, year),
@@ -39,6 +40,7 @@ export default async function DashboardPage() {
       getGoalsSummary(userId),
       getUserAccounts(userId),
       getPendingDraftCount(userId),
+      getSidebarUser(userId),
     ]);
 
   const insightItems = buildInsightItems({
@@ -52,11 +54,7 @@ export default async function DashboardPage() {
       summary={summary}
       balanceTrend={balanceTrend}
       accounts={accounts}
-      user={{
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        image: session.user.image ?? null,
-      }}
+      user={sidebarUser}
     >
       {/* Defensive zero-account fallback. The onboarding guard normally keeps
           this unreachable; this branch keys purely off locally-fetched accounts

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getBudgets, getBudgetFormData } from "@/lib/db/budgets";
+import { getSidebarUser } from "@/lib/db/profile";
 import { parseMonth, parseYear } from "@/lib/budget-period";
 import { AppShell } from "@/components/layout/app-shell";
 import { BudgetsView } from "@/components/budgets/budgets-view";
@@ -26,20 +27,17 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const year = parseYear(sp.year);
 
   // `accounts` is shell chrome (topbar selector), not budget data.
-  const [{ rows, summary }, availableCategories, accounts] = await Promise.all([
+  const [{ rows, summary }, availableCategories, accounts, sidebarUser] = await Promise.all([
     getBudgets(userId, month, year),
     getBudgetFormData(userId, month, year),
     getUserAccounts(userId),
+    getSidebarUser(userId),
   ]);
 
   return (
     <AppShell
       accounts={accounts}
-      user={{
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        image: session.user.image ?? null,
-      }}
+      user={sidebarUser}
     >
       {/* Re-suspend (show fresh render) whenever the period changes. */}
       <Suspense key={`${month}-${year}`}>

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
+import { getSidebarUser } from "@/lib/db/profile";
 import { parseDateParam, parseType } from "@/lib/transactions";
 import { AppShell } from "@/components/layout/app-shell";
 import { TransactionsHeader } from "@/components/transactions/transactions-header";
@@ -52,9 +53,10 @@ export default async function TransactionsPage({
       filters.q
   );
 
-  const [accounts, categories] = await Promise.all([
+  const [accounts, categories, sidebarUser] = await Promise.all([
     getUserAccounts(userId),
     getUserCategories(userId),
+    getSidebarUser(userId),
   ]);
 
   const nowMs = Date.now();
@@ -62,11 +64,7 @@ export default async function TransactionsPage({
   return (
     <AppShell
       accounts={accounts}
-      user={{
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        image: session.user.image ?? null,
-      }}
+      user={sidebarUser}
     >
       <TransactionsHeader />
       <FilterBar categories={categories} />
