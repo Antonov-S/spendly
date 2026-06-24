@@ -14,7 +14,6 @@ export interface MappableBudget {
     name: string;
     color: string;
     icon: string;
-    transactions: { amount: Numeric }[];
   };
 }
 
@@ -46,15 +45,12 @@ export function budgetColor(state: BudgetState): string {
 }
 
 /**
- * Map a budget (with its category's expense transactions) to a serializable
- * display row. `spent` is the absolute sum of the included expense amounts;
- * `icon` stays a raw name string (resolved client-side). Pure: the caller
- * supplies only EXPENSE, non-deleted, in-period transactions.
+ * Map a budget + its precomputed period spend to a serializable display row.
+ * `spent` is the absolute in-period EXPENSE total for the budget's category,
+ * aggregated by the caller (DB-side `groupBy`). `icon` stays a raw name string
+ * (resolved client-side).
  */
-export function mapBudgetRow(budget: MappableBudget): BudgetListRow {
-  const spent = Math.abs(
-    budget.category.transactions.reduce((s, tx) => s + Number(tx.amount), 0)
-  );
+export function mapBudgetRow(budget: MappableBudget, spent: number): BudgetListRow {
   return {
     id: budget.id,
     category: {

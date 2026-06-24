@@ -1,12 +1,28 @@
-# Current Feature
+# Current Feature: Fix — Budget Spend via `groupBy` Instead of Row-Loading
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Replace nested `include: { category: { transactions } }` row-load-and-JS-sum pattern in `getBudgets` with a single DB-side `transaction.groupBy({ _sum: { amount } })` per period
+- Apply the same fix to `getBudgetsData` in `src/lib/db/dashboard.ts` (identical anti-pattern)
+- Update `mapBudgetRow` to accept a precomputed `spent: number` argument instead of deriving it from `category.transactions`
+- No behavioural change — numbers on `/budgets` and dashboard are identical before and after
+- All tests green, build passes, lint clean
+
 ## Notes
+
+- Branch: `fix/budgets-groupby-spend`
+- Root cause: `getBudgets` does a nested `budget → category → transactions` include, loading every matching expense row into memory then summing in JS. At real transaction volume, N rows are transferred just to produce one number.
+- The `categoryId: { in: budgets.map(b => b.categoryId) }` filter on `groupBy` is important — keeps the aggregation scoped to categories with budgets this period; empty budgets list → `in: []` → empty groupBy result (no wasted scan).
+- Two sequential queries (flat budgets first, then groupBy using the category IDs) is intentional — the `in` filter needs the budget rows first. The win is eliminating per-row transfer, not round-trip count.
+- Sign: EXPENSE amounts stored negative → `Math.abs(Number(_sum.amount ?? 0))` for positive `spent`.
+- `spentMap.get(categoryId) ?? 0` handles categories with zero spend (absent from groupBy result).
+- `getBudgetsData` in `dashboard.ts` keeps its own window construction (`Date.UTC(...,0)`) — do not unify with `monthBounds()`; each site keeps its own.
+- `getBudgetsData` does NOT use `mapBudgetRow` — it builds its own `BudgetRow` shape with `resolveIcon(...)` for the component icon. Keep that; just replace the JS reduce with a spentMap lookup.
+- Tests: update `test/lib/budget.test.ts` for new `mapBudgetRow(budget, spent)` signature; add `test/lib/db/budgets.test.ts` asserting groupBy call shape and zero-spend fallback.
 
 ## History
 

@@ -24,24 +24,30 @@ export async function getBudgets(
   const budgets = await prisma.budget.findMany({
     where: { userId, month, year, isArchived: false },
     include: {
-      category: {
-        include: {
-          transactions: {
-            where: {
-              userId,
-              deletedAt: null,
-              type: "EXPENSE",
-              date: { gte: monthStart, lt: nextMonthStart },
-            },
-            select: { amount: true },
-          },
-        },
-      },
+      category: { select: { name: true, color: true, icon: true } },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  const rows = budgets.map(mapBudgetRow);
+  // One DB-side aggregation: signed sum of in-window EXPENSE spend per category,
+  // scoped to the categories that actually have a budget this period.
+  const spendByCategory = await prisma.transaction.groupBy({
+    by: ["categoryId"],
+    where: {
+      userId,
+      deletedAt: null,
+      type: "EXPENSE",
+      date: { gte: monthStart, lt: nextMonthStart },
+      categoryId: { in: budgets.map((b) => b.categoryId) },
+    },
+    _sum: { amount: true },
+  });
+
+  const spentMap = new Map<string, number>(
+    spendByCategory.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
+  );
+
+  const rows = budgets.map((b) => mapBudgetRow(b, spentMap.get(b.categoryId) ?? 0));
   const currencies = budgets.map((b) => b.currency);
   return { rows, summary: summarizeBudgets(rows, currencies, month, year) };
 }
