@@ -2,6 +2,33 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { ProfileStats } from "@/types/profile";
 
+/** The minimal identity the app-shell sidebar renders. */
+export interface SidebarUser {
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}
+
+/**
+ * The sidebar identity, read fresh from the DB on every authenticated page.
+ * The app uses a JWT session strategy, so `session.user.name` is frozen into the
+ * token at sign-in — a later profile rename would not appear in the sidebar until
+ * the next sign-in. Reading the row here keeps the sidebar always-current without
+ * touching the token. Returns all-null when the row is missing (the page's auth
+ * guard already redirects, so this is only a type-safety fallback).
+ */
+export async function getSidebarUser(userId: string): Promise<SidebarUser> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true, image: true },
+  });
+  return {
+    name: user?.name ?? null,
+    email: user?.email ?? null,
+    image: user?.image ?? null,
+  };
+}
+
 /**
  * The `User` columns both `/profile` and `/settings` render. One projection so
  * the two surfaces can never silently disagree about "the user". Returns null

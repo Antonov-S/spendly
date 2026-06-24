@@ -12,6 +12,7 @@ import {
   getReportTxCount,
   getReportProfile,
 } from "@/lib/db/reports";
+import { getSidebarUser } from "@/lib/db/profile";
 import { parsePeriod, resolveEffectivePeriod } from "@/lib/report-period";
 import { AppShell } from "@/components/layout/app-shell";
 import { ReportsView } from "@/components/reports/reports-view";
@@ -41,23 +42,20 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   // `accounts` is shell chrome (topbar selector) + the active-account set the
   // balance legend uses to flag an explicitly-selected archived account.
-  const [categories, monthly, balanceHistory, txCount, accounts] =
+  const [categories, monthly, balanceHistory, txCount, accounts, sidebarUser] =
     await Promise.all([
       getCategoryBreakdown(userId, opts),
       getMonthlyComparison(userId, opts),
       getAccountBalanceHistory(userId, opts),
       getReportTxCount(userId, opts),
       getUserAccounts(userId),
+      getSidebarUser(userId),
     ]);
 
   return (
     <AppShell
       accounts={accounts}
-      user={{
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        image: session.user.image ?? null,
-      }}
+      user={sidebarUser}
     >
       {/* Re-suspend (show fresh render) whenever the period or account changes. */}
       <Suspense key={`${effective.param}-${accountId ?? "all"}`}>

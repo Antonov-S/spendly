@@ -63,8 +63,10 @@ describe("updateProfile", () => {
     expect(Object.keys(arg.data)).toEqual(["name"]);
     expect(arg.data.name).toBe("Ann");
 
+    // Only /settings is revalidated; /profile was dropped from the hot path —
+    // the sidebar reads its name fresh from the DB on each render instead.
     expect(revalidatePath).toHaveBeenCalledWith("/settings");
-    expect(revalidatePath).toHaveBeenCalledWith("/profile");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
   });
 
   it("trims the name before writing", async () => {
