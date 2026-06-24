@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Fix — Auth Card Layout + Scroll-Behavior Warning
 
 ## Status
 
@@ -6,7 +6,18 @@ Not Started
 
 ## Goals
 
+- Remove the standalone Logo block rendered above `AuthCard` (logo sits outside the card on `/sign-in`, `/register`, `/forgot-password`, `/reset-password`)
+- Center the heading (`<h1>` + subtitle `<p>`) inside the card
+- Add `data-scroll-behavior="smooth"` to `<html>` in the root layout to silence the Next.js console warning without removing `scroll-behavior: smooth` from CSS
+
 ## Notes
+
+- Branch: `fix/auth-layout-polish`
+- Two unrelated markup-only fixes batched into one slice — no shared logic, no new unit-test surface
+- `AuthCard` is shared, so both sign-in and register (and forgot/reset-password) are fixed at once
+- Do **not** remove `scroll-behavior: smooth` from `globals.css` — anchor-link smooth scroll on the landing page is intentional
+- Do **not** restyle buttons, card border, or form — only the logo removal + heading centering
+- Testing: existing 506 Vitest tests must stay green; `npm run build` + `npm run lint` must pass
 
 ## History
 
