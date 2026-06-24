@@ -101,10 +101,7 @@ describe("budgetColor", () => {
 });
 
 describe("mapBudgetRow", () => {
-  function budget(
-    amount: number,
-    txAmounts: number[]
-  ): MappableBudget {
+  function budget(amount: number): MappableBudget {
     return {
       id: "b1",
       amount,
@@ -112,41 +109,42 @@ describe("mapBudgetRow", () => {
         name: "Groceries",
         color: "#EF9F27",
         icon: "ShoppingCart",
-        transactions: txAmounts.map((a) => ({ amount: a })),
       },
     };
   }
 
-  it("derives spent as the absolute sum of (negative) expense amounts", () => {
-    const r = mapBudgetRow(budget(400, [-50, -30.5, -20]));
+  it("returns the precomputed spent and the budget limit", () => {
+    const r = mapBudgetRow(budget(400), 100.5);
     expect(r.spent).toBe(100.5);
     expect(r.limit).toBe(400);
   });
 
-  it("returns 0 spent when there are no transactions", () => {
-    const r = mapBudgetRow(budget(200, []));
+  it("returns 0 spent when the caller supplies 0", () => {
+    const r = mapBudgetRow(budget(200), 0);
     expect(r.spent).toBe(0);
     expect(r.limit).toBe(200);
   });
 
   it("carries through the category name/color and the raw icon name", () => {
-    const r = mapBudgetRow(budget(400, [-10]));
+    const r = mapBudgetRow(budget(400), 10);
     expect(r.category.name).toBe("Groceries");
     expect(r.category.color).toBe("#EF9F27");
     expect(r.category.icon).toBe("ShoppingCart");
   });
 
-  it("coerces Decimal-like amount values via toString", () => {
-    const r = mapBudgetRow({
-      id: "b2",
-      amount: { toString: () => "150" },
-      category: {
-        name: "Dining",
-        color: "#D85A30",
-        icon: "UtensilsCrossed",
-        transactions: [{ amount: { toString: () => "-25" } }],
+  it("coerces a Decimal-like amount value via toString", () => {
+    const r = mapBudgetRow(
+      {
+        id: "b2",
+        amount: { toString: () => "150" },
+        category: {
+          name: "Dining",
+          color: "#D85A30",
+          icon: "UtensilsCrossed",
+        },
       },
-    });
+      25
+    );
     expect(r.limit).toBe(150);
     expect(r.spent).toBe(25);
   });

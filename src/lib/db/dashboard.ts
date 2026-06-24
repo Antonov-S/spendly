@@ -234,40 +234,38 @@ export async function getBudgetsData(
   const budgets = await prisma.budget.findMany({
     where: { userId, month, year, isArchived: false },
     include: {
-      category: {
-        include: {
-          transactions: {
-            where: {
-              userId,
-              deletedAt: null,
-              type: "EXPENSE",
-              date: { gte: monthStart, lte: monthEnd },
-            },
-            select: { amount: true },
-          },
-        },
-      },
+      category: { select: { name: true, color: true, icon: true } },
     },
   });
 
-  const rows: BudgetRow[] = budgets.map((budget) => {
-    const spent = Math.abs(
-      budget.category.transactions.reduce(
-        (s, tx) => s + Number(tx.amount),
-        0
-      )
-    );
-    return {
-      id: budget.id,
-      category: {
-        name: budget.category.name,
-        color: budget.category.color,
-        icon: resolveIcon(budget.category.icon),
-      },
-      spent,
-      limit: Number(budget.amount),
-    };
+  // One DB-side aggregation: signed sum of in-window EXPENSE spend per category,
+  // scoped to the categories that actually have a budget this period.
+  const spendByCategory = await prisma.transaction.groupBy({
+    by: ["categoryId"],
+    where: {
+      userId,
+      deletedAt: null,
+      type: "EXPENSE",
+      date: { gte: monthStart, lte: monthEnd },
+      categoryId: { in: budgets.map((b) => b.categoryId) },
+    },
+    _sum: { amount: true },
   });
+
+  const spentMap = new Map<string, number>(
+    spendByCategory.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
+  );
+
+  const rows: BudgetRow[] = budgets.map((budget) => ({
+    id: budget.id,
+    category: {
+      name: budget.category.name,
+      color: budget.category.color,
+      icon: resolveIcon(budget.category.icon),
+    },
+    spent: spentMap.get(budget.categoryId) ?? 0,
+    limit: Number(budget.amount),
+  }));
 
   const total = rows.reduce((s, r) => s + r.limit, 0);
   const totalSpent = rows.reduce((s, r) => s + r.spent, 0);
