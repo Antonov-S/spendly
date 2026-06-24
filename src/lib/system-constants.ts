@@ -151,11 +151,6 @@ export interface NavItem {
   alert?: boolean;
 }
 
-/** Period selector options on the dashboard header. */
-export const PERIOD_OPTIONS = ["Week", "Month", "Year"] as const;
-export type Period = (typeof PERIOD_OPTIONS)[number];
-export const DEFAULT_PERIOD: Period = "Month";
-
 /** Transaction type toggle in the create/edit drawer. */
 export const TRANSACTION_TYPES = ["Income", "Expense", "Transfer"] as const;
 export type TransactionTypeLabel = (typeof TRANSACTION_TYPES)[number];

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatSigned } from "@/lib/format";
 import { TYPE_BORDER_COLOR } from "@/lib/transactions";
@@ -33,12 +34,12 @@ export function TransactionsPanel({ rows, count }: TransactionsPanelProps) {
       <div className="flex items-center gap-2 px-4 py-3.5">
         <h2 className="text-[13px] font-medium text-ink">Recent transactions</h2>
         <span className="text-[11px] text-ink-3">{count} this month</span>
-        <button
-          type="button"
+        <Link
+          href="/transactions"
           className="ml-auto text-[11px] text-info transition-opacity hover:opacity-80"
         >
           See all →
-        </button>
+        </Link>
       </div>
 
       {/* Column header */}
