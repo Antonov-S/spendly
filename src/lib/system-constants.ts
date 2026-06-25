@@ -119,6 +119,14 @@ export const REPORTS_FREE_MAX_MONTHS = 3;
 export const ARIA_SUMMARY_MAX = 3;
 
 /**
+ * Minimum number of Help sections before the `/help` page renders an in-page
+ * table of contents. Below this a TOC is just noise above a short, already-
+ * scannable page; at or above it, the extra navigation earns its place. The
+ * section anchor ids exist regardless of whether the TOC renders.
+ */
+export const HELP_TOC_MIN_SECTIONS = 5;
+
+/**
  * Bump on ANY structural change to the JSON export envelope (data-export-spec
  * §6.2): renaming/removing a key, changing a field's type/units, or changing
  * the date/number encoding. Lets a future importer detect format generations.

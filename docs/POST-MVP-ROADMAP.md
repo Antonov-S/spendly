@@ -23,6 +23,26 @@
 
 ---
 
+## ▶ Next up — implementation sequence
+
+> Running tracker of the **next concrete slice** to build. Update as each ships.
+
+**✅ §2 — Help / FAQ Route shipped** (delivery slot 2, `feature/help-faq-route`). The dead
+sidebar `/help` link (was a hard 404) is retired: a static, server-rendered, `AppShell`-wrapped
+FAQ backed by a typed `src/lib/help/content.ts` (`HELP_SECTIONS`), with per-section icon squares,
+a conditional "On this page" TOC (`HELP_TOC_MIN_SECTIONS = 5`), and the sidebar active-state
+highlight. No DB, no mutations, no schema change. See `docs/features/help-faq-route-spec.md`.
+
+**Now: §3 — AI Auto-Categorization + foundation** (delivery slot 3) — the next firm slot, but
+**blocked on product-owner decisions**: confirm provider/model, the AI COGS cost cap, and the
+expand/iterate/retire thresholds (Open questions #2/#3) before starting. It stands up the shared
+`src/lib/ai/` foundation reused by §4–§6 and §10.
+
+**Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
+consent), then stand it up so §3–§6 acceptance events have somewhere to land.
+
+---
+
 ## Guiding lens
 
 Every item is evaluated against the same frame that governed the MVP:
@@ -126,6 +146,17 @@ whether `getUserOverview` / `getProfileStats` projections need reshaping for the
 ## 2. Help / FAQ Route
 
 **Effort: S · Value: medium (resolves a dead nav link; reduces support load).**
+
+> **✅ Shipped (`feature/help-faq-route`).** `/help` is a static, server-rendered FAQ wrapped in
+> `AppShell`, auth-guarded via `getSessionOrRedirect` (**not** onboarding-gated — a first-run user must
+> reach it). Content is a typed `src/lib/help/content.ts` (`HELP_SECTIONS` — Getting started, Common
+> questions, Accounts, Transactions, Budgets, Recurring, Goals, Reports, Categories, Data & privacy —
+> each with a Lucide icon + hex accent), rendered by `src/components/help/{help-content,help-section}.tsx`
+> with per-section icon squares, a conditional "On this page" TOC (`HELP_TOC_MIN_SECTIONS = 5`), and the
+> sidebar active-state highlight. `/help` added to `auth.config.ts` `isProtected`. No DB, no mutations,
+> no schema change; no support/contact affordance (no support infra exists — deferred). The maintenance
+> contract (§13 of the spec) makes future slices that change a described behaviour responsible for
+> updating the matching Help section. See `docs/features/help-faq-route-spec.md`.
 
 The sidebar already renders `<Link href="/help">`
 ([sidebar.tsx:153](../src/components/dashboard/sidebar.tsx#L153)) pointing at a route that
@@ -579,7 +610,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 |---|---|---|---|---|---|
 | — | Product Analytics / Telemetry (0) | Foundation | S | No | Stand up **early, concurrent with Phase 1**; makes the backlog data-driven. |
 | 1 | Account Surfaces IA Consolidation (1) | Committed | M | No | **✅ Shipped.** Clears the `/profile`↔`/settings` debt before more surfaces land on Settings. |
-| 2 | Help / FAQ route (2) | Committed | S | No | Resolves the dead `/help` nav link; cheap, high orientation value. |
+| 2 | Help / FAQ route (2) | Committed | S | No | **✅ Shipped.** Resolves the dead `/help` nav link; static FAQ, no DB/mutations. |
 | 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | First Pro AI value; stands up `src/lib/ai/` reused by §4–§6, §10. |
 | 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | Least-experimental assistant; direct 5-second-capture win. |
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **Promoted** — proven, high-value, low-risk; ahead of the more experimental AI assistants. |
