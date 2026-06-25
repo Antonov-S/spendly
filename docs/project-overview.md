@@ -755,6 +755,7 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/accounts`     | Financial account management — list, create, edit, archive |
 | `/settings`     | **The** account-management surface. Cards: **Preferences** (identity header + display-name edit), **Security** (change-password for credentials users + sign out), **Billing** (plan read-out + Upgrade/Manage buttons), **Categories**, and **Data & privacy** (data export + account deletion). Financial-account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page` + `feature/stripe-billing` + `feature/account-surfaces-ia-consolidation`); `/profile` is now a permanent redirect here. |
 | `/profile`      | Permanent `redirect("/settings")` (307) — kept resolvable for bookmarks / inbound links; never 404. **✅ Shipped** (`feature/account-surfaces-ia-consolidation`). |
+| `/help`         | Static, server-rendered FAQ inside `AppShell` — entity explainers + "Common questions" + non-obvious behaviours (derived balances, draft-confirm recurring, no-rollover budgets, virtual goals, Reports gate, EUR-only, free export). Auth-guarded, **not** onboarding-gated (escape hatch). No DB / no mutations; content is a typed module `src/lib/help/content.ts`. **✅ Shipped** (`feature/help-faq-route`, POST-MVP §2). |
 
 ### API Routes
 

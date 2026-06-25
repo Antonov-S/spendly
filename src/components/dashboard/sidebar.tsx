@@ -152,9 +152,19 @@ export function Sidebar({
         <Link
           href="/help"
           onClick={onNavigate}
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+          title={!isMobile && collapsed ? "Help" : undefined}
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 transition-colors",
+            pathname === "/help"
+              ? "border border-line bg-surface text-ink"
+              : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+          )}
         >
-          <HelpCircle size={16} className="shrink-0" />
+          <HelpCircle
+            size={16}
+            className={cn("shrink-0", pathname === "/help" && "text-success")}
+            strokeWidth={2}
+          />
           <span className={cn("text-[13px]", labelClass)}>Help</span>
         </Link>
 
