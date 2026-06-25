@@ -726,7 +726,8 @@ Required steps on first launch:
 > `/budgets`, `/recurring`, `/goals`) to a dedicated `/onboarding` route via the per-page server
 > guard `requireOnboarded()` (gate is **derived** from `activeAccountCount > 0`, not a stored flag).
 > The flow is 3 steps — create first account (mandatory) → seed starter budgets (optional) → done →
-> `/dashboard`. `/accounts` and `/profile` stay reachable as escape hatches. Step 2 (currency picker)
+> `/dashboard`. `/accounts` and `/settings` stay reachable as escape hatches (`/profile` now redirects
+> to `/settings`). Step 2 (currency picker)
 > is **not built** — EUR-only; `preferredCurrency` defaults to `DEFAULT_CURRENCY` (EUR) and is dormant.
 > The dashboard also has a defensive zero-account fallback card. See `docs/ROADMAP.md` §1 + §0.
 
@@ -752,7 +753,8 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/goals`        | Goal tracking                                 |
 | `/reports`      | Analytics and trends                          |
 | `/accounts`     | Financial account management — list, create, edit, archive |
-| `/settings`     | User preferences (display-name edit), billing (plan read-out + Upgrade/Manage buttons), and data export ("Your data"). Account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page` + `feature/stripe-billing`); the §8 Stripe Upgrade/Manage buttons are now live via `<BillingActions>`. |
+| `/settings`     | **The** account-management surface. Cards: **Preferences** (identity header + display-name edit), **Security** (change-password for credentials users + sign out), **Billing** (plan read-out + Upgrade/Manage buttons), **Categories**, and **Data & privacy** (data export + account deletion). Financial-account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page` + `feature/stripe-billing` + `feature/account-surfaces-ia-consolidation`); `/profile` is now a permanent redirect here. |
+| `/profile`      | Permanent `redirect("/settings")` (307) — kept resolvable for bookmarks / inbound links; never 404. **✅ Shipped** (`feature/account-surfaces-ia-consolidation`). |
 
 ### API Routes
 
@@ -877,9 +879,10 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 > Both are `auth()`-guarded and `userId`-scoped, **tier-agnostic (no `isPro` read)**, per-user
 > rate-limited with a unified `{ error, code }` 401/429/413 contract, and scoped by the `?account=`
 > filter (account-bound entities scope; budgets/goals/categories stay full — the intentional
-> asymmetry). Entry point: the "Export CSV / JSON" links now live in the `/settings` "Your data"
-> section (relocated from `/accounts` by `feature/settings-page`), with an active-scope label. See
-> `docs/ROADMAP.md` §6 + §7 and `docs/features/data-export-spec.md`.
+> asymmetry). Entry point: the "Export CSV / JSON" links now live in the `/settings` "Data & privacy"
+> section (relocated from `/accounts` by `feature/settings-page`; renamed from "Your data" and
+> co-located with account deletion by `feature/account-surfaces-ia-consolidation`), with an active-scope
+> label. See `docs/ROADMAP.md` §6 + §7 and `docs/features/data-export-spec.md`.
 
 ---
 

@@ -88,6 +88,11 @@ export function DeleteAccountDialog({ email }: DeleteAccountDialogProps) {
           type your email{" "}
           <span className="font-medium text-ink">{email}</span> below.
         </p>
+        <p className="mt-2 text-[12px] text-ink-2">
+          Want a copy first? Close this and export from{" "}
+          <span className="font-medium text-ink">Data &amp; privacy</span> above
+          — deletion is permanent after the grace period.
+        </p>
 
         <form action={formAction} className="mt-4 flex flex-col gap-4">
           <InputFormField

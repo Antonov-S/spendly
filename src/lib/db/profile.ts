@@ -1,6 +1,5 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import type { ProfileStats } from "@/types/profile";
 
 /** The minimal identity the app-shell sidebar renders. */
 export interface SidebarUser {
@@ -30,45 +29,28 @@ export async function getSidebarUser(userId: string): Promise<SidebarUser> {
 }
 
 /**
- * The `User` columns both `/profile` and `/settings` render. One projection so
- * the two surfaces can never silently disagree about "the user". Returns null
- * when the row is missing (each caller redirects to sign-in).
+ * The `User` columns `/settings` renders — now the sole account-management
+ * surface (`/profile` is a redirect). One projection keeps the page's cards
+ * agreeing about "the user". Returns null when the row is missing (the caller
+ * redirects to sign-in).
  *
- * The projection is a deliberate superset — `password`, `image`, and `createdAt`
- * exist only for `/profile` (change-password gating, avatar, member-since) and
- * `/settings` ignores them. Add a column only when one of the two pages renders
- * it; a third consumer with different needs is a signal to split, not widen.
+ * Every column is used: `password` gates the Security change-password card
+ * (null ⇒ OAuth), `image` drives the Preferences avatar, `createdAt` the
+ * "Member since" line, and the `isPro`/`stripe*` columns drive Billing. Add a
+ * column only when a card renders it.
  */
 export async function getUserOverview(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },
     select: {
-      name: true, //                 both: identity / display name
-      email: true, //                both: identity
-      image: true, //                /profile avatar
-      password: true, //             /profile only: gates the change-password card (null ⇒ OAuth)
-      isPro: true, //                /settings billing plan badge (DB read, S4)
-      stripeCustomerId: true, //     /settings billing: drives the Free/Pro action branch (§8)
-      stripeSubscriptionId: true, // /settings billing "subscription active" affordance (§8)
-      preferredCurrency: true, //    /profile read-only row; /settings omits it
-      createdAt: true, //            /profile "member since"
+      name: true, //                 identity / display name
+      email: true, //                identity
+      image: true, //                Preferences avatar
+      password: true, //             Security: gates the change-password card (null ⇒ OAuth)
+      isPro: true, //                Billing plan badge (DB read, S4)
+      stripeCustomerId: true, //     Billing: drives the Free/Pro action branch (§8)
+      stripeSubscriptionId: true, // Billing "subscription active" affordance (§8)
+      createdAt: true, //            Preferences "member since"
     },
   });
-}
-
-/**
- * Count the user's records by item type for the profile usage breakdown.
- * Transactions exclude soft-deleted rows to match what the user sees elsewhere.
- */
-export async function getProfileStats(userId: string): Promise<ProfileStats> {
-  const [financialAccounts, transactions, budgets, goals, recurringTemplates] =
-    await Promise.all([
-      prisma.financialAccount.count({ where: { userId } }),
-      prisma.transaction.count({ where: { userId, deletedAt: null } }),
-      prisma.budget.count({ where: { userId } }),
-      prisma.goal.count({ where: { userId } }),
-      prisma.recurringTemplate.count({ where: { userId } }),
-    ]);
-
-  return { financialAccounts, transactions, budgets, goals, recurringTemplates };
 }

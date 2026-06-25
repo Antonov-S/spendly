@@ -10,14 +10,19 @@ import { getUserOverview } from "@/lib/db/profile";
 import { reconcileCheckoutReturn } from "@/lib/db/billing";
 import { getAccountLabels } from "@/lib/db/accounts";
 import { getManageableCategories } from "@/lib/db/categories";
+import { Avatar } from "@/components/ui/avatar";
+import { SubmitButton } from "@/components/auth/submit-button";
 import { PlanBadge } from "@/components/settings/plan-badge";
 import { ManageCategories } from "@/components/categories/manage-categories";
 import { SettingsNameForm } from "@/components/settings/settings-name-form";
+import { ChangePasswordForm } from "@/components/settings/change-password-form";
+import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
 import {
   BillingActions,
   type CheckoutResult,
 } from "@/components/settings/billing-actions";
 import { ExportLinks } from "@/components/accounts/export-links";
+import { signOutAction } from "@/actions/auth";
 
 interface SettingsPageProps {
   searchParams: Promise<{
@@ -38,8 +43,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     await reconcileCheckoutReturn(session.user.id, sp.session_id);
   }
 
-  // Settings is an escape hatch like /profile — reachable for a zero-account
-  // user, so it is NOT behind requireOnboarded().
+  // Settings is the account-management surface and an escape hatch — reachable
+  // for a zero-account user, so it is NOT behind requireOnboarded().
   const user = await getUserOverview(session.user.id);
   if (!user) {
     redirect("/sign-in");
@@ -68,6 +73,15 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     ? `${scoped.name}${scoped.isArchived ? " (archived)" : ""}`
     : "All accounts";
 
+  const memberSince = user.createdAt.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // Password change is only meaningful for email/password accounts; OAuth-only
+  // users have no password to verify against.
+  const hasPassword = user.password !== null;
+
   const planSummary = user.isPro
     ? user.stripeSubscriptionId
       ? "Pro · subscription active."
@@ -92,10 +106,53 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         <h1 id="preferences-heading" className="text-[13px] font-medium text-ink">
           Preferences
         </h1>
-        <p className="mt-1 text-[12px] text-ink-2">
-          Update how your name appears across Spendly.
-        </p>
-        <SettingsNameForm name={user.name} email={user.email} />
+        <div className="mt-4 flex items-center gap-4">
+          <Avatar
+            name={user.name}
+            email={user.email}
+            image={user.image}
+            className="h-14 w-14"
+            textClassName="text-[18px]"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-medium text-ink">
+              {user.name?.trim() || "Account"}
+            </p>
+            <p className="truncate text-[12px] text-ink-2">{user.email}</p>
+            <p className="mt-0.5 text-[11px] text-ink-3">
+              Member since {memberSince}
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 border-t border-line pt-5">
+          <p className="text-[12px] text-ink-2">
+            Update how your name appears across Spendly.
+          </p>
+          <SettingsNameForm name={user.name} email={user.email} />
+        </div>
+      </section>
+
+      {/* Security */}
+      <section
+        aria-labelledby="security-heading"
+        className="rounded-xl border border-line bg-surface p-6"
+      >
+        <h2 id="security-heading" className="text-[13px] font-medium text-ink">
+          Security
+        </h2>
+        {hasPassword && (
+          <div className="mt-4 border-t border-line pt-4">
+            <ChangePasswordForm />
+          </div>
+        )}
+        <form
+          action={signOutAction}
+          className="mt-4 border-t border-line pt-4"
+        >
+          <SubmitButton className="bg-surface-2 text-ink hover:bg-surface-2/70">
+            Sign out
+          </SubmitButton>
+        </form>
       </section>
 
       {/* Billing */}
@@ -120,22 +177,34 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       {/* Categories */}
       <ManageCategories categories={categories} />
 
-      {/* Your data */}
+      {/* Data & privacy */}
       <section
-        aria-labelledby="your-data-heading"
+        aria-labelledby="data-privacy-heading"
         className="rounded-xl border border-line bg-surface p-6"
       >
-        <h2 id="your-data-heading" className="text-[13px] font-medium text-ink">
-          Your data
+        <h2
+          id="data-privacy-heading"
+          className="text-[13px] font-medium text-ink"
+        >
+          Data &amp; privacy
         </h2>
-        <p className="mt-1 text-[12px] text-ink-2">
-          Download a copy of your data. Exporting:{" "}
-          <span className="font-medium text-ink">{scopeLabel}</span>
-        </p>
-        <div className="mt-4">
-          <ExportLinks accountId={exportAccountId} />
+        <div className="mt-4 rounded-lg border border-success/30 bg-success/10 p-4">
+          <p className="text-[12px] font-medium text-ink">
+            Exporting before you delete?
+          </p>
+          <p className="mt-1 text-[12px] text-ink-2">
+            Download a copy of your data — deletion is permanent after the grace
+            period. Exporting:{" "}
+            <span className="font-medium text-ink">{scopeLabel}</span>
+          </p>
+          <div className="mt-4">
+            <ExportLinks accountId={exportAccountId} />
+          </div>
         </div>
       </section>
+
+      {/* Danger zone — kept last (§3 D7) */}
+      <DeleteAccountDialog email={user.email} />
     </div>
   );
 }

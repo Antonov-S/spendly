@@ -20,16 +20,13 @@ export function ChangePasswordForm() {
   }, [state.success]);
 
   return (
-    <section
-      aria-labelledby="change-password-heading"
-      className="rounded-xl border border-line bg-surface p-6"
-    >
-      <h2
+    <div aria-labelledby="change-password-heading">
+      <h3
         id="change-password-heading"
-        className="text-[13px] font-medium text-ink"
+        className="text-[12px] font-medium text-ink"
       >
         Change password
-      </h2>
+      </h3>
       <p className="mt-1 text-[12px] text-ink-2">
         Enter your current password to set a new one.
       </p>
@@ -80,6 +77,6 @@ export function ChangePasswordForm() {
 
         <SubmitButton>Update password</SubmitButton>
       </form>
-    </section>
+    </div>
   );
 }
