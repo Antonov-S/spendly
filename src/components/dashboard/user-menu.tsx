@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User, LogOut, Wallet } from "lucide-react";
+import { Settings, LogOut, Wallet } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ interface UserMenuProps {
 
 /**
  * Bottom-of-sidebar profile control. Clicking the row opens a drop-up menu
- * with a link to the profile page and a sign-out action.
+ * with links to settings and accounts and a sign-out action.
  */
 export function UserMenu({
   user,
@@ -43,15 +43,15 @@ export function UserMenu({
           />
           <div className="absolute bottom-full left-0 z-20 mb-1 w-52 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-xl">
             <Link
-              href="/profile"
+              href="/settings"
               onClick={() => {
                 setOpen(false);
                 onNavigate?.();
               }}
               className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
             >
-              <User size={15} className="shrink-0" />
-              Profile
+              <Settings size={15} className="shrink-0" />
+              Settings
             </Link>
             <Link
               href="/accounts"
