@@ -1,5 +1,9 @@
 # Fix Spec: De-duplicate Settings / Accounts in the Sidebar Nav
 
+> **✅ Realized** — `fix/settings-nav-dedup` (2026-06-25). Removed `<Link>` items for Settings and
+> Accounts from the `UserMenu` drop-up; drop-up now contains only Sign out. Dropped unused imports
+> (`Link`, `Settings`, `Wallet`). 508 tests pass, build + lint clean, no schema change.
+
 After the Account Surfaces IA Consolidation slice repointed the `UserMenu` "Profile" entry to
 **Settings**, the sidebar bottom now surfaces the same destinations twice. This fix removes that
 redundancy. Markup-only; no logic, no data, no new routes.
@@ -68,12 +72,22 @@ In [src/components/dashboard/user-menu.tsx](../../src/components/dashboard/user-
 they are) — they are the retained, canonical entry points. The separate sidebar `Settings` link added by
 the Settings Page slice is the keeper.
 
-### Optional polish (only if it reads better in QA)
+### Resolved — keep the one-item drop-up; do not rebuild as an identity-row popover
 
-With a single item, the drop-up may feel thin. If so, either (a) leave it — a one-item account menu with
-the identity row above is still clear and conventional; or (b) add a non-duplicating affordance (e.g. the
-plan badge or email is already shown). **Do not** re-add Settings/Accounts to "fill" it — that reinstates
-the duplication this fix removes. Default to (a); no extra work.
+The open UX question was whether a single-item drop-up is acceptable, or whether the identity row should
+instead open a small popover whose only action is Sign out. **Decision: keep the existing drop-up and
+reduce it to the single Sign out item.** Rationale:
+
+1. **Minimal change.** The `UserMenu` is *already* a drop-up — removing the two `<Link>`s leaves a working
+   one-item menu with no new component or interaction model.
+2. **A one-item popover is the same interaction.** Click avatar → reveal Sign out is identical either way;
+   rebuilding it as a popover is effort spent to arrive at the same behaviour.
+3. **Sign out stays one layer down.** Keeping it behind the avatar (not a bare button on the always-visible
+   identity row) preserves the convention that guards against an accidental one-click session end.
+
+The identity row above the menu already renders name + email, so the one-item menu reads as a coherent
+"identity + sign out" control and does not feel thin. **Do not** re-add Settings/Accounts to "fill" the
+menu — that reinstates the duplication this fix removes.
 
 ## What we are not doing
 

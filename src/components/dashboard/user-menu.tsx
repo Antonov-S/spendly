@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Settings, LogOut, Wallet } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/utils";
@@ -20,14 +19,9 @@ interface UserMenuProps {
 
 /**
  * Bottom-of-sidebar profile control. Clicking the row opens a drop-up menu
- * with links to settings and accounts and a sign-out action.
+ * with a sign-out action.
  */
-export function UserMenu({
-  user,
-  collapsed,
-  labelFlexClass,
-  onNavigate,
-}: UserMenuProps) {
+export function UserMenu({ user, collapsed, labelFlexClass }: UserMenuProps) {
   const [open, setOpen] = useState(false);
 
   const displayName = user.name?.trim() || user.email || "Account";
@@ -42,28 +36,6 @@ export function UserMenu({
             onClick={() => setOpen(false)}
           />
           <div className="absolute bottom-full left-0 z-20 mb-1 w-52 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-xl">
-            <Link
-              href="/settings"
-              onClick={() => {
-                setOpen(false);
-                onNavigate?.();
-              }}
-              className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-            >
-              <Settings size={15} className="shrink-0" />
-              Settings
-            </Link>
-            <Link
-              href="/accounts"
-              onClick={() => {
-                setOpen(false);
-                onNavigate?.();
-              }}
-              className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-            >
-              <Wallet size={15} className="shrink-0" />
-              Accounts
-            </Link>
             <form action={signOutAction}>
               <button
                 type="submit"
