@@ -33,13 +33,22 @@ FAQ backed by a typed `src/lib/help/content.ts` (`HELP_SECTIONS`), with per-sect
 a conditional "On this page" TOC (`HELP_TOC_MIN_SECTIONS = 5`), and the sidebar active-state
 highlight. No DB, no mutations, no schema change. See `docs/features/help-faq-route-spec.md`.
 
-**Now: §3 — AI Auto-Categorization + foundation** (delivery slot 3) — the next firm slot, but
-**blocked on product-owner decisions**: confirm provider/model, the AI COGS cost cap, and the
-expand/iterate/retire thresholds (Open questions #2/#3) before starting. It stands up the shared
-`src/lib/ai/` foundation reused by §4–§6 and §10.
+**✅ §3 — AI Auto-Categorization + foundation shipped** (delivery slot 3,
+`feature/ai-auto-categorization`). The shared `src/lib/ai/` foundation is live — a lazy OpenAI client
+(`gpt-5-nano` via the **Responses API**, model behind the `AI_MODEL` knob), a `runAiFeature`
+orchestrator centralizing auth → DB-driven Pro gate → two rate limits (`aiSuggest` 20/h per-feature +
+`aiMonthly` 500/30d global COGS rail) → 8s timeout → telemetry → **fail-open**, plus the no-op
+`track()` telemetry shim (§0 wires the sink later). The feature itself is a Pro-only **"Suggest"**
+button in the transaction drawer (light-blue `--color-ai` accent) that pre-selects a category and
+offers an opt-in merchant-cleanup chip — **suggestion only, never writes**. See
+`docs/features/ai-auto-categorization-spec.md`.
+
+**Now: §4 — Natural-Language Quick Capture** (delivery slot 4) — the next firm slot; reuses the
+`src/lib/ai/` foundation (client, `runAiFeature`, Pro gate, rate/cap, fail-open) §3 stood up.
 
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
-consent), then stand it up so §3–§6 acceptance events have somewhere to land.
+consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
+`ai_category_accepted`/`ai_category_overridden`).
 
 ---
 
@@ -198,6 +207,30 @@ lighter shell.
 ## 3. AI Auto-Categorization (Pro) — and the AI Foundation
 
 **Effort: M (foundation + feature) · Value: high for Pro (first real AI value; speeds capture).**
+
+> **✅ Shipped (`feature/ai-auto-categorization`).** A Pro-only **"Suggest"** button beside the
+> Category field in the transaction drawer calls an LLM that pre-selects the best-matching category
+> (and offers an opt-in **merchant-cleanup** chip) — **a suggestion object only; `createTransaction`/
+> `updateTransaction` stay the sole writers, no new write path.** Hidden for Free (UI) and enforced
+> server-side. **Foundation (`src/lib/ai/`, reused by §4–§6/§10 v2):** `client.ts` lazy OpenAI singleton
+> (mirrors `stripe.ts`); `respond.ts` `aiJsonRespond` Responses-API wrapper (model behind `AI_MODEL`,
+> default `gpt-5-nano` — Chat Completions returns empty for this model; the wrapper also guarantees the
+> literal word "json" is in the input, which the `json_object` guardrail requires); `run.ts`
+> `runAiFeature` — the one place that does auth → **DB-driven Pro gate** (`getAiProfile`, never the JWT)
+> → `aiMonthly` (500/30d, global per-user COGS rail) + `aiSuggest` (20/h, per-feature burst) caps → 8s
+> AbortSignal timeout → **exactly one `ai_result` telemetry event** → **fail-open** (never throws;
+> capture is never blocked); `errors.ts` `AiParseError`/`AiNoMatchError` sentinels; `db/ai.ts`
+> `getAiProfile`; `analytics/track.ts` no-op telemetry shim (§0 swaps the body later). Feature:
+> `actions/ai/suggest-category.ts` (thin over `runAiFeature`; `no_match` degrades to `categoryId: null`,
+> not an error), versioned prompt `lib/ai/prompts/category.ts` (`CATEGORY_PROMPT_VERSION = 1`), pure
+> `lib/ai/category.ts` parse/match helpers, `validations/ai.ts`. UI threads `isPro` through
+> `getDrawerFormData`; the button is gated on free-text input, with a session-token guard so a slow
+> suggestion can't land on a reopened drawer. **AI accent** `--color-ai`/`--color-ai-strong` added to
+> `globals.css` (the one documented exception to the strictly-semantic color rule). **Deviations from
+> this section's original sketch:** model is `gpt-5-nano` (not `gpt-4o-mini`); `getUserCategories` is
+> reused rather than a new fetcher; truncation is owned by the action's `clip()` (so over-long input is
+> truncated, never rejected). 540 tests pass, build + lint clean; no schema change. Spec:
+> `docs/features/ai-auto-categorization-spec.md`.
 
 When a Pro user enters a transaction, an LLM suggests the most likely **category** (and
 optionally cleans up the **merchant**) from the description/merchant text. The suggestion is
@@ -611,7 +644,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | — | Product Analytics / Telemetry (0) | Foundation | S | No | Stand up **early, concurrent with Phase 1**; makes the backlog data-driven. |
 | 1 | Account Surfaces IA Consolidation (1) | Committed | M | No | **✅ Shipped.** Clears the `/profile`↔`/settings` debt before more surfaces land on Settings. |
 | 2 | Help / FAQ route (2) | Committed | S | No | **✅ Shipped.** Resolves the dead `/help` nav link; static FAQ, no DB/mutations. |
-| 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | First Pro AI value; stands up `src/lib/ai/` reused by §4–§6, §10. |
+| 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | **✅ Shipped.** First Pro AI value; stood up `src/lib/ai/` (client + `runAiFeature` + Pro gate + rate/cap + fail-open + telemetry shim) reused by §4–§6, §10. |
 | 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | Least-experimental assistant; direct 5-second-capture win. |
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **Promoted** — proven, high-value, low-risk; ahead of the more experimental AI assistants. |
 | 6 | Trash UI (8) | Committed | S | No | Easy win; infra largely exists. |

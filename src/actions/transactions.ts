@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getTransactions } from "@/lib/db/transactions";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
+import { getAiProfile } from "@/lib/db/ai";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
 import { revalidateTransactionViews } from "@/lib/revalidation";
 import {
@@ -77,11 +78,12 @@ export async function getDrawerFormData(): Promise<{
   if (!session?.user?.id) return { success: false, error: NOT_AUTHED.error };
 
   try {
-    const [accounts, categories] = await Promise.all([
+    const [accounts, categories, { isPro }] = await Promise.all([
       getUserAccounts(session.user.id),
       getUserCategories(session.user.id),
+      getAiProfile(session.user.id),
     ]);
-    return { success: true, data: { accounts, categories } };
+    return { success: true, data: { accounts, categories, isPro } };
   } catch (error) {
     console.error("getDrawerFormData failed", error);
     return { success: false, error: "Could not load the form." };

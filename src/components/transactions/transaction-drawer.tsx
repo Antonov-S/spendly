@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +24,8 @@ import {
   updateTransfer,
   type MutationResult,
 } from "@/actions/transactions";
+import { suggestCategory } from "@/actions/ai/suggest-category";
+import { trackCategoryOutcome } from "@/actions/ai/track-outcome";
 import { CategoryPickerField } from "@/components/categories/category-picker-field";
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
@@ -66,14 +69,45 @@ export function TransactionDrawer({
   const [note, setNote] = useState("");
   const [transferPairId, setTransferPairId] = useState<string | null>(null);
 
+  // AI category suggestion (Pro). `suggestedCategoryId` is retained so Save can
+  // tell accept from override for telemetry; reset whenever the drawer reopens.
+  const [isSuggesting, startSuggesting] = useTransition();
+  const [suggestedCategoryId, setSuggestedCategoryId] = useState<string | null>(
+    null
+  );
+  const [suggestionPromptVersion, setSuggestionPromptVersion] = useState<
+    number | null
+  >(null);
+  const [suggestionConfidence, setSuggestionConfidence] = useState<
+    "high" | "low" | null
+  >(null);
+  const [suggestedMerchant, setSuggestedMerchant] = useState<string | null>(
+    null
+  );
+  const [suggestNote, setSuggestNote] = useState<string | null>(null);
+  // Monotonic token for the current drawer session. Bumped on close/reopen so a
+  // slow suggestion that resolves after the drawer changed is discarded instead
+  // of landing on a fresh (possibly different) transaction.
+  const suggestRunRef = useRef(0);
+
   const isEdit = editId !== null;
   const isTransfer = type === "TRANSFER";
+  const isPro = formData?.isPro ?? false;
+  // The model needs free-text to categorize; an amount alone is no signal.
+  const hasSuggestInput =
+    merchant.trim().length > 0 || note.trim().length > 0;
 
   // Load selectors + (in edit mode) pre-fill whenever the drawer opens.
   useEffect(() => {
     if (!open) return;
     let active = true;
     setError(null);
+    // Clear any prior suggestion so a reopened drawer starts clean.
+    setSuggestedCategoryId(null);
+    setSuggestionPromptVersion(null);
+    setSuggestionConfidence(null);
+    setSuggestedMerchant(null);
+    setSuggestNote(null);
 
     getDrawerFormData().then((res) => {
       if (active && res.success && res.data) setFormData(res.data);
@@ -119,6 +153,8 @@ export function TransactionDrawer({
 
     return () => {
       active = false;
+      // Invalidate any in-flight suggestion: this drawer session is ending.
+      suggestRunRef.current += 1;
     };
   }, [open, editId]);
 
@@ -140,6 +176,51 @@ export function TransactionDrawer({
   const categories = formData?.categories ?? [];
   const noAccounts = formData !== null && accounts.length === 0;
   const busy = isPending || loadingEdit;
+
+  function handleSuggest() {
+    if (!hasSuggestInput) return; // nothing to categorize
+    setSuggestNote(null);
+    setSuggestedMerchant(null);
+    setSuggestionConfidence(null);
+    setSuggestedCategoryId(null);
+    setSuggestionPromptVersion(null);
+    const myRun = suggestRunRef.current;
+    startSuggesting(async () => {
+      const res = await suggestCategory({
+        type: type as "INCOME" | "EXPENSE", // button only renders when !isTransfer
+        merchant: merchant.trim() || null,
+        note: note.trim() || null,
+        amount: Number(amount) || null,
+      });
+      // Discard a result whose drawer session has since closed/reopened.
+      if (suggestRunRef.current !== myRun) return;
+      if (!res.success) {
+        setSuggestNote(
+          res.reason === "rate_limited"
+            ? "You've hit the hourly suggestion limit — pick a category manually."
+            : res.error
+        );
+        return;
+      }
+      const s = res.data;
+      if (s.categoryId) {
+        setCategoryId(s.categoryId);
+        setSuggestedCategoryId(s.categoryId);
+        setSuggestionConfidence(s.confidence);
+        setSuggestionPromptVersion(s.promptVersion); // enables accept/override telemetry
+      } else {
+        // No usable match — leave the manual picker; show no "AI guess" hint.
+        setSuggestedCategoryId(null);
+        setSuggestionConfidence(null);
+        setSuggestNote("No clear match — pick a category manually.");
+      }
+      // Offer merchant cleanup only when it's materially different from input.
+      const trimmedMerchant = merchant.trim();
+      setSuggestedMerchant(
+        s.merchant && s.merchant !== trimmedMerchant ? s.merchant : null
+      );
+    });
+  }
 
   function handleSubmit() {
     setError(null);
@@ -172,6 +253,15 @@ export function TransactionDrawer({
       }
 
       if (res.success) {
+        // Telemetry: did the user keep the AI-suggested category? Only when a
+        // suggestion was made for this (non-transfer) entry. Fire-and-forget.
+        if (!isTransfer && suggestionPromptVersion !== null) {
+          void trackCategoryOutcome({
+            accepted:
+              suggestedCategoryId !== null && categoryId === suggestedCategoryId,
+            promptVersion: suggestionPromptVersion,
+          });
+        }
         onClose();
         toast.success(isEdit ? "Transaction updated" : "Transaction added");
         router.refresh();
@@ -275,13 +365,45 @@ export function TransactionDrawer({
 
           {/* Category — hidden for transfers */}
           {!isTransfer && (
-            <Field label="Category">
+            <Field
+              label="Category"
+              action={
+                isPro ? (
+                  <button
+                    type="button"
+                    onClick={handleSuggest}
+                    disabled={isSuggesting || !hasSuggestInput}
+                    title={
+                      !hasSuggestInput
+                        ? "Add a merchant or note first"
+                        : undefined
+                    }
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Sparkles className="size-3.5" />
+                    {isSuggesting ? "Thinking…" : "Suggest"}
+                  </button>
+                ) : null
+              }
+            >
               <CategoryPickerField
                 categories={categories}
                 value={categoryId}
-                onChange={setCategoryId}
+                onChange={(id) => {
+                  setCategoryId(id);
+                  // A manual change clears any "AI guess" hint styling.
+                  setSuggestionConfidence(null);
+                }}
                 emptyLabel="Uncategorized"
               />
+              {suggestionConfidence === "low" && (
+                <p className="mt-1 text-[11px] text-ai">
+                  AI guess — double-check it.
+                </p>
+              )}
+              {suggestNote && (
+                <p className="mt-1 text-[11px] text-ink-3">{suggestNote}</p>
+              )}
             </Field>
           )}
 
@@ -322,6 +444,19 @@ export function TransactionDrawer({
               placeholder="e.g. Whole Foods"
               className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-3"
             />
+            {suggestedMerchant && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMerchant(suggestedMerchant);
+                  setSuggestedMerchant(null);
+                }}
+                className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-ai/30 bg-ai/5 px-2 py-1 text-[11px] text-ai transition-colors hover:bg-ai/10"
+              >
+                <Sparkles className="size-3" />
+                Use “{suggestedMerchant}”?
+              </button>
+            )}
           </Field>
 
           {/* Note (optional) */}
@@ -412,20 +547,26 @@ function Label({ children }: { children: React.ReactNode }) {
 function Field({
   label,
   optional,
+  action,
   children,
 }: {
   label: string;
   optional?: boolean;
+  /** Optional control rendered inline-end of the label row (e.g. AI Suggest). */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="mt-4">
-      <Label>
-        {label}
-        {optional && (
-          <span className="ml-1 font-normal text-ink-3">(optional)</span>
-        )}
-      </Label>
+      <div className="flex items-center justify-between">
+        <Label>
+          {label}
+          {optional && (
+            <span className="ml-1 font-normal text-ink-3">(optional)</span>
+          )}
+        </Label>
+        {action}
+      </div>
       {children}
     </div>
   );
