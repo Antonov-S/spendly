@@ -72,10 +72,30 @@ export const RATE_LIMITS = {
   // The export pair is the heaviest authenticated read and a download link is
   // trivially re-triggerable. Keyed per-userId (not IP); both /api/export/csv
   // and /api/export/json share this one budget.
-  export: { limit: 10, window: "1 m" }
+  export: { limit: 10, window: "1 m" },
+  // AI feature budgets. Both fail open (no Redis -> allowed).
+  //  - aiSuggest: per-FEATURE burst cap, keyed `${feature}:${userId}` — each AI
+  //    feature gets its own hourly burst budget (auto-categorize, NL capture, …).
+  //  - aiMonthly: ONE GLOBAL per-user monthly cost ceiling, keyed by userId only,
+  //    SHARED across every AI feature. The COGS rail; runAiFeature always checks
+  //    it regardless of which feature is calling.
+  aiSuggest: { limit: 20, window: "1 h" },
+  aiMonthly: { limit: 500, window: "30 d" }
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
+
+/**
+ * OpenAI model for all AI features. Cheap + reliable; a config knob so the
+ * model is swappable without touching call sites (provider-behind-interface).
+ */
+export const AI_MODEL = process.env.AI_MODEL || "gpt-5-nano";
+
+/** Max free-text chars sent to the model per AI call (truncate before sending). */
+export const AI_INPUT_MAX_CHARS = 2000;
+
+/** Per-call AI timeout. On timeout the action fails open to the manual picker. */
+export const AI_TIMEOUT_MS = 8000;
 
 /**
  * Max absolute starting balance accepted by the account form (UI + Zod guard).

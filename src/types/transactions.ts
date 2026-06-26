@@ -126,4 +126,6 @@ export interface EditableTransaction {
 export interface DrawerFormData {
   accounts: AccountOption[];
   categories: CategoryOption[];
+  /** Drives the Pro-only "Suggest" (AI categorization) affordance. */
+  isPro: boolean;
 }

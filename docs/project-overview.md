@@ -650,6 +650,12 @@ Period selector applies to all charts (current month / last 3 months / last 12 m
 | Warning threshold    | Amber | `#EF9F27` |
 | Over budget / loss   | Red   | `#E24B4A` |
 | Neutral information  | Grey  | `#888780` |
+| AI affordance (Pro)  | Light blue | `#5EA8FF` |
+
+> The light-blue **AI accent** (`--color-ai` / `--color-ai-strong` in `globals.css`) is the one
+> documented exception to the strictly-semantic rule — reserved **only** for AI affordances (the Pro
+> "Suggest" button and AI-suggested fields), and intentionally lighter than `info` (`#378ADD`, links)
+> so "this is AI" reads at a glance. See `docs/features/ai-auto-categorization-spec.md` §7.
 
 **Typography roles:**
 
@@ -914,7 +920,10 @@ Fintrack handles personal financial data. Minimum security requirements before s
 
 - Native mobile app (React Native / Expo)
 - Email and push notifications of any kind
-- Automatic transaction categorization (rule-based, then ML-based)
+- Silent automatic transaction categorization (rule-based, then ML-based). _Note: an opt-in, **Pro
+  AI category suggestion** that pre-selects a category for the user to confirm or override — never
+  written silently — has shipped (`feature/ai-auto-categorization`); it is on-thesis (suggest-and-
+  confirm, like recurring drafts). Fully automatic/silent tagging remains out of scope._
 - Subscription detection via recurring-spend clustering
 - Bank account synchronization via Open Banking APIs
 - Linked savings accounts for Goals (real money holding)

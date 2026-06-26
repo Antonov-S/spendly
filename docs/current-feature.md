@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: AI Auto-Categorization (Pro) + AI Foundation
 
 ## Status
 
@@ -6,7 +6,31 @@ Not Started
 
 ## Goals
 
+- Stand up `src/lib/ai/` foundation (lazy OpenAI client, Responses API wrapper, `runAiFeature` orchestrator, telemetry shim, error sentinels)
+- Implement `suggestCategory` server action — Pro-only, returns a suggestion object, never writes
+- Wire a **"Suggest"** button (Sparkles icon, AI accent) into the transaction drawer — hidden for Free users
+- Enforce Pro gate (DB-driven, not JWT), rate limits (20/h per feature + 500/mo global per user), 8s timeout, and fail-open to manual picker on any error
+- Add `--color-ai` / `--color-ai-strong` tokens to `globals.css`
+- Add Vitest unit tests for orchestrator, pure parse/match helpers, and wired action
+- No schema change, no new migration, no new write path
+
 ## Notes
+
+- Spec: `docs/features/ai-auto-categorization-spec.md`; also see `docs/ai-auto-tag-spec.md` for OpenAI SDK gotchas
+- **CRITICAL — Responses API only:** `gpt-5-nano` returns empty content on Chat Completions. Must use `client.responses.create()` with `instructions` + `input` + `text: { format: { type: "json_object" } }`; read result from `response.output_text`
+- Model knob: `AI_MODEL = process.env.AI_MODEL || "gpt-5-nano"` in `system-constants.ts`
+- `runAiFeature` is the single cross-cutting orchestrator (auth → Pro gate → two rate limits → per-call timeout → telemetry → fail-open). Feature actions supply only prompt + parse step
+- Two rate limits: `aiSuggest` (20/h, keyed `${feature}:${userId}`) and `aiMonthly` (500/30d, keyed `userId` — shared global COGS rail applied by `runAiFeature` on every call)
+- Telemetry shim `src/lib/analytics/track.ts` is a no-op placeholder; emits `ai_result` (server, always once per call), `ai_category_accepted`, `ai_category_overridden` (drawer client side)
+- Prompts are versioned (`CATEGORY_PROMPT_VERSION = 1`); bump on any wording change
+- Parse defensively: accept `{ "category": "X" }`, bare `"X"`, or noise; lowercase+trim; case-insensitive match to candidate id. No match → `categoryId: null` (fail open, not error)
+- `no_match` is NOT a hard failure for this feature — return `categoryId: null` suggestion rather than throw `AiNoMatchError`
+- Merchant cleanup is conservative (opt-in chip, separate from category accept — D4)
+- `isPro` threaded into `getDrawerFormData` payload (one extra `select`, no new round-trip)
+- Confidence is `"high" | "low"` (not a float) — drives UI hint style (D3)
+- `OPENAI_API_KEY` already in `.env.example`; add `AI_MODEL` knob
+
+## History
 
 ## History
 

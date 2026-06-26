@@ -26,6 +26,12 @@
   --color-info: #378add;
   --color-neutral: #888780;
 
+  /* AI accent — light blue, reserved for AI affordances only (ai spec §7).
+     The one documented exception to the strictly-semantic rule; intentionally
+     lighter than --color-info (#378add, links) so "this is AI" reads at a glance. */
+  --color-ai: #5ea8ff; /* primary AI accent (buttons, icons) */
+  --color-ai-strong: #3d8bff; /* hover / active */
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
