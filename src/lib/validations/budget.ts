@@ -17,17 +17,24 @@ const amount = z.coerce
 const month = z.coerce.number().int().min(1).max(12);
 const year = z.coerce.number().int().min(2020).max(2100);
 
+/** Opt-in carry of the unspent/overspent remainder into the next month. */
+const rollover = z.boolean();
+
 /** Create: category + amount for a given period. Currency is server-resolved. */
 export const createBudgetSchema = z.object({
   categoryId: z.string().min(1, "Select a category"),
   amount,
   month,
   year,
+  rollover,
 });
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;
 
-/** Update: only the ceiling is editable (period + category are the identity). */
-export const updateBudgetSchema = z.object({ amount });
+/**
+ * Update: the ceiling and the rollover flag are editable in place (period +
+ * category remain the immutable identity).
+ */
+export const updateBudgetSchema = z.object({ amount, rollover });
 
 export type UpdateBudgetInput = z.infer<typeof updateBudgetSchema>;

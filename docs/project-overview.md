@@ -136,7 +136,7 @@ Developer-oriented layout reference for implementing the web dashboard. Full vis
 
 **Data layer** — owns the raw financial state. Transactions are the canonical ledger. Accounts aggregate transactions; their balance is always **derived** (`startingBalance + SUM(transactions)`), never stored. Categories are a flat list (no hierarchy in MVP). Merchants are optional metadata on transactions, future-proofing subscription detection.
 
-**Control layer** — modifies behavior through structure. Budgets impose a monthly spending ceiling per category (no rollover in MVP). Recurring templates generate drafts on schedule; drafts require user confirmation. Goals track virtual progress toward a target amount and have no automatic interaction with budgets or accounts.
+**Control layer** — modifies behavior through structure. Budgets impose a monthly spending ceiling per category (opt-in per-budget rollover graduated in post-MVP — see Budgets). Recurring templates generate drafts on schedule; drafts require user confirmation. Goals track virtual progress toward a target amount and have no automatic interaction with budgets or accounts.
 
 **Insight layer** — surfaces understanding. Dashboard is a state screen only; Reports is a separate analytics module. The two are explicitly separated to prevent scope creep.
 
@@ -369,8 +369,9 @@ model Transaction {
 }
 
 // ─── Budget ───────────────────────────────────────────
-// One budget per category per calendar month.
-// month = 1–12, year = e.g. 2026. No rollover between periods.
+// One budget per category per calendar month. `amount` is the BASE ceiling;
+// when `rollover` is on, the effective limit (base + carried remainder of the
+// prior consecutive rollover run) is derived on read — never stored.
 
 model Budget {
   id         String   @id @default(cuid())
@@ -378,6 +379,7 @@ model Budget {
   currency   String
   month      Int      // 1–12
   year       Int      // e.g. 2026
+  rollover   Boolean  @default(false) // opt-in carry of the unspent/overspent remainder
   isArchived Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -575,7 +577,9 @@ Containers that hold transaction history. Balance is always derived at query tim
 
 ### Budgets
 
-Monthly spending ceiling per category. No rollover between periods. Progress bars show three states: green (< 60%), amber (60–90%), red (> 100%). Dashboard surfaces budget-at-risk alerts when a category exceeds 80% mid-period.
+Monthly spending ceiling per category. Progress bars show three states: green (< 60%), amber (60–90%), red (> 100%). Dashboard surfaces budget-at-risk alerts when a category exceeds 80% mid-period.
+
+> **✅ Shipped — opt-in rollover (`feature/budget-rollover`, POST-MVP §7).** Any budget can be marked **"Roll over remainder"**: its **effective limit** = base limit + the previous month's remainder (`effective − spent`), carried while the budget stays rollover-on across consecutive months. Carry is **positive** (underspent → more room) or **negative** (overspent → less room), and is **derived on read** by walking back the consecutive rollover run — no stored snapshot, no cron. A gap month or a rollover-off month resets the run. Every surface (progress bar, remaining summary, dashboard panel, at-risk insight) uses the effective limit and routes the `effective ≤ 0 → danger/100%` edge through one shared `budgetProgressWithCarry` helper. Per-budget flag, not a user-level default; not a Pro gate. See `docs/features/budget-rollover-spec.md`.
 
 ### Recurring Templates
 
@@ -944,7 +948,7 @@ Fintrack handles personal financial data. Minimum security requirements before s
 - Cross-currency aggregation and base reporting currency
 - Automatic exchange rate fetching
 - Category hierarchy / subcategories
-- Budget rollover between periods
+- ~~Budget rollover between periods~~ — _graduated in: opt-in per-budget rollover shipped (`feature/budget-rollover`, POST-MVP §7)._
 - WebSocket real-time sync
 - Dedicated Trash UI with restore flow
 - Family / team multi-user accounts

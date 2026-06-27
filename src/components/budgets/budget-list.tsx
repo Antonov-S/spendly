@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, AlertTriangle, RefreshCw } from "lucide-react";
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatCurrency } from "@/lib/format";
-import { budgetState, budgetPercent, budgetColor } from "@/lib/budget";
+import { budgetProgressWithCarry, budgetColor, formatCarry } from "@/lib/budget";
 import { resolveIcon } from "@/lib/icon-map";
 import { cn } from "@/lib/utils";
 import type { BudgetListRow, BudgetSummary } from "@/types/dashboard";
@@ -77,9 +77,16 @@ function BudgetRowItem({
   busy: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const state = budgetState(budget.spent, budget.limit);
-  const percent = budgetPercent(budget.spent, budget.limit);
+  const { effectiveLimit, state, percent } = budgetProgressWithCarry(
+    budget.spent,
+    budget.limit,
+    budget.carriedAmount
+  );
   const color = budgetColor(state);
+  const carryLabel =
+    budget.rollover && budget.carriedAmount !== 0
+      ? formatCarry(budget.carriedAmount)
+      : null;
   const category = {
     name: budget.category.name,
     color: budget.category.color,
@@ -102,7 +109,7 @@ function BudgetRowItem({
               state === "danger" ? "text-danger" : "text-ink-3"
             )}
           >
-            {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
+            {formatCurrency(budget.spent)} / {formatCurrency(effectiveLimit)}
           </span>
         </div>
         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
@@ -111,6 +118,12 @@ function BudgetRowItem({
             style={{ width: `${percent}%`, backgroundColor: color }}
           />
         </div>
+        {carryLabel && (
+          <p className="flex items-center gap-1 text-[10px] text-ink-3">
+            <RefreshCw size={10} />
+            {carryLabel}
+          </p>
+        )}
       </button>
 
       {/* Overflow menu trigger */}

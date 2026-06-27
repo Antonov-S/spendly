@@ -4,6 +4,7 @@ import {
   parseYear,
   monthBounds,
   currentPeriod,
+  previousPeriod,
 } from "@/lib/budget-period";
 
 // Fixed clock: 2026-06-16 (mid-June).
@@ -70,5 +71,15 @@ describe("monthBounds", () => {
 describe("currentPeriod", () => {
   it("derives month/year from the injected clock", () => {
     expect(currentPeriod(NOW)).toEqual({ month: 6, year: 2026 });
+  });
+});
+
+describe("previousPeriod", () => {
+  it("decrements the month within the same year", () => {
+    expect(previousPeriod(6, 2026)).toEqual({ month: 5, year: 2026 });
+  });
+
+  it("wraps January back to the previous December", () => {
+    expect(previousPeriod(1, 2026)).toEqual({ month: 12, year: 2025 });
   });
 });

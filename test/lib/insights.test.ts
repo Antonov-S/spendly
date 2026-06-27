@@ -19,8 +19,18 @@ describe("countAtRiskBudgets", () => {
     expect(countAtRiskBudgets([{ spent: 120, limit: 100 }])).toBe(1);
   });
 
-  it("never counts a zero-limit row", () => {
-    expect(countAtRiskBudgets([{ spent: 50, limit: 0 }])).toBe(0);
+  it("counts a row whose carried overspend drove the effective limit to <= 0", () => {
+    // Base 400, but −400 carried in → effective limit 0 → definitionally over.
+    expect(
+      countAtRiskBudgets([{ spent: 50, limit: 400, carriedAmount: -400 }])
+    ).toBe(1);
+  });
+
+  it("uses the effective (base + carry) limit for the at-risk fraction", () => {
+    // 90 spent against base 100 is at risk, but +100 carried in → effective 200 → safe.
+    expect(
+      countAtRiskBudgets([{ spent: 90, limit: 100, carriedAmount: 100 }])
+    ).toBe(0);
   });
 
   it("returns the correct total for a mixed array", () => {
@@ -28,10 +38,10 @@ describe("countAtRiskBudgets", () => {
       { spent: 90, limit: 100 }, // at risk
       { spent: 10, limit: 100 }, // safe
       { spent: 200, limit: 100 }, // over budget — at risk
-      { spent: 0, limit: 0 }, // zero limit — never at risk
+      { spent: 50, limit: 100, carriedAmount: -100 }, // carry wiped the limit — over
       { spent: 80, limit: 100 }, // boundary — at risk
     ];
-    expect(countAtRiskBudgets(rows)).toBe(3);
+    expect(countAtRiskBudgets(rows)).toBe(4);
   });
 
   it("ignores non-finite / malformed inputs rather than false-positiving", () => {

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { CategoryIcon } from "@/components/dashboard/category-icon";
 import { formatCurrency } from "@/lib/format";
-import { budgetState, budgetPercent, budgetColor } from "@/lib/budget";
+import { budgetProgressWithCarry, budgetColor, formatCarry } from "@/lib/budget";
 import { cn } from "@/lib/utils";
 import type { BudgetRow, BudgetSummary } from "@/types/dashboard";
 
@@ -46,9 +47,16 @@ export function BudgetsPanel({ rows, summary }: BudgetsPanelProps) {
       {/* Budget rows */}
       <div className="flex flex-col gap-3.5 px-4 py-4">
         {rows.map((budget) => {
-          const state = budgetState(budget.spent, budget.limit);
-          const percent = budgetPercent(budget.spent, budget.limit);
+          const { effectiveLimit, state, percent } = budgetProgressWithCarry(
+            budget.spent,
+            budget.limit,
+            budget.carriedAmount
+          );
           const color = budgetColor(state);
+          const carryLabel =
+            budget.rollover && budget.carriedAmount !== 0
+              ? formatCarry(budget.carriedAmount)
+              : null;
           return (
             <div key={budget.id} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -62,9 +70,15 @@ export function BudgetsPanel({ rows, summary }: BudgetsPanelProps) {
                     state === "danger" ? "text-danger" : "text-ink-3"
                   )}
                 >
-                  {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
+                  {formatCurrency(budget.spent)} / {formatCurrency(effectiveLimit)}
                 </span>
               </div>
+              {carryLabel && (
+                <p className="flex items-center gap-1 text-[10px] text-ink-3">
+                  <RefreshCw size={10} />
+                  {carryLabel}
+                </p>
+              )}
               {/* Progress track. `data-budget-track` is an inert alignment
                   hook the marketing hero animation uses to land its cube bars
                   on the real bars; it has no effect on the dashboard. */}

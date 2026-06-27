@@ -6,17 +6,20 @@ import {
   budgetColor,
   mapBudgetRow,
   summarizeBudgets,
+  formatCarry,
   type MappableBudget,
 } from "@/lib/budget";
 import type { BudgetRow } from "@/types/dashboard";
 
 /** Build a minimal BudgetRow for the summary tests (icon is irrelevant here). */
-function row(spent: number, limit: number): BudgetRow {
+function row(spent: number, limit: number, carriedAmount = 0): BudgetRow {
   return {
     id: "b",
     category: { name: "X", color: "#000000", icon: (() => null) as never },
     spent,
     limit,
+    rollover: carriedAmount !== 0,
+    carriedAmount,
   };
 }
 
@@ -114,22 +117,29 @@ describe("mapBudgetRow", () => {
   }
 
   it("returns the precomputed spent and the budget limit", () => {
-    const r = mapBudgetRow(budget(400), 100.5);
+    const r = mapBudgetRow(budget(400), 100.5, false, 0);
     expect(r.spent).toBe(100.5);
     expect(r.limit).toBe(400);
   });
 
   it("returns 0 spent when the caller supplies 0", () => {
-    const r = mapBudgetRow(budget(200), 0);
+    const r = mapBudgetRow(budget(200), 0, false, 0);
     expect(r.spent).toBe(0);
     expect(r.limit).toBe(200);
   });
 
   it("carries through the category name/color and the raw icon name", () => {
-    const r = mapBudgetRow(budget(400), 10);
+    const r = mapBudgetRow(budget(400), 10, false, 0);
     expect(r.category.name).toBe("Groceries");
     expect(r.category.color).toBe("#EF9F27");
     expect(r.category.icon).toBe("ShoppingCart");
+  });
+
+  it("threads rollover + carriedAmount through; limit stays the base amount", () => {
+    const r = mapBudgetRow(budget(400), 50, true, 80);
+    expect(r.rollover).toBe(true);
+    expect(r.carriedAmount).toBe(80);
+    expect(r.limit).toBe(400); // base, not the effective 480
   });
 
   it("coerces a Decimal-like amount value via toString", () => {
@@ -143,10 +153,26 @@ describe("mapBudgetRow", () => {
           icon: "UtensilsCrossed",
         },
       },
-      25
+      25,
+      false,
+      0
     );
     expect(r.limit).toBe(150);
     expect(r.spent).toBe(25);
+  });
+});
+
+describe("formatCarry", () => {
+  it("words a positive carry as added room with an explicit +", () => {
+    expect(formatCarry(100)).toBe("+€100 rolled over");
+  });
+
+  it("words a negative carry as last month's overspend", () => {
+    expect(formatCarry(-70)).toBe("€70 overspent last month");
+  });
+
+  it("returns an empty string for zero carry (no carry line)", () => {
+    expect(formatCarry(0)).toBe("");
   });
 });
 
@@ -164,6 +190,25 @@ describe("summarizeBudgets", () => {
   it("clamps remaining at 0 when overspent", () => {
     const s = summarizeBudgets([row(500, 400)], ["USD"], 6, 2026, NOW);
     expect(s.remaining).toBe(0);
+  });
+
+  it("uses the effective limit (base + carry) for total and remaining", () => {
+    // Base 400 + 100 carried = 480 effective limit (wait: 400+100=500); 50 spent.
+    const s = summarizeBudgets([row(50, 400, 100)], ["EUR"], 6, 2026, NOW);
+    expect(s.total).toBe(500); // 400 base + 100 carry
+    expect(s.remaining).toBe(450); // 500 − 50
+  });
+
+  it("shrinks total/remaining with a negative carry", () => {
+    const s = summarizeBudgets([row(50, 400, -100)], ["EUR"], 6, 2026, NOW);
+    expect(s.total).toBe(300); // 400 base − 100 carry
+    expect(s.remaining).toBe(250); // 300 − 50
+  });
+
+  it("leaves non-rollover rows (carry 0) unaffected", () => {
+    const s = summarizeBudgets([row(50, 400, 0)], ["EUR"], 6, 2026, NOW);
+    expect(s.total).toBe(400);
+    expect(s.remaining).toBe(350);
   });
 
   it("computes daysLeft for the current period", () => {

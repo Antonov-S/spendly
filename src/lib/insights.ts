@@ -1,13 +1,21 @@
-import { budgetFraction } from "@/lib/budget";
+import { budgetProgressWithCarry } from "@/lib/budget";
 import { BUDGET_AT_RISK_THRESHOLD } from "@/lib/system-constants";
 import type { DashboardInsights, InsightItem } from "@/types/dashboard";
 
-/** Count budgets at or above the at-risk threshold (includes over-budget). */
+/**
+ * Count budgets at or above the at-risk threshold (includes over-budget). Uses
+ * the carry-aware effective limit via `budgetProgressWithCarry`, so a budget
+ * whose room shrank from a rolled-in overspend can correctly trip the rail
+ * (and an effective limit <= 0 counts as fully over). `carriedAmount` defaults
+ * to 0, so non-rollover rows behave exactly as before.
+ */
 export function countAtRiskBudgets(
-  rows: ReadonlyArray<{ spent: number; limit: number }>
+  rows: ReadonlyArray<{ spent: number; limit: number; carriedAmount?: number }>
 ): number {
   return rows.filter(
-    (r) => budgetFraction(r.spent, r.limit) >= BUDGET_AT_RISK_THRESHOLD
+    (r) =>
+      budgetProgressWithCarry(r.spent, r.limit, r.carriedAmount ?? 0).percent >=
+      BUDGET_AT_RISK_THRESHOLD * 100
   ).length;
 }
 

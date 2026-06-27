@@ -29,6 +29,15 @@ export const BUDGET_THRESHOLDS = {
  */
 export const BUDGET_AT_RISK_THRESHOLD = 0.8;
 
+/**
+ * Max months `resolveRolloverCarry` walks back when deriving a budget's carried
+ * remainder. Carry only flows through a consecutive run of rollover-enabled
+ * budgets, so this is a defensive ceiling on a pathological chain, not the
+ * expected depth (typical runs are 1–3 months). Derive-on-read bound — keep
+ * small; raising it only adds queries for users with very long chains.
+ */
+export const ROLLOVER_MAX_LOOKBACK_MONTHS = 24;
+
 /** Credentials auth security policy. */
 export const BCRYPT_SALT_ROUNDS = 12;
 export const PASSWORD_MIN_LENGTH = 8;
