@@ -199,7 +199,7 @@ The schema enforces `@@unique([userId, categoryId, month, year])` — the action
 
 ### Special cases
 
-- **No rollover.** Each month is independent; there is no carry-forward of unspent amounts.
+- **Opt-in rollover (`feature/budget-rollover`, POST-MVP §7).** By default each month is independent. When `rollover = true`, the budget's **effective limit** = base `amount` + the prior month's remainder (`effective − spent`), derived on read by `resolveRolloverCarry` — no stored carry, no cron. A gap month or a rollover-off month resets the run. See `docs/features/budget-rollover-spec.md`.
 - **Currency.** Budget currency is recorded but cross-currency comparison is post-MVP. In MVP, budgets and transactions should share the same currency.
 - **Archived-account expenses still count toward budget spend (deliberate).** Budget consumption is **category-scoped historical analysis**, so it sums a category's EXPENSE transactions regardless of whether the owning account is archived — `getBudgetsData`/`getBudgets` intentionally do **not** add an `isArchived: false` account filter. This is asymmetric with the dashboard hero balance and metric strip (current-account aggregates that *do* exclude archived accounts) and with the recent-transactions feed (which excludes archived-account rows so it agrees with `/transactions`). The rule: archiving changes **visibility and future capture, not historical category spending**. Do not "fix" the budget query to match the balance query — the divergence is the intended behavior.
 

@@ -206,7 +206,7 @@ The canonical ledger entry; every movement of money, whether income, expense, or
 
 ## Budget
 
-A monthly spending ceiling for a specific category; one budget row per category per calendar month with no rollover.
+A monthly spending ceiling for a specific category; one budget row per category per calendar month. Opt-in `rollover` flag carries the unspent (or overspent) remainder into the next consecutive month — derived on read, no stored carry (`feature/budget-rollover`, POST-MVP §7).
 
 ### Fields
 
@@ -217,6 +217,7 @@ A monthly spending ceiling for a specific category; one budget row per category 
 | `currency` | `String` | required | Stamped `DEFAULT_CURRENCY` (EUR) server-side by `createBudget` / `seedPresetBudgets`. **No longer reads `preferredCurrency`** (changed in `feature/onboarding-currency`) |
 | `month` | `Int` | required | Calendar month 1–12 |
 | `year` | `Int` | required | Four-digit year, e.g. `2026` |
+| `rollover` | `Boolean` | `@default(false)` | Opt-in carry of the unspent/overspent remainder into the next month; effective limit derived on read |
 | `isArchived` | `Boolean` | `@default(false)` | Hides the budget from the active list without deleting history |
 | `userId` | `String` | FK → `User.id` | |
 | `categoryId` | `String` | FK → `Category.id` | |
@@ -237,9 +238,9 @@ A monthly spending ceiling for a specific category; one budget row per category 
 
 ### Special rules
 
-- No rollover between months. Each budget is independent.
+- **Rollover (opt-in).** `rollover = false` (default) — each month resets clean. When `true`, the effective limit = `amount + carriedAmount`, where `carriedAmount` is the folded remainder of the consecutive rollover-on run immediately preceding this month (derived on read by `resolveRolloverCarry`; a gap or rollover-off month breaks the run and resets carry to 0). Effective limit ≤ 0 renders as danger/100%.
 - Budget consumption is computed at query time by summing `Transaction.amount` where `type = EXPENSE`, `categoryId = ?`, `month/year` matches, and `deletedAt IS NULL`. It is never stored.
-- Progress thresholds used in the UI: green below 60 %, amber 60–90 %, red above 100 %. The Dashboard surfaces an "at risk" alert when any category exceeds 80 % mid-period.
+- Progress thresholds used in the UI: green below 60 %, amber 60–90 %, red above 100 %. The Dashboard surfaces an "at risk" alert when any category exceeds 80 % of the **effective** limit mid-period.
 - When a `Category` is hard-deleted, its `Budget` records are also hard-deleted (`onDelete: Cascade`).
 
 ---
