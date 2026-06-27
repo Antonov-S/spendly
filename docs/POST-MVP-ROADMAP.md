@@ -43,8 +43,20 @@ button in the transaction drawer (light-blue `--color-ai` accent) that pre-selec
 offers an opt-in merchant-cleanup chip — **suggestion only, never writes**. See
 `docs/features/ai-auto-categorization-spec.md`.
 
-**Now: §4 — Natural-Language Quick Capture** (delivery slot 4) — the next firm slot; reuses the
-`src/lib/ai/` foundation (client, `runAiFeature`, Pro gate, rate/cap, fail-open) §3 stood up.
+**✅ §4 — Natural-Language Quick Capture shipped** (delivery slot 4, `feature/nl-quick-capture`).
+A Pro-only **"Quick add"** natural-language field at the top of the **create-mode** transaction
+drawer (light-blue `--color-ai` accent): a Pro user types one line — `"12 lunch at Pret yesterday"`
+— and the `parseTransaction` action (thin over `runAiFeature`, reusing the §3 foundation unchanged)
+pre-fills type/amount/date/category/merchant/note for confirmation. **Suggestion only — never
+writes; `createTransaction` stays the sole writer.** Amount is the hard requirement (missing →
+`no_match` → fail open); category degrades to null (manual picker). New: prompt
+`src/lib/ai/prompts/transaction.ts`, pure helpers `src/lib/ai/parse.ts` (`parseDraftJson` +
+`resolveDraftDate`), `trackParseOutcome` telemetry (field-name-only edit diff). No new client,
+orchestrator, Pro read, rate policy, telemetry sink, color, schema, or migration — the first proof
+of §3's "prompt + parse step only" claim. See `docs/features/nl-quick-capture-spec.md`.
+
+**Now: §7 — Budget Rollover** (delivery slot 5) — the next firm slot; proven, high-value, low-risk,
+promoted ahead of the remaining (more experimental) AI assistants (§5–§6).
 
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
@@ -267,6 +279,15 @@ Out-of-Scope entry referred to silent auto-tagging, which we are **not** doing.
 ---
 
 ## 4. Natural-Language Quick Capture (Pro)
+
+> **✅ Shipped (`feature/nl-quick-capture`, delivery slot 4).** A Pro-only "Quick add" NL field
+> at the top of the create-mode transaction drawer pre-fills a draft via the `parseTransaction`
+> action (thin over `runAiFeature`); never writes — `createTransaction` stays the sole writer.
+> Amount missing → `no_match` (fail open); category unmatched → null (manual picker); account
+> never auto-set; single transaction only (v1). Reuses the §3 foundation unchanged (no new client,
+> orchestrator, Pro read, rate policy, telemetry sink, color, schema, or migration) — the first
+> proof of §3's "prompt + parse step only" claim. Decisions baked in below. See
+> `docs/features/nl-quick-capture-spec.md`.
 
 **Effort: M · Value: high for Pro (most on-philosophy AI feature).**
 
@@ -645,7 +666,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 1 | Account Surfaces IA Consolidation (1) | Committed | M | No | **✅ Shipped.** Clears the `/profile`↔`/settings` debt before more surfaces land on Settings. |
 | 2 | Help / FAQ route (2) | Committed | S | No | **✅ Shipped.** Resolves the dead `/help` nav link; static FAQ, no DB/mutations. |
 | 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | **✅ Shipped.** First Pro AI value; stood up `src/lib/ai/` (client + `runAiFeature` + Pro gate + rate/cap + fail-open + telemetry shim) reused by §4–§6, §10. |
-| 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | Least-experimental assistant; direct 5-second-capture win. |
+| 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Quick add" NL field in the create-mode drawer; `parseTransaction` thin over `runAiFeature`, suggestion-only (never writes); proves §3's "prompt + parse step only" reuse. |
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **Promoted** — proven, high-value, low-risk; ahead of the more experimental AI assistants. |
 | 6 | Trash UI (8) | Committed | S | No | Easy win; infra largely exists. |
 | 7 | **Data Import (15)** | Committed | M | No | Onboarding/acquisition lever; reuses export infra. Pairs with the §1–§2 first-run polish. |

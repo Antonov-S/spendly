@@ -14,3 +14,14 @@ export const suggestCategorySchema = z.object({
 });
 
 export type SuggestCategoryInput = z.infer<typeof suggestCategorySchema>;
+
+/**
+ * Input to the `parseTransaction` AI action (NL Quick Capture). Free-text length
+ * is enforced by the action's `clip()` (truncate to AI_INPUT_MAX_CHARS before the
+ * call) like suggestCategory — over-long input is truncated, never rejected.
+ */
+export const parseTransactionSchema = z.object({
+  text: z.string().min(1, "Type what you spent."),
+});
+
+export type ParseTransactionInput = z.infer<typeof parseTransactionSchema>;
