@@ -91,11 +91,29 @@ export type RateLimitName = keyof typeof RATE_LIMITS;
  */
 export const AI_MODEL = process.env.AI_MODEL || "gpt-5-nano";
 
+/**
+ * Reasoning effort for the gpt-5 family (Responses API). Tuned against measured
+ * latency + category-inference quality on `gpt-5-nano`:
+ *  - `medium` (the default) infers categories well but takes 5–11s → breaches
+ *    AI_TIMEOUT_MS and fails calls open intermittently.
+ *  - `minimal` is fast (~1s) but inference collapses: it invents off-list names
+ *    ("Vets"/"Healthcare") and mis-maps (gym/pharmacy → Groceries).
+ *  - `low` is the sweet spot: category quality matches `medium` (vet → Pets,
+ *    pharmacy → Health) at ~2–3s, comfortably under the timeout.
+ * A knob so it can be raised if a future feature genuinely needs reasoning.
+ */
+export const AI_REASONING_EFFORT = "low";
+
 /** Max free-text chars sent to the model per AI call (truncate before sending). */
 export const AI_INPUT_MAX_CHARS = 2000;
 
-/** Per-call AI timeout. On timeout the action fails open to the manual picker. */
-export const AI_TIMEOUT_MS = 8000;
+/**
+ * Per-call AI timeout. On timeout the action fails open to the manual picker.
+ * `low`-effort gpt-5-nano calls land ~2–3s but occasionally spike toward ~7s, so
+ * 12s gives headroom for outliers; the ceiling only bites on a genuinely stuck
+ * call (rare), where waiting a few extra seconds beats a false fail-open.
+ */
+export const AI_TIMEOUT_MS = 12000;
 
 /**
  * Max absolute starting balance accepted by the account form (UI + Zod guard).

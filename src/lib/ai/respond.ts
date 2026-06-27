@@ -1,6 +1,6 @@
 import "server-only";
 import { getOpenAI } from "@/lib/ai/client";
-import { AI_MODEL } from "@/lib/system-constants";
+import { AI_MODEL, AI_REASONING_EFFORT } from "@/lib/system-constants";
 
 /**
  * Run one JSON-object Responses-API call and return the raw `output_text`.
@@ -33,6 +33,10 @@ export async function aiJsonRespond(args: {
       instructions: args.instructions,
       input,
       text: { format: { type: "json_object" } },
+      // Shallow extraction/classification — `minimal` keeps latency ~1–2s (vs.
+      // ~9–10s at the gpt-5 default `medium`, which breaches AI_TIMEOUT_MS and
+      // fails the call open). See AI_REASONING_EFFORT.
+      reasoning: { effort: AI_REASONING_EFFORT },
     },
     { signal: args.signal }
   );

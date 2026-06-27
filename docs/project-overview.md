@@ -558,6 +558,15 @@ Transfers create two linked `Transaction` records sharing a `transferPairId`. In
 
 Soft delete: deleted transactions receive `deletedAt` timestamp and disappear from the UI. An 8-second snackbar undo is the only recovery mechanism in MVP.
 
+> **✅ Shipped — AI affordances in the drawer (Pro).** Two opt-in, suggestion-only AI helpers live in the
+> transaction drawer, both gated on `isPro` (read fresh from the DB) and **fail-open** to manual entry:
+> the **"Suggest"** button pre-selects a category from the merchant/note (`feature/ai-auto-categorization`),
+> and **"Quick add"** (create-mode only) parses one natural-language line — `"12 lunch at Pret yesterday"`
+> — into a pre-filled, unsaved draft (type / amount / date / category / merchant / note) for the user to
+> confirm (`feature/nl-quick-capture`, POST-MVP §4). Neither ever writes — `createTransaction` stays the
+> sole writer, preserving the conscious-capture confirm moment. See
+> `docs/features/nl-quick-capture-spec.md`.
+
 ### Financial Accounts
 
 Containers that hold transaction history. Balance is always derived at query time. Each account has its own currency — no cross-currency aggregation in MVP. The global account selector in the topbar scopes the entire UI to one account when active; a visible indicator appears when scope is non-default.
@@ -924,6 +933,11 @@ Fintrack handles personal financial data. Minimum security requirements before s
   AI category suggestion** that pre-selects a category for the user to confirm or override — never
   written silently — has shipped (`feature/ai-auto-categorization`); it is on-thesis (suggest-and-
   confirm, like recurring drafts). Fully automatic/silent tagging remains out of scope._
+- Silent natural-language transaction entry. _Note: an opt-in, **Pro NL "Quick add"** that parses one
+  line (e.g. "12 lunch at Pret yesterday") into a **pre-filled, unsaved** drawer draft for the user to
+  confirm — never written by the parse — has shipped (`feature/nl-quick-capture`,
+  `docs/features/nl-quick-capture-spec.md`); on-thesis (suggest-and-confirm). Multi-transaction input
+  and a dedicated quick-add bar outside the drawer remain out of scope._
 - Subscription detection via recurring-spend clustering
 - Bank account synchronization via Open Banking APIs
 - Linked savings accounts for Goals (real money holding)

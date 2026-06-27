@@ -26,6 +26,11 @@ import {
 } from "@/actions/transactions";
 import { suggestCategory } from "@/actions/ai/suggest-category";
 import { trackCategoryOutcome } from "@/actions/ai/track-outcome";
+import { parseTransaction } from "@/actions/ai/parse-transaction";
+import {
+  trackParseOutcome,
+  type ParsedField,
+} from "@/actions/ai/track-parse-outcome";
 import { CategoryPickerField } from "@/components/categories/category-picker-field";
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
@@ -90,6 +95,27 @@ export function TransactionDrawer({
   // of landing on a fresh (possibly different) transaction.
   const suggestRunRef = useRef(0);
 
+  // NL Quick Capture (Pro, create-mode). `quickAddText` is the raw line and is
+  // retained for the drawer session so the user can tweak-and-re-parse (D7).
+  // `draftSnapshot` records the parse-filled field values so Save can report
+  // which fields the user edited first (telemetry, §7). All reset on reopen.
+  const [isParsing, startParsing] = useTransition();
+  const [quickAddText, setQuickAddText] = useState("");
+  const [parseNote, setParseNote] = useState<string | null>(null);
+  const [parseConfidence, setParseConfidence] = useState<
+    "high" | "low" | null
+  >(null);
+  const [parsePromptVersion, setParsePromptVersion] = useState<number | null>(
+    null
+  );
+  const [draftSnapshot, setDraftSnapshot] = useState<Record<
+    ParsedField,
+    string
+  > | null>(null);
+  // Monotonic token (sibling to suggestRunRef): a slow parse resolving after the
+  // drawer closed/reopened is discarded rather than landing on a fresh entry.
+  const parseRunRef = useRef(0);
+
   const isEdit = editId !== null;
   const isTransfer = type === "TRANSFER";
   const isPro = formData?.isPro ?? false;
@@ -108,6 +134,12 @@ export function TransactionDrawer({
     setSuggestionConfidence(null);
     setSuggestedMerchant(null);
     setSuggestNote(null);
+    // Clear any prior NL Quick Capture state (D7 — local-only, never persisted).
+    setQuickAddText("");
+    setParseNote(null);
+    setParseConfidence(null);
+    setParsePromptVersion(null);
+    setDraftSnapshot(null);
 
     getDrawerFormData().then((res) => {
       if (active && res.success && res.data) setFormData(res.data);
@@ -153,8 +185,9 @@ export function TransactionDrawer({
 
     return () => {
       active = false;
-      // Invalidate any in-flight suggestion: this drawer session is ending.
+      // Invalidate any in-flight suggestion/parse: this drawer session is ending.
       suggestRunRef.current += 1;
+      parseRunRef.current += 1;
     };
   }, [open, editId]);
 
@@ -222,6 +255,61 @@ export function TransactionDrawer({
     });
   }
 
+  function handleParse() {
+    const text = quickAddText.trim();
+    if (!text) return; // nothing to parse
+    setParseNote(null);
+    const myRun = parseRunRef.current;
+    startParsing(async () => {
+      const res = await parseTransaction({ text });
+      // Discard a result whose drawer session has since closed/reopened.
+      if (parseRunRef.current !== myRun) return;
+      if (!res.success) {
+        setParseNote(
+          res.reason === "no_match"
+            ? "Couldn't read that — add the details manually."
+            : res.reason === "rate_limited"
+              ? "You've hit the hourly limit — enter it manually."
+              : res.error
+        );
+        return;
+      }
+      const d = res.data;
+      // Pre-fill the form wholesale (D8 — re-parse replaces every parse-owned
+      // field). The account is NOT set — it keeps the topbar-scope default (D4).
+      setType(d.type);
+      setAmount(String(d.amount));
+      setDate(d.date);
+      setCategoryId(d.categoryId ?? "");
+      setMerchant(d.merchant ?? "");
+      setNote(d.note ?? "");
+      // Snapshot the drafted values so Save can report which fields were edited.
+      setDraftSnapshot({
+        type: d.type,
+        amount: String(d.amount),
+        date: d.date,
+        category: d.categoryId ?? "",
+        merchant: d.merchant ?? "",
+        note: d.note ?? "",
+      });
+      setParseConfidence(d.confidence);
+      setParsePromptVersion(d.promptVersion);
+    });
+  }
+
+  /** Diff the current field values against the parse snapshot for telemetry. */
+  function editedParseFields(): ParsedField[] {
+    if (!draftSnapshot) return [];
+    const edited: ParsedField[] = [];
+    if (type !== draftSnapshot.type) edited.push("type");
+    if (amount !== draftSnapshot.amount) edited.push("amount");
+    if (date !== draftSnapshot.date) edited.push("date");
+    if (categoryId !== draftSnapshot.category) edited.push("category");
+    if (merchant !== draftSnapshot.merchant) edited.push("merchant");
+    if (note !== draftSnapshot.note) edited.push("note");
+    return edited;
+  }
+
   function handleSubmit() {
     setError(null);
     const base = {
@@ -260,6 +348,15 @@ export function TransactionDrawer({
             accepted:
               suggestedCategoryId !== null && categoryId === suggestedCategoryId,
             promptVersion: suggestionPromptVersion,
+          });
+        }
+        // Telemetry: was this parse-originated entry confirmed, and which
+        // drafted fields were edited first? Field NAMES only, never values (§7).
+        if (!isTransfer && parsePromptVersion !== null) {
+          void trackParseOutcome({
+            confirmed: true,
+            editedFields: editedParseFields(),
+            promptVersion: parsePromptVersion,
           });
         }
         onClose();
@@ -318,6 +415,53 @@ export function TransactionDrawer({
 
         {/* Form body */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
+          {/* Quick add (NL Quick Capture) — Pro, create-mode only. Parses one
+              line into a draft for the user to confirm; never saves (D1/D6). */}
+          {!isEdit && isPro && (
+            <div className="mb-5 rounded-lg border border-ai/30 bg-ai/5 p-3">
+              <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-ai">
+                <Sparkles className="size-3.5" />
+                Quick add
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={quickAddText}
+                  onChange={(e) => setQuickAddText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleParse();
+                    }
+                  }}
+                  // Autofocus the capture line on desktop create-open (D10); the
+                  // field only renders in create + Pro, so gating on isDesktop is
+                  // enough. Suppressed on mobile to avoid a keyboard takeover.
+                  autoFocus={isDesktop}
+                  placeholder="e.g. 12 lunch at Pret yesterday"
+                  className="w-full rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-3"
+                />
+                <button
+                  type="button"
+                  onClick={handleParse}
+                  disabled={isParsing || quickAddText.trim().length === 0}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ai/30 bg-ai/10 px-2.5 py-2 text-[12px] font-medium text-ai transition-colors hover:bg-ai/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Sparkles className="size-3.5" />
+                  {isParsing ? "Reading…" : "Parse"}
+                </button>
+              </div>
+              {parseConfidence !== null && parseConfidence !== "high" && (
+                <p className="mt-1.5 text-[11px] text-ai">
+                  AI draft — double-check the details.
+                </p>
+              )}
+              {parseNote && (
+                <p className="mt-1.5 text-[11px] text-ink-3">{parseNote}</p>
+              )}
+            </div>
+          )}
+
           {/* Type toggle */}
           <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-app p-1">
             {TRANSACTION_TYPE_OPTIONS.map((option) => (
