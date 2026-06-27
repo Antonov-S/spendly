@@ -55,8 +55,9 @@ writes; `createTransaction` stays the sole writer.** Amount is the hard requirem
 orchestrator, Pro read, rate policy, telemetry sink, color, schema, or migration — the first proof
 of §3's "prompt + parse step only" claim. See `docs/features/nl-quick-capture-spec.md`.
 
-**Now: §7 — Budget Rollover** (delivery slot 5) — the next firm slot; proven, high-value, low-risk,
-promoted ahead of the remaining (more experimental) AI assistants (§5–§6).
+**✅ §7 — Budget Rollover shipped** (delivery slot 5, `feature/budget-rollover`). Per-budget opt-in
+carry, derived on read via a consecutive-rollover-run chain rule — no stored carry, no cron. Proven,
+high-value, low-risk; landed ahead of the remaining (more experimental) AI assistants (§5–§6).
 
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
@@ -193,8 +194,8 @@ The sidebar already renders `<Link href="/help">`
     negative** — starting balance is signed.
   - **Transactions** — income / expense / transfer; transfers are one logical move shown as a
     single row. Soft-delete with 8-second undo.
-  - **Budgets** — monthly per-category ceilings; **no rollover** (resets each month — until §7
-    ships); green/amber/red states.
+  - **Budgets** — monthly per-category ceilings; **opt-in rollover** per budget (§7 shipped —
+    carry derived on read); green/amber/red states.
   - **Recurring templates** — generate **drafts you confirm**, not silent entries (explain the
     *why*: conscious capture).
   - **Goals** — *virtual* savings progress; **don't touch account balances or budgets**;
@@ -375,6 +376,20 @@ checkpoint is the dividing line between "committed AI layer" and "speculative AI
 ## 7. Budget Rollover
 
 **Effort: S–M · Value: high (active budget users). Promoted ahead of §5–§6 in delivery order.**
+
+> **✅ Shipped (`feature/budget-rollover`, delivery slot 5).** A per-budget **"Roll over
+> remainder"** toggle. Effective limit = base limit + the prior month's remainder
+> (`effective − spent`), carried while the budget stays rollover-on across consecutive months;
+> carry is **positive** (underspent) or **negative** (overspent). **Realized decisions:**
+> **(1) derive on read** — `resolveRolloverCarry` walks back the consecutive rollover run
+> (`previousPeriod`, bounded by `ROLLOVER_MAX_LOOKBACK_MONTHS = 24`), folds via pure
+> `rolloverCarryIn`, rounds once at the boundary; no stored carry, no cron. **(2) Per-budget
+> `Budget.rollover` flag** (one additive column, `add_budget_rollover`), not a user-level
+> default. **(3) Chain rule:** a gap month or a rollover-off month ends the run — the next
+> rollover-on month starts fresh. **(4)** The `effective ≤ 0 → danger/100%` edge lives once in
+> `budgetProgressWithCarry`; the `/budgets` row, dashboard panel, and at-risk insight count all
+> route through it so they cannot diverge. Not a Pro gate. See
+> `docs/features/budget-rollover-spec.md`.
 
 Carry an unspent (or overspent) remainder into the next month instead of resetting clean. The
 model already fits (budgets are per-`(category, month, year)`). Add a `rollover` toggle (per
@@ -667,7 +682,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 2 | Help / FAQ route (2) | Committed | S | No | **✅ Shipped.** Resolves the dead `/help` nav link; static FAQ, no DB/mutations. |
 | 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | **✅ Shipped.** First Pro AI value; stood up `src/lib/ai/` (client + `runAiFeature` + Pro gate + rate/cap + fail-open + telemetry shim) reused by §4–§6, §10. |
 | 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Quick add" NL field in the create-mode drawer; `parseTransaction` thin over `runAiFeature`, suggestion-only (never writes); proves §3's "prompt + parse step only" reuse. |
-| 5 | **Budget Rollover (7)** | Committed | S–M | No | **Promoted** — proven, high-value, low-risk; ahead of the more experimental AI assistants. |
+| 5 | **Budget Rollover (7)** | Committed | S–M | No | **✅ Shipped.** Per-budget opt-in carry, derived on read (consecutive-run chain rule); proven, high-value, low-risk; ahead of the more experimental AI assistants. |
 | 6 | Trash UI (8) | Committed | S | No | Easy win; infra largely exists. |
 | 7 | **Data Import (15)** | Committed | M | No | Onboarding/acquisition lever; reuses export infra. Pairs with the §1–§2 first-run polish. |
 | 8 | **Transaction Tags (16)** | Committed | M | No | Flexible organization; replaces §12 at a fraction of the cost. |

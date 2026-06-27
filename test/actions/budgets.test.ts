@@ -54,10 +54,19 @@ describe("authentication", () => {
     mockAuth.mockResolvedValue(null as never);
 
     expect(
-      (await createBudget({ categoryId: "c1", amount: 100, month: 6, year: 2026 }))
-        .success
+      (
+        await createBudget({
+          categoryId: "c1",
+          amount: 100,
+          month: 6,
+          year: 2026,
+          rollover: false,
+        })
+      ).success
     ).toBe(false);
-    expect((await updateBudget("b1", { amount: 100 })).success).toBe(false);
+    expect(
+      (await updateBudget("b1", { amount: 100, rollover: false })).success
+    ).toBe(false);
     expect((await archiveBudget("b1")).success).toBe(false);
     expect((await unarchiveBudget("b1")).success).toBe(false);
     expect((await seedPresetBudgets(6, 2026)).success).toBe(false);
@@ -69,7 +78,7 @@ describe("authentication", () => {
 
 describe("createBudget", () => {
   function validInput() {
-    return { categoryId: "c1", amount: 250, month: 6, year: 2026 };
+    return { categoryId: "c1", amount: 250, month: 6, year: 2026, rollover: false };
   }
 
   function setupOwnedCategory() {
@@ -121,12 +130,13 @@ describe("createBudget", () => {
     expect(prisma.budget.create).not.toHaveBeenCalled();
     const args = vi.mocked(prisma.budget.upsert).mock.calls[0][0] as {
       where: unknown;
-      update: { amount: number; currency: string; isArchived: boolean };
+      update: { amount: number; currency: string; isArchived: boolean; rollover: boolean };
     };
     expect(args.update).toEqual({
       amount: 250,
       currency: "EUR",
       isArchived: false,
+      rollover: false,
     });
     expect(args.where).toEqual({
       userId_categoryId_month_year: {
@@ -198,6 +208,34 @@ describe("createBudget", () => {
     expect(res.success).toBe(false);
     expect(prisma.budget.upsert).not.toHaveBeenCalled();
   });
+
+  it("persists rollover in both the create and the revive (update) branch", async () => {
+    signIn();
+    setupOwnedCategory();
+    vi.mocked(prisma.budget.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.budget.upsert).mockResolvedValue({ id: "new" } as never);
+
+    const res = await createBudget({ ...validInput(), rollover: true });
+
+    expect(res.success).toBe(true);
+    const args = vi.mocked(prisma.budget.upsert).mock.calls[0][0] as {
+      create: { rollover: boolean };
+      update: { rollover: boolean };
+    };
+    expect(args.create.rollover).toBe(true);
+    expect(args.update.rollover).toBe(true);
+  });
+
+  it("rejects a non-boolean rollover", async () => {
+    signIn();
+    setupOwnedCategory();
+    const res = await createBudget({
+      ...validInput(),
+      rollover: "yes" as unknown as boolean,
+    });
+    expect(res.success).toBe(false);
+    expect(prisma.budget.upsert).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateBudget", () => {
@@ -205,18 +243,18 @@ describe("updateBudget", () => {
     signIn();
     vi.mocked(prisma.budget.findFirst).mockResolvedValue(null);
 
-    const res = await updateBudget("b1", { amount: 300 });
+    const res = await updateBudget("b1", { amount: 300, rollover: false });
 
     expect(res.success).toBe(false);
     expect(prisma.budget.update).not.toHaveBeenCalled();
   });
 
-  it("updates only the amount", async () => {
+  it("updates the amount and the rollover flag in place", async () => {
     signIn();
     vi.mocked(prisma.budget.findFirst).mockResolvedValue({ id: "b1" } as never);
     vi.mocked(prisma.budget.update).mockResolvedValue({ id: "b1" } as never);
 
-    const res = await updateBudget("b1", { amount: 300 });
+    const res = await updateBudget("b1", { amount: 300, rollover: true });
 
     expect(res.success).toBe(true);
     const args = vi.mocked(prisma.budget.update).mock.calls[0][0] as {
@@ -224,7 +262,7 @@ describe("updateBudget", () => {
       data: Record<string, unknown>;
     };
     expect(args.where).toEqual({ id: "b1" });
-    expect(args.data).toEqual({ amount: 300 });
+    expect(args.data).toEqual({ amount: 300, rollover: true });
   });
 });
 
@@ -295,11 +333,12 @@ describe("seedPresetBudgets", () => {
     expect(res.success).toBe(true);
     expect(res.data?.created).toBe(BUDGET_PRESETS.length);
     const args = vi.mocked(prisma.budget.createMany).mock.calls[0][0] as {
-      data: { currency: string }[];
+      data: { currency: string; rollover: boolean }[];
       skipDuplicates: boolean;
     };
     expect(args.data).toHaveLength(BUDGET_PRESETS.length);
     expect(args.data.every((d) => d.currency === "EUR")).toBe(true);
+    expect(args.data.every((d) => d.rollover === false)).toBe(true);
     expect(args.skipDuplicates).toBe(true);
     // Currency comes from DEFAULT_CURRENCY, not the user record.
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();

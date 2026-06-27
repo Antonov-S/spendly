@@ -36,6 +36,14 @@ export function parseYear(value: string | undefined, now: Date = new Date()): nu
 }
 
 /**
+ * The calendar month immediately before `(month, year)`. January wraps to the
+ * previous December. Drives the rollover walk-back.
+ */
+export function previousPeriod(month: number, year: number): BudgetPeriod {
+  return month === 1 ? { month: 12, year: year - 1 } : { month: month - 1, year };
+}
+
+/**
  * Half-open UTC bounds for a period: `[monthStart, nextMonthStart)`. Used to
  * filter `@db.Date` transactions into the month. December wraps to January of
  * the following year.

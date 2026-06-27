@@ -28,7 +28,12 @@ export interface BudgetRow {
   id: string;
   category: CategoryRef;
   spent: number;
+  /** Base ceiling (`Budget.amount`); the effective limit adds `carriedAmount`. */
   limit: number;
+  /** Opt-in carry of the unspent/overspent remainder into the next month. */
+  rollover: boolean;
+  /** Signed carry rolled in from the prior run (0 when rollover off / no carry). */
+  carriedAmount: number;
 }
 
 /**
@@ -41,7 +46,12 @@ export interface BudgetListRow {
   id: string;
   category: { name: string; color: string; icon: string };
   spent: number;
+  /** Base ceiling (`Budget.amount`); the effective limit adds `carriedAmount`. */
   limit: number;
+  /** Opt-in carry of the unspent/overspent remainder into the next month. */
+  rollover: boolean;
+  /** Signed carry rolled in from the prior run (0 when rollover off / no carry). */
+  carriedAmount: number;
 }
 
 /** Editable shape for pre-filling the budget drawer on a row click. */
@@ -51,6 +61,7 @@ export interface BudgetEditable {
   amount: number;
   month: number;
   year: number;
+  rollover: boolean;
 }
 
 /** Hero balance + monthly metric strip values for the dashboard header. */

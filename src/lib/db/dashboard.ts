@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { resolveIcon } from "@/lib/icon-map";
+import { resolveRolloverCarry } from "@/lib/db/budgets";
 import { UNCATEGORIZED } from "@/lib/constants";
 import type {
   DashboardSummary,
@@ -256,6 +257,10 @@ export async function getBudgetsData(
     spendByCategory.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
   );
 
+  // Same carry resolution as the /budgets page so the two surfaces agree.
+  const rolloverIds = budgets.filter((b) => b.rollover).map((b) => b.categoryId);
+  const carryMap = await resolveRolloverCarry(userId, month, year, rolloverIds);
+
   const rows: BudgetRow[] = budgets.map((budget) => ({
     id: budget.id,
     category: {
@@ -265,9 +270,12 @@ export async function getBudgetsData(
     },
     spent: spentMap.get(budget.categoryId) ?? 0,
     limit: Number(budget.amount),
+    rollover: budget.rollover,
+    carriedAmount: budget.rollover ? (carryMap.get(budget.categoryId) ?? 0) : 0,
   }));
 
-  const total = rows.reduce((s, r) => s + r.limit, 0);
+  // Totals use the EFFECTIVE limit (base + carry) so the panel reflects rollover.
+  const total = rows.reduce((s, r) => s + r.limit + r.carriedAmount, 0);
   const totalSpent = rows.reduce((s, r) => s + r.spent, 0);
   const remaining = Math.max(0, total - totalSpent);
 

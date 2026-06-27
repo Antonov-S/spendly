@@ -66,7 +66,7 @@ export async function createBudget(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { categoryId, amount, month, year } = parsed.data;
+  const { categoryId, amount, month, year, rollover } = parsed.data;
 
   try {
     const category = await prisma.category.findFirst({
@@ -92,6 +92,7 @@ export async function createBudget(
         amount: magnitude,
         currency: DEFAULT_CURRENCY,
         isArchived: false,
+        rollover,
       },
       create: {
         userId,
@@ -100,6 +101,7 @@ export async function createBudget(
         currency: DEFAULT_CURRENCY,
         month,
         year,
+        rollover,
       },
     });
 
@@ -137,7 +139,7 @@ export async function updateBudget(
 
     await prisma.budget.update({
       where: { id },
-      data: { amount: round2(parsed.data.amount) },
+      data: { amount: round2(parsed.data.amount), rollover: parsed.data.rollover },
     });
 
     revalidateBudgetViews();
@@ -254,6 +256,7 @@ export async function seedPresetBudgets(
           currency: DEFAULT_CURRENCY,
           month,
           year,
+          rollover: false,
         },
       ];
     });

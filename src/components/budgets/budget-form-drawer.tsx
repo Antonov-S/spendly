@@ -51,6 +51,7 @@ export function BudgetFormDrawer({
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [rollover, setRollover] = useState(false);
 
   const isEdit = editId !== null;
 
@@ -77,10 +78,12 @@ export function BudgetFormDrawer({
         }
         setAmount(String(res.data.amount));
         setCategoryId(res.data.categoryId);
+        setRollover(res.data.rollover);
       });
     } else {
       setAmount("");
       setCategoryId("");
+      setRollover(false);
     }
 
     return () => {
@@ -102,13 +105,14 @@ export function BudgetFormDrawer({
     startTransition(async () => {
       let res: MutationResult;
       if (editId !== null) {
-        res = await updateBudget(editId, { amount: Number(amount) });
+        res = await updateBudget(editId, { amount: Number(amount), rollover });
       } else {
         res = await createBudget({
           categoryId,
           amount: Number(amount),
           month: period.month,
           year: period.year,
+          rollover,
         });
       }
 
@@ -179,6 +183,31 @@ export function BudgetFormDrawer({
                 className="w-full bg-transparent py-2.5 pl-1 text-[22px] font-medium text-ink outline-none placeholder:text-ink-3"
               />
             </div>
+          </div>
+
+          {/* Rollover toggle */}
+          <div className="mt-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={rollover}
+                onChange={(e) => setRollover(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-success"
+              />
+              <span>
+                <span className="block text-[12px] font-medium text-ink">
+                  Roll over remainder
+                </span>
+                <span className="mt-0.5 block text-[11px] text-ink-3">
+                  Carry this budget&rsquo;s unspent (or overspent) balance into
+                  next month.
+                </span>
+                <span className="mt-1 block text-[10px] text-ink-3">
+                  e.g. a €400 budget with €320 spent starts next month at €480;
+                  spend €450 and next month starts at €350.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 

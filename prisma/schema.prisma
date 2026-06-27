@@ -192,7 +192,9 @@ model Transaction {
 
 // ─── Budget ───────────────────────────────────────────
 // One budget per category per calendar month.
-// month = 1–12, year = e.g. 2026. No rollover between periods.
+// month = 1–12, year = e.g. 2026. `amount` is the BASE ceiling; when
+// `rollover` is on, the effective limit (base + carried remainder of the
+// prior consecutive rollover run) is derived on read — never stored.
 
 model Budget {
   id         String   @id @default(cuid())
@@ -200,6 +202,7 @@ model Budget {
   currency   String
   month      Int // 1–12
   year       Int // e.g. 2026
+  rollover   Boolean  @default(false) // opt-in carry of the unspent/overspent remainder
   isArchived Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

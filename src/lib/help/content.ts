@@ -155,9 +155,9 @@ export const HELP_SECTIONS: HelpSection[] = [
           "One budget per category per month, with green / amber / red progress as you spend.",
       },
       {
-        term: "No rollover",
+        term: "Roll over remainder",
         detail:
-          "Budgets reset each month — an unspent remainder does not carry over to the next month.",
+          "Off by default — each budget resets clean every month. Turn on “Roll over remainder” for a budget and its leftover (or overspend) carries into next month: a €400 budget with €320 spent starts next month at €480, while overspending shrinks it. The carry only flows while the budget stays on in consecutive months.",
       },
     ],
   },
