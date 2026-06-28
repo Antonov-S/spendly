@@ -59,6 +59,16 @@ of §3's "prompt + parse step only" claim. See `docs/features/nl-quick-capture-s
 carry, derived on read via a consecutive-rollover-run chain rule — no stored carry, no cron. Proven,
 high-value, low-risk; landed ahead of the remaining (more experimental) AI assistants (§5–§6).
 
+**✅ §8 — Trash UI shipped** (delivery slot 6, `feature/trash-ui`). A `/trash` "Recently deleted"
+surface to restore or permanently delete soft-deleted transactions beyond the 8-second snackbar.
+No schema change — reuses `Transaction.deletedAt`, `restoreTransaction`, and `@@index([deletedAt])`;
+adds `getDeletedTransactions` / `getDeletedTransactionCount`, `hardDeleteTransaction` / `emptyTrash`,
+and a header count badge. Transactions-only, no Pro gate, no cron/auto-purge. See
+`docs/features/trash-ui-spec.md`.
+
+**Next concrete slice: §15 — Data Import** (delivery slot 7). CSV column-mapping + JSON
+schema-versioned import; the counterpart to the shipped export.
+
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
 `ai_category_accepted`/`ai_category_overridden`).
@@ -405,6 +415,24 @@ value — the reason it jumps ahead of the remaining AI assistants.
 
 **Effort: S · Value: medium (safety net; easy win).**
 
+> **✅ Shipped (`feature/trash-ui`, delivery slot 6).** A `/trash` "Recently deleted" surface lists
+> soft-deleted transactions (newest deletion first) and, per row, **Restore** (reuses
+> `restoreTransaction` unchanged) or **Delete forever** (new `hardDeleteTransaction`), plus an
+> **Empty trash** bulk action (`emptyTrash`) — both permanent deletes confirm-gated and irreversible.
+> **Realized decisions:** **(1) No schema change** — reuses `Transaction.deletedAt` + `@@index([deletedAt])`;
+> the new read path is `getDeletedTransactions` (`deletedAt != null`, newest-first, includes rows on
+> **archived** accounts, collapses transfer pairs via the existing `collapseTransfers`) +
+> `getDeletedTransactionCount`. **(2) Hard delete only on already-soft-deleted rows** (`findFirst` filters
+> `deletedAt: { not: null }`) — defense in depth; transfers remove both legs by `transferPairId`.
+> **(3) Transactions only** — goals/budgets/accounts/categories are hard-deleted, so "trash for everything"
+> stays out of scope. **(4) No account scoping** (flat all-accounts recovery list), **no Pro gate**, **no
+> cron/auto-purge** (cron-free, matching the app's stance). **(5) Discoverability** — a "Recently deleted · N"
+> link in the Transactions header (badge suppressed at 0), not a sidebar item; the count refreshes on
+> navigation via the existing `revalidateTransactionViews()` (extended to touch `/trash`). **(6) Restore
+> preserves chronological order** — clears only `deletedAt`, never re-stamps `date`/`createdAt`. New pure
+> helper `formatDeletedAt` ("Deleted 3 days ago · Jun 25"). Help copy flipped from "no Trash view". See
+> `docs/features/trash-ui-spec.md`.
+
 A "recently deleted" surface to view / restore / permanently-delete soft-deleted transactions,
 beyond the 8-second snackbar undo. Most plumbing exists: `Transaction.deletedAt` is set on
 delete, `restoreTransaction` already exists, and there's a `@@index([deletedAt])`. Add a fetcher
@@ -683,7 +711,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 3 | AI Auto-Categorization + foundation (3) | Committed | M | **Yes** | **✅ Shipped.** First Pro AI value; stood up `src/lib/ai/` (client + `runAiFeature` + Pro gate + rate/cap + fail-open + telemetry shim) reused by §4–§6, §10. |
 | 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Quick add" NL field in the create-mode drawer; `parseTransaction` thin over `runAiFeature`, suggestion-only (never writes); proves §3's "prompt + parse step only" reuse. |
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **✅ Shipped.** Per-budget opt-in carry, derived on read (consecutive-run chain rule); proven, high-value, low-risk; ahead of the more experimental AI assistants. |
-| 6 | Trash UI (8) | Committed | S | No | Easy win; infra largely exists. |
+| 6 | Trash UI (8) | Committed | S | No | **✅ Shipped.** `/trash` restore / delete-forever / empty-trash for soft-deleted transactions; no schema change (reuses `deletedAt` + `restoreTransaction`); header count badge; transactions-only, no Pro gate, no cron. |
 | 7 | **Data Import (15)** | Committed | M | No | Onboarding/acquisition lever; reuses export infra. Pairs with the §1–§2 first-run polish. |
 | 8 | **Transaction Tags (16)** | Committed | M | No | Flexible organization; replaces §12 at a fraction of the cost. |
 | 9 | **Split Transactions (17)** | Committed | M | No | Everyday categorization accuracy; highest blast radius of the non-AI wins. |

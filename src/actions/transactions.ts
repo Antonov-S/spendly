@@ -515,3 +515,62 @@ export async function restoreTransaction(id: string): Promise<MutationResult> {
     return { success: false, error: "Could not restore the transaction." };
   }
 }
+
+/**
+ * Permanently delete a soft-deleted transaction from the trash — irreversible,
+ * no undo. Only rows that are already soft-deleted are hard-deletable (defense
+ * in depth; the UI never offers this on a live row). For a transfer, both legs
+ * are removed together.
+ */
+export async function hardDeleteTransaction(
+  id: string
+): Promise<MutationResult> {
+  const session = await auth();
+  if (!session?.user?.id) return NOT_AUTHED;
+  const userId = session.user.id;
+
+  try {
+    const existing = await prisma.transaction.findFirst({
+      where: { id, userId, deletedAt: { not: null } },
+      select: { id: true, transferPairId: true },
+    });
+    if (!existing) return { success: false, error: "Transaction not found." };
+
+    if (existing.transferPairId) {
+      await prisma.transaction.deleteMany({
+        where: {
+          transferPairId: existing.transferPairId,
+          userId,
+          deletedAt: { not: null },
+        },
+      });
+    } else {
+      await prisma.transaction.delete({ where: { id } });
+    }
+
+    revalidateTransactionViews();
+    return { success: true };
+  } catch (error) {
+    console.error("hardDeleteTransaction failed", error);
+    return { success: false, error: "Could not delete the transaction." };
+  }
+}
+
+/** Permanently delete every soft-deleted transaction for the user. Irreversible. */
+export async function emptyTrash(): Promise<MutationResult> {
+  const session = await auth();
+  if (!session?.user?.id) return NOT_AUTHED;
+  const userId = session.user.id;
+
+  try {
+    await prisma.transaction.deleteMany({
+      where: { userId, deletedAt: { not: null } },
+    });
+
+    revalidateTransactionViews();
+    return { success: true };
+  } catch (error) {
+    console.error("emptyTrash failed", error);
+    return { success: false, error: "Could not empty the trash." };
+  }
+}

@@ -86,6 +86,16 @@ export interface FeedTransaction {
   transferPairId?: string;
 }
 
+/**
+ * A soft-deleted transaction shown in the `/trash` recovery list. It is a feed
+ * row plus the deletion timestamp (which drives the "deleted X ago" label and
+ * the newest-first ordering).
+ */
+export interface TrashTransaction extends FeedTransaction {
+  /** When the row was soft-deleted. */
+  deletedAt: Date;
+}
+
 /** Date-bucketed feed section (Today / Yesterday / "MMM D, YYYY"). */
 export interface TransactionGroup {
   label: string;

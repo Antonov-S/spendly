@@ -49,8 +49,10 @@ All actions follow the `{ success, data?, error? }` convention (see Cross-Cuttin
 | `createTransaction` | Create a single INCOME or EXPENSE record |
 | `createTransfer` | Create two linked records in a `$transaction` (see snippet below) |
 | `updateTransaction` | Patch amount, date, category, merchant, note — never change `type` on a transfer leg |
-| `softDeleteTransaction` | Set `deletedAt = new Date()` |
-| `undoDeleteTransaction` | Set `deletedAt = null` — called by the 8-second snackbar undo |
+| `deleteTransaction` | Soft delete — set `deletedAt = new Date()` (both legs for a transfer) |
+| `restoreTransaction` | Set `deletedAt = null` — called by the 8-second snackbar undo **and** the Trash UI restore |
+| `hardDeleteTransaction` | Permanent delete of an **already-soft-deleted** row (both legs for a transfer) — Trash UI "Delete forever" only |
+| `emptyTrash` | Permanent delete of every soft-deleted row for the user — Trash UI "Empty trash" |
 
 Zod schema validates: `type` enum, `amount` (positive Decimal), `date` (local calendar date string), `financialAccountId`, optional `categoryId`, `merchant`, `note`.
 
@@ -89,7 +91,7 @@ await prisma.$transaction([
 
 ### Special cases
 
-- **Soft delete only.** Never call `prisma.transaction.delete`. Set `deletedAt`; the 8-second snackbar calls `undoDeleteTransaction` to reverse it. No Trash UI exists in MVP.
+- **Soft delete first.** The normal delete path never calls `prisma.transaction.delete` — it sets `deletedAt`, and the 8-second snackbar calls `restoreTransaction` to reverse it. The **only** hard-delete path is the post-MVP Trash UI (`hardDeleteTransaction` / `emptyTrash`), which removes rows that are **already** soft-deleted (`feature/trash-ui`, POST-MVP §8). Restore from Trash reuses `restoreTransaction` unchanged.
 - **Transfer legs are immutable for type/category.** `isTransferLeg = true` signals that recategorization is blocked.
 - **Date is a calendar date.** Store the user's local date string directly (e.g. `"2026-06-15"`) as a `@db.Date`; do not convert to UTC.
 
@@ -463,25 +465,29 @@ Only `Transaction` uses soft delete in the current schema. `FinancialAccount` an
 
 ```
 Transaction.deletedAt = null   → visible everywhere
-Transaction.deletedAt = <date> → hidden from all queries; snackbar undo available for 8 seconds
+Transaction.deletedAt = <date> → hidden from active queries; snackbar undo for 8 seconds, then recoverable from /trash
 
-// All transaction list queries must include:
+// All active transaction list queries must include:
 where: { deletedAt: null }
 
-// softDeleteTransaction action:
+// deleteTransaction action:
 await prisma.transaction.update({
   where: { id, userId },   // userId scoping prevents cross-user mutation
   data: { deletedAt: new Date() },
 });
 
-// undoDeleteTransaction action (called by snackbar within 8 seconds):
+// restoreTransaction action (snackbar within 8 seconds, or Trash UI restore):
 await prisma.transaction.update({
   where: { id, userId },
   data: { deletedAt: null },
 });
 ```
 
-No Trash UI exists in MVP. After 8 seconds, the only recovery path is a manual database operation.
+**✅ Trash UI shipped (`feature/trash-ui`, POST-MVP §8).** Beyond the 8-second snackbar, soft-deleted
+transactions are recoverable from `/trash` — `getDeletedTransactions` reads `deletedAt != null`, restore
+reuses `restoreTransaction`, and `hardDeleteTransaction` / `emptyTrash` permanently remove
+already-soft-deleted rows. Only transactions soft-delete; other entities are hard-deleted, so Trash is
+transactions-only.
 
 ### Auth guard pattern
 

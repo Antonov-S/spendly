@@ -58,7 +58,7 @@ A transfer is two `Transaction` rows sharing a `transferPairId`, both with `isTr
 
 ## Soft Delete & Snackbar Undo
 
-Deleting a transaction sets `deletedAt` and removes it from the feed immediately (the Part 1 query filters `deletedAt IS NULL`). An 8-second snackbar offers an undo action that clears `deletedAt`. Transfers soft-delete both legs together (see above). No Trash UI in MVP — undo via snackbar is the only recovery path.
+Deleting a transaction sets `deletedAt` and removes it from the feed immediately (the Part 1 query filters `deletedAt IS NULL`). An 8-second snackbar offers an undo action that clears `deletedAt`. Transfers soft-delete both legs together (see above). The snackbar was the only recovery path in the MVP — **superseded post-MVP**: beyond the 8-second window, soft-deleted transactions are now recoverable from the `/trash` "Recently deleted" surface (restore or permanently delete — `feature/trash-ui`, POST-MVP §8, `docs/features/trash-ui-spec.md`).
 
 ## Server Actions
 
