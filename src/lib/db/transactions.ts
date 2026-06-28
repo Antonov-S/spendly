@@ -7,6 +7,7 @@ import type {
   TransactionFilters,
   TransactionLeg,
   TransactionPage,
+  TrashTransaction,
 } from "@/types/transactions";
 
 /** Shape returned by the feed query (relations selected for display). */
@@ -108,4 +109,48 @@ export async function getTransactions(
       : null;
 
   return { rows, nextCursor };
+}
+
+/**
+ * Fetch the user's soft-deleted transactions for the `/trash` recovery list,
+ * newest deletion first.
+ *
+ * Unlike the feed, this includes rows on **archived** accounts (their history
+ * stays recoverable) and does NOT drop the inflow transfer leg at the query
+ * level: both legs of a deleted transfer share `deletedAt`, so keeping them both
+ * in the result lets `collapseTransfers` pair them with no counterparty backfill.
+ * The deletion timestamp is re-attached to each collapsed row by the canonical
+ * (outflow) leg id, which `collapseTransfers` preserves as `FeedTransaction.id`.
+ */
+export async function getDeletedTransactions(
+  userId: string
+): Promise<TrashTransaction[]> {
+  const queried = await prisma.transaction.findMany({
+    where: { userId, deletedAt: { not: null } },
+    orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+    take: TRANSACTIONS_PAGE_SIZE,
+    include: FEED_INCLUDE,
+  });
+
+  const deletedAtById = new Map<string, Date>(
+    // `deletedAt` is non-null here (the where filters it), but Prisma still types
+    // it as `Date | null`; the `!` is safe within this query's result set.
+    queried.map((tx) => [tx.id, tx.deletedAt!])
+  );
+
+  const rows = collapseTransfers(queried.map(toLeg));
+
+  return rows.map((row) => ({
+    ...row,
+    deletedAt: deletedAtById.get(row.id)!,
+  }));
+}
+
+/** Count of the user's soft-deleted transactions — drives the header badge. */
+export async function getDeletedTransactionCount(
+  userId: string
+): Promise<number> {
+  return prisma.transaction.count({
+    where: { userId, deletedAt: { not: null } },
+  });
 }

@@ -185,6 +185,40 @@ function dateKey(d: Date): string {
   return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
 }
 
+/** UTC-midnight timestamp (ms) for a given instant — strips the time component. */
+function utcDayStart(ms: number): number {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+/**
+ * Label a soft-deleted row for the trash list, e.g. `"Deleted 3 days ago · Jun 25"`.
+ * The relative half (anchored to the request's `nowMs`) gives at-a-glance recency;
+ * the absolute half stays useful once the row is old — the year is appended only
+ * when it isn't the current year. Both halves are UTC-stable, matching the feed's
+ * date formatting.
+ */
+export function formatDeletedAt(deletedAt: Date, nowMs: number): string {
+  const days = Math.round(
+    (utcDayStart(nowMs) - utcDayStart(deletedAt.getTime())) / 86_400_000
+  );
+
+  let relative: string;
+  if (days <= 0) relative = "today";
+  else if (days === 1) relative = "1 day ago";
+  else relative = `${days} days ago`;
+
+  const sameYear = deletedAt.getUTCFullYear() === new Date(nowMs).getUTCFullYear();
+  const absolute = deletedAt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  });
+
+  return `Deleted ${relative} · ${absolute}`;
+}
+
 /**
  * Bucket feed rows into ordered date groups: "Today", "Yesterday", then one
  * group per older calendar date labelled "MMM D, YYYY". `localToday` is supplied

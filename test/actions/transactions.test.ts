@@ -7,8 +7,11 @@ import {
   updateTransfer,
   deleteTransaction,
   restoreTransaction,
+  hardDeleteTransaction,
+  emptyTrash,
 } from "@/actions/transactions";
 import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getTransactions } from "@/lib/db/transactions";
 import type { TransactionPage } from "@/types/transactions";
@@ -25,6 +28,8 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       createMany: vi.fn(),
       updateMany: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
     },
@@ -458,5 +463,134 @@ describe("restoreTransaction", () => {
       where: { id: "t1" },
       data: { deletedAt: null },
     });
+  });
+});
+
+describe("hardDeleteTransaction", () => {
+  it("rejects an unauthenticated caller", async () => {
+    mockAuth.mockResolvedValue(null as never);
+
+    const res = await hardDeleteTransaction("t1");
+
+    expect(res.success).toBe(false);
+    expect(prisma.transaction.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("only targets already-soft-deleted rows it owns", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      transferPairId: null,
+    } as never);
+    vi.mocked(prisma.transaction.delete).mockResolvedValue({} as never);
+
+    await hardDeleteTransaction("t1");
+
+    expect(prisma.transaction.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "t1",
+          userId: "u1",
+          deletedAt: { not: null },
+        }),
+      })
+    );
+  });
+
+  it("returns not-found for a missing / live / foreign row", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue(null);
+
+    const res = await hardDeleteTransaction("t1");
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Transaction not found.");
+    expect(prisma.transaction.delete).not.toHaveBeenCalled();
+    expect(prisma.transaction.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("hard-deletes a single non-transfer row", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      transferPairId: null,
+    } as never);
+    vi.mocked(prisma.transaction.delete).mockResolvedValue({} as never);
+
+    const res = await hardDeleteTransaction("t1");
+
+    expect(res.success).toBe(true);
+    expect(prisma.transaction.delete).toHaveBeenCalledWith({
+      where: { id: "t1" },
+    });
+    expect(prisma.transaction.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("hard-deletes both legs of a transfer by transferPairId", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      transferPairId: "pair1",
+    } as never);
+    vi.mocked(prisma.transaction.deleteMany).mockResolvedValue({
+      count: 2,
+    } as never);
+
+    const res = await hardDeleteTransaction("t1");
+
+    expect(res.success).toBe(true);
+    expect(prisma.transaction.deleteMany).toHaveBeenCalledWith({
+      where: { transferPairId: "pair1", userId: "u1", deletedAt: { not: null } },
+    });
+    expect(prisma.transaction.delete).not.toHaveBeenCalled();
+  });
+
+  it("revalidates transaction views on success", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      transferPairId: null,
+    } as never);
+    vi.mocked(prisma.transaction.delete).mockResolvedValue({} as never);
+
+    await hardDeleteTransaction("t1");
+
+    expect(revalidatePath).toHaveBeenCalledWith("/trash");
+  });
+});
+
+describe("emptyTrash", () => {
+  it("rejects an unauthenticated caller", async () => {
+    mockAuth.mockResolvedValue(null as never);
+
+    const res = await emptyTrash();
+
+    expect(res.success).toBe(false);
+    expect(prisma.transaction.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes every soft-deleted row scoped to the user", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.deleteMany).mockResolvedValue({
+      count: 5,
+    } as never);
+
+    const res = await emptyTrash();
+
+    expect(res.success).toBe(true);
+    expect(prisma.transaction.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "u1", deletedAt: { not: null } },
+    });
+  });
+
+  it("is a safe no-op when the trash is empty", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.deleteMany).mockResolvedValue({
+      count: 0,
+    } as never);
+
+    const res = await emptyTrash();
+
+    expect(res.success).toBe(true);
   });
 });

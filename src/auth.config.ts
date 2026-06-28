@@ -20,7 +20,8 @@ export default {
         pathname.startsWith("/profile") ||
         pathname.startsWith("/onboarding") ||
         pathname.startsWith("/settings") ||
-        pathname.startsWith("/help")
+        pathname.startsWith("/help") ||
+        pathname.startsWith("/trash")
 
       // Signed-in users have no reason to see sign-in/register.
       if (isAuthPage) {

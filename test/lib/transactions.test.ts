@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildTransactionWhere,
   collapseTransfers,
+  formatDeletedAt,
   groupTransactionsByDate,
   parseDateParam,
   parseType,
@@ -240,5 +241,36 @@ describe("parseType", () => {
   it("rejects anything else", () => {
     expect(parseType("all")).toBeUndefined();
     expect(parseType(undefined)).toBeUndefined();
+  });
+});
+
+describe("formatDeletedAt", () => {
+  const now = Date.UTC(2026, 5, 28); // Jun 28, 2026 (UTC midnight)
+
+  it("labels a same-day deletion as 'today'", () => {
+    const deletedAt = new Date(Date.UTC(2026, 5, 28, 14, 30));
+    expect(formatDeletedAt(deletedAt, now)).toBe("Deleted today · Jun 28");
+  });
+
+  it("uses the singular '1 day ago' for yesterday", () => {
+    const deletedAt = new Date(Date.UTC(2026, 5, 27, 9, 0));
+    expect(formatDeletedAt(deletedAt, now)).toBe("Deleted 1 day ago · Jun 27");
+  });
+
+  it("uses 'N days ago' for older deletions", () => {
+    const deletedAt = new Date(Date.UTC(2026, 5, 25));
+    expect(formatDeletedAt(deletedAt, now)).toBe("Deleted 3 days ago · Jun 25");
+  });
+
+  it("appends the year only when it isn't the current year", () => {
+    const deletedAt = new Date(Date.UTC(2025, 11, 31));
+    expect(formatDeletedAt(deletedAt, now)).toBe(
+      "Deleted 179 days ago · Dec 31, 2025"
+    );
+  });
+
+  it("is UTC-stable regardless of the time component", () => {
+    const lateNight = new Date(Date.UTC(2026, 5, 27, 23, 59));
+    expect(formatDeletedAt(lateNight, now)).toBe("Deleted 1 day ago · Jun 27");
   });
 });

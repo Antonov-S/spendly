@@ -198,7 +198,7 @@ The canonical ledger entry; every movement of money, whether income, expense, or
 - **Signed amounts.** Positive values add to the account balance (income, transfer inflow); negative values subtract (expenses, transfer outflow). This matches the balance formula: `startingBalance + SUM(amount WHERE deletedAt IS NULL)`.
 - **Transfers create two records.** A transfer from Checking → Savings produces one `Transaction` with `amount = -500` on Checking and one with `amount = +500` on Savings, both sharing the same `transferPairId` and both having `isTransferLeg = true`. Neither leg should be recategorized.
 - **Calendar date storage.** `date` uses `@db.Date`, which stores only the calendar date with no time or timezone component. The client sends the user's local date string (e.g. `"2026-05-31"`) directly. No UTC conversion is applied server-side. This prevents a "May 31 at 23:30 local time becoming June 1 UTC" bug that would corrupt monthly budget calculations.
-- **Soft delete.** Deleted transactions receive a `deletedAt` timestamp and are excluded from all active queries and the balance formula. Users have 8 seconds to undo via snackbar. There is no Trash UI in MVP. Hard deletion never occurs in MVP — records remain in the database.
+- **Soft delete.** Deleted transactions receive a `deletedAt` timestamp and are excluded from all active queries and the balance formula. Users have 8 seconds to undo via snackbar; beyond that, soft-deleted transactions are recoverable from the `/trash` "Recently deleted" surface (restore or permanently delete) — shipped post-MVP (`feature/trash-ui`, §8). Hard deletion happens **only** through that Trash UI (`hardDeleteTransaction` / `emptyTrash`), and only on rows that are already soft-deleted.
 - `categoryId` is set to `null` via `onDelete: SetNull` if the referenced category is deleted.
 - `recurringTemplateId` is set to `null` via `onDelete: SetNull` if the template is deleted; the transaction record itself is retained.
 
@@ -443,7 +443,7 @@ A single deposit or withdrawal recorded against a goal; the audit log that backs
 | Entity | Delete strategy | Notes |
 |---|---|---|
 | `User` | Soft delete (`deletedAt`) | 30-day grace period; sign-in blocked immediately; hard purge after grace period; all children cascade on hard delete |
-| `Transaction` | Soft delete (`deletedAt`) | 8-second snackbar undo; no Trash UI; excluded from balance formula and all active queries while soft-deleted |
+| `Transaction` | Soft delete (`deletedAt`) | 8-second snackbar undo, then recoverable from `/trash` (restore or permanent delete — `feature/trash-ui`, §8); excluded from balance formula and all active queries while soft-deleted |
 | `FinancialAccount` | Archived (`isArchived`) — **archive-only in MVP** | Archiving hides from UI and pauses the account's active recurring templates. No hard delete in MVP (`prisma.financialAccount.delete` is never called); the schema *could* cascade to `Transaction` and `RecurringTemplate`, but the app never triggers it |
 | `Budget` | Archived (`isArchived`) + hard delete | Cascade-deleted when its `Category` is deleted |
 | `Category` | Hard delete | Cascades to `Budget`; sets `Transaction.categoryId` and `RecurringTemplate.categoryId` to null |

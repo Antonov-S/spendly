@@ -83,7 +83,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         term: "Where did my deleted transaction go?",
         detail:
-          "Deletes are soft, with an 8-second snackbar undo. After that it's gone from the app — there's no Trash view in the current version.",
+          "Deletes are soft, with an 8-second snackbar undo. After that the transaction moves to Recently deleted — restore it or remove it for good there whenever you like.",
       },
       {
         term: "Why is my recurring expense not in the ledger?",
@@ -139,7 +139,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         term: "Undo",
-        detail: "Deleting is a soft delete with an 8-second snackbar undo.",
+        detail:
+          "Deleting is a soft delete with an 8-second snackbar undo. After that, deleted transactions wait in Recently deleted, where you can restore them or delete them permanently.",
       },
     ],
   },

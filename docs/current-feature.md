@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Trash UI (POST-MVP §8)
 
 ## Status
 
@@ -6,7 +6,47 @@ Not Started
 
 ## Goals
 
+- Add a `/trash` page listing soft-deleted transactions (newest deletion first)
+- Per-row **Restore** action (reuses existing `restoreTransaction`) and **Delete forever** (new `hardDeleteTransaction`) with confirm dialog
+- Optional **Empty trash** bulk action (`emptyTrash`) — confirm-gated with row count
+- Count badge in the Transactions page header ("Recently deleted · 3"), hidden at 0
+- No schema change; no Pro gate; transactions only (goals/budgets/accounts are hard-deleted)
+
 ## Notes
+
+**What already exists (reuse):**
+- `Transaction.deletedAt` + `@@index([deletedAt])` — no schema change
+- `restoreTransaction(id)` in `src/actions/transactions.ts` — reuse unchanged (clears `deletedAt`, handles transfer pairs, ownership-checked)
+- `collapseTransfers` in `src/lib/transactions.ts` — reuse for all-accounts mode in trash
+- `revalidateTransactionViews()` in `src/lib/revalidation.ts` — extend to also touch `/trash`
+- Confirm dialog pattern — mirror `ConfirmDeleteDialog` from goals/recurring (native `<dialog>`)
+- `AppShell`, `requireOnboarded()`, `getSidebarUser` — `/trash` uses same guards as `/transactions`
+
+**New deliverables:**
+1. `getDeletedTransactions(userId)` in `src/lib/db/transactions.ts` — `deletedAt: { not: null }`, ordered by `deletedAt desc`, `take: TRANSACTIONS_PAGE_SIZE`, no archived-account exclusion, runs `collapseTransfers`
+2. `getDeletedTransactionCount(userId)` — cheap `count` query, folded into `/transactions` `Promise.all`
+3. `TrashTransaction` type in `src/types/transactions.ts` extends `FeedTransaction` with `deletedAt: Date`
+4. `hardDeleteTransaction(id)` + `emptyTrash()` in `src/actions/transactions.ts`
+5. `formatDeletedAt(deletedAt, nowMs)` pure helper in `src/lib/transactions.ts` — "Deleted 3 days ago · Jun 25"
+6. `/trash` page + `TrashView`, `TrashRow`, `ConfirmDeleteDialog`, `TrashEmptyState` components
+7. Entry point: "Recently deleted" link with badge in `transactions-header.tsx`
+8. `/trash` added to `auth.config.ts` `isProtected`
+9. Help content updated: flip "no Trash view" copy in `src/lib/help/content.ts`
+10. `docs/project-overview.md` updated: graduate Trash from Out-of-Scope, add `/trash` route row
+
+**Key decisions:**
+- D1: Dedicated `/trash` route, linked from Transactions header (not sidebar, not Settings)
+- D5: No account-filter scoping — flat all-accounts recovery list
+- D8: Deletion label = relative + absolute ("Deleted 3 days ago · Jun 25"), pure helper, unit-testable
+- D9: "Empty trash" button hidden (not disabled) when list is empty
+- D10: One reused Sonner toast id per action kind with rolling count; errors not deduped
+- D11: Badge suppressed at count 0; refreshes via existing `revalidateTransactionViews()`
+- D12: Restore clears only `deletedAt` — transaction returns to original chronological position in feed
+
+**Testing (per coding-standards — actions + lib only, no components):**
+- `test/actions/transactions.test.ts`: `hardDeleteTransaction` (unauth, not-found, live-row rejected, single delete, transfer deleteMany, revalidation); `emptyTrash` (deleteMany scope, zero-row no-op, auth guard)
+- `test/lib/db/transactions.test.ts` (new/extended): `getDeletedTransactions` where-shape + transfer collapse; `getDeletedTransactionCount` where-shape
+- `test/lib/transactions.test.ts` (extend): `formatDeletedAt` relative buckets + absolute suffix + year logic
 
 ## History
 

@@ -149,7 +149,7 @@ Developer-oriented layout reference for implementing the web dashboard. Full vis
   > **MVP note — single currency (EUR).** The shipped MVP is **EUR-only**: there is no currency picker (accounts are created in `DEFAULT_CURRENCY` from `src/lib/currency.ts`), so the mixed-currency code path above never triggers and the hero total is always exact. The per-account `currency` columns are retained so multi-currency needs no migration later. When multi-currency is built, the "⚠ approximate total" should be **replaced by per-currency subtotals** (a naïve cross-currency sum is meaningless), not kept. See `docs/features/financial-account-crud-spec.md` §10 "Multi-currency upgrade path".
 - **Dates are calendar dates, not timestamps.** All `@db.Date` fields store a calendar date without time or timezone component. The client sends the user's local date (e.g. `2026-05-31`) directly — no UTC conversion is applied. This prevents "31 May at 23:30 local becoming 1 June UTC" from breaking monthly budget calculations.
 - **Refetch on window focus.** Data is re-fetched when the browser tab regains focus (via React Query `refetchOnWindowFocus`). No WebSocket in MVP — this gives sufficient perceived freshness.
-- **Soft delete + snackbar undo.** Deleted records receive `deletedAt` timestamp. User has 8 seconds to undo via snackbar. No Trash UI in MVP.
+- **Soft delete + snackbar undo.** Deleted records receive `deletedAt` timestamp. User has 8 seconds to undo via snackbar. Beyond that window, soft-deleted **transactions** are recoverable from the `/trash` "Recently deleted" surface (restore or permanently delete) — shipped post-MVP (`feature/trash-ui`, §8). Other entities are still hard-deleted.
 - **Search scoped to Transactions only.** No global search in topbar. The search input lives on the `/transactions` page and queries description, merchant, and note fields only.
 
 ---
@@ -775,6 +775,7 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/settings`     | **The** account-management surface. Cards: **Preferences** (identity header + display-name edit), **Security** (change-password for credentials users + sign out), **Billing** (plan read-out + Upgrade/Manage buttons), **Categories**, and **Data & privacy** (data export + account deletion). Financial-account management lives at `/accounts`. **✅ Shipped** (`feature/settings-page` + `feature/stripe-billing` + `feature/account-surfaces-ia-consolidation`); `/profile` is now a permanent redirect here. |
 | `/profile`      | Permanent `redirect("/settings")` (307) — kept resolvable for bookmarks / inbound links; never 404. **✅ Shipped** (`feature/account-surfaces-ia-consolidation`). |
 | `/help`         | Static, server-rendered FAQ inside `AppShell` — entity explainers + "Common questions" + non-obvious behaviours (derived balances, draft-confirm recurring, no-rollover budgets, virtual goals, Reports gate, EUR-only, free export). Auth-guarded, **not** onboarding-gated (escape hatch). No DB / no mutations; content is a typed module `src/lib/help/content.ts`. **✅ Shipped** (`feature/help-faq-route`, POST-MVP §2). |
+| `/trash`        | **Recently deleted** — recovery surface for soft-deleted **transactions**: view (newest deletion first), **restore** (reuses `restoreTransaction`), or **delete forever** (new `hardDeleteTransaction` + optional `emptyTrash`), all confirm-gated. Flat all-accounts list (no account scoping), no Pro gate, no cron/auto-purge. `force-dynamic` `AppShell` page; linked from the Transactions header with a count badge (suppressed at 0). **✅ Shipped** (`feature/trash-ui`, POST-MVP §8). |
 
 ### API Routes
 
@@ -950,7 +951,7 @@ Fintrack handles personal financial data. Minimum security requirements before s
 - Category hierarchy / subcategories
 - ~~Budget rollover between periods~~ — _graduated in: opt-in per-budget rollover shipped (`feature/budget-rollover`, POST-MVP §7)._
 - WebSocket real-time sync
-- Dedicated Trash UI with restore flow
+- ~~Dedicated Trash UI with restore flow~~ — _graduated in: `/trash` recovery surface for soft-deleted transactions shipped (`feature/trash-ui`, POST-MVP §8). Trash for other entities (goals/budgets/accounts/categories) and a time-based auto-purge remain out of scope._
 - Family / team multi-user accounts
 - Performance optimizations for > 10K transactions per user
 

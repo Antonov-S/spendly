@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
+import { getDeletedTransactionCount } from "@/lib/db/transactions";
 import { getSidebarUser } from "@/lib/db/profile";
 import { parseDateParam, parseType } from "@/lib/transactions";
 import { AppShell } from "@/components/layout/app-shell";
@@ -53,10 +54,11 @@ export default async function TransactionsPage({
       filters.q
   );
 
-  const [accounts, categories, sidebarUser] = await Promise.all([
+  const [accounts, categories, sidebarUser, deletedCount] = await Promise.all([
     getUserAccounts(userId),
     getUserCategories(userId),
     getSidebarUser(userId),
+    getDeletedTransactionCount(userId),
   ]);
 
   const nowMs = Date.now();
@@ -66,7 +68,7 @@ export default async function TransactionsPage({
       accounts={accounts}
       user={sidebarUser}
     >
-      <TransactionsHeader />
+      <TransactionsHeader deletedCount={deletedCount} />
       <FilterBar categories={categories} />
 
       {/* Re-suspend (show skeleton) whenever the filters change. */}
