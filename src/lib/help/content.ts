@@ -239,6 +239,11 @@ export const HELP_SECTIONS: HelpSection[] = [
           "Export everything to CSV or JSON on any plan, from Settings → Data & privacy.",
       },
       {
+        term: "Importing your data",
+        detail:
+          "Bring history in from a CSV or a Spendly JSON export at Settings → Data & privacy → Import data. You map the file's columns, pick a target account, then review a preview before anything is saved. Re-importing the same file won't create duplicates.",
+      },
+      {
         term: "Deletion",
         detail:
           "Account deletion has a 30-day grace period, and you're prompted to export your data first.",

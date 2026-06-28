@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATEGORY_ICONS } from "@/lib/constants";
+import { CATEGORY_NAME_MAX } from "@/lib/system-constants";
 
 /**
  * Validation for the category write actions.
@@ -18,7 +19,7 @@ const categoryIcon = z.enum(CATEGORY_ICONS);
 
 /** Create: name + icon + color. isSystem/userId are server-set. */
 export const createCategorySchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(50),
+  name: z.string().trim().min(1, "Name is required").max(CATEGORY_NAME_MAX),
   icon: categoryIcon,
   color: hexColor,
 });
@@ -28,7 +29,12 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 /** Update: same fields, patchable. id identifies the row; ownership checked server-side. */
 export const updateCategorySchema = z.object({
   id: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required").max(50).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(CATEGORY_NAME_MAX)
+    .optional(),
   icon: categoryIcon.optional(),
   color: hexColor.optional(),
 });

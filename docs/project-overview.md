@@ -776,6 +776,7 @@ Each empty screen provides active guidance, not a blank state. Reports shows an 
 | `/profile`      | Permanent `redirect("/settings")` (307) — kept resolvable for bookmarks / inbound links; never 404. **✅ Shipped** (`feature/account-surfaces-ia-consolidation`). |
 | `/help`         | Static, server-rendered FAQ inside `AppShell` — entity explainers + "Common questions" + non-obvious behaviours (derived balances, draft-confirm recurring, no-rollover budgets, virtual goals, Reports gate, EUR-only, free export). Auth-guarded, **not** onboarding-gated (escape hatch). No DB / no mutations; content is a typed module `src/lib/help/content.ts`. **✅ Shipped** (`feature/help-faq-route`, POST-MVP §2). |
 | `/trash`        | **Recently deleted** — recovery surface for soft-deleted **transactions**: view (newest deletion first), **restore** (reuses `restoreTransaction`), or **delete forever** (new `hardDeleteTransaction` + optional `emptyTrash`), all confirm-gated. Flat all-accounts list (no account scoping), no Pro gate, no cron/auto-purge. `force-dynamic` `AppShell` page; linked from the Transactions header with a count badge (suppressed at 0). **✅ Shipped** (`feature/trash-ui`, POST-MVP §8). |
+| `/import`       | **Data import** — the migration counterpart to export. Upload a **CSV** (column-mapping step) or a **Spendly JSON export** → **preview** (counts, sample, issues, dialect + currency notice) → **confirm**. Three Server Actions (`inspectCsv` / `previewImport` / `commitImport`); pure pipeline in `src/lib/import/*`; one target account (transactions-only; transfers skipped); count-based dedup (idempotent re-import); atomic `createMany` write; tier-agnostic (no Pro gate), per-user rate-limited; **no schema change**. `AppShell` page, auth-guarded, **not** onboarding-gated; reached from `/settings` → Data & privacy; zero-account users see a "create an account first" empty state. **✅ Shipped** (`feature/data-import`, POST-MVP §15). |
 
 ### API Routes
 
@@ -904,6 +905,24 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 > section (relocated from `/accounts` by `feature/settings-page`; renamed from "Your data" and
 > co-located with account deletion by `feature/account-surfaces-ia-consolidation`), with an active-scope
 > label. See `docs/ROADMAP.md` §6 + §7 and `docs/features/data-export-spec.md`.
+
+**Import** is the inverse — equally tier-agnostic. Users can **migrate history in** from a CSV (any
+column layout, mapped) or a Spendly JSON export.
+
+- **CSV import** — upload → column-mapping (auto-suggested) → preview → confirm; tolerant date/amount parsing
+- **JSON import** — accepts the versioned export envelope (strict `schemaVersion`, lenient unknown fields); no mapping step
+- One target account; INCOME/EXPENSE only (transfers skipped + counted); count-based dedup makes re-import idempotent
+
+> **✅ Shipped (`feature/data-import`).** Live at `/import` (Server Actions, **not** an API route — a
+> file *upload* can be a Server Action; export's route rationale is download-only). Reached from
+> `/settings` → Data & privacy. Both formats funnel through one pure pipeline (`src/lib/import/*`):
+> a dependency-free RFC-4180 CSV parser + index-based column mapper + tolerant date/amount parsing
+> (auto-detected dialect, user-overridable), or the strict-version/lenient-shape JSON envelope parser.
+> Amounts are stored signed from type, currency stamped from the target account (file currency
+> ignored), dates `@db.Date` at UTC midnight — exactly as `createTransaction`. The write is one atomic
+> `$transaction` (`createMany` categories then transactions). `auth()`-guarded, `userId`-scoped,
+> **tier-agnostic (no `isPro` read)**, per-user rate-limited; **no schema change, no migration**. See
+> `docs/POST-MVP-ROADMAP.md` §15 and `docs/features/data-import-spec.md`.
 
 ---
 

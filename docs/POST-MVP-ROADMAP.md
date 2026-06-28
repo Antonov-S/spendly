@@ -493,9 +493,25 @@ added as future-proofing for exactly this, so the model is ready.
 
 ---
 
-## 15. Data Import (CSV / JSON)
+## 15. Data Import (CSV / JSON) — ✅ Shipped
 
 **Effort: M · Value: high (onboarding friction / acquisition).**
+
+> **✅ Shipped (`feature/data-import`).** The migration counterpart to export is live at `/import`
+> (reached from `/settings` → Data & privacy). Three Server Actions (`inspectCsv` / `previewImport`
+> / `commitImport` in `src/actions/import.ts`) drive an **upload → (map, CSV only) → preview →
+> confirm** flow — nothing is written until the user confirms a dry-run preview. Both formats funnel
+> through one pure pipeline (`src/lib/import/*`): CSV via a dependency-free RFC-4180 parser + column
+> mapping (by index, duplicate-header-safe) + tolerant date/amount parsing (auto-detected dialect,
+> user-overridable); JSON via the strict-version / lenient-shape envelope parser. **Single target
+> account** (C1); INCOME/EXPENSE only (transfers skipped + counted, D1); **count-based multiset
+> dedup** keyed on `(date, signedAmount, type, merchant, note)` so re-importing the same file is
+> idempotent (D4); categories resolved case-insensitively (NFC) and optionally created. The write is
+> one atomic `$transaction` (`createMany` categories then transactions, D7). **Tier-agnostic** (no
+> `isPro` read, S6); per-user rate-limited (`RATE_LIMITS.import`); no schema change. See
+> `docs/features/data-import-spec.md`. Open decisions resolved: **Server Action** (a file *upload*
+> can be an action — export's route rationale is download-only); **count-based dedup**; size-capped
+> single-request (no streamed route); transfers skipped under the single-account model.
 
 The counterpart to the shipped export. New users migrating from a spreadsheet, Mint, YNAB, or
 Monarch must currently re-enter history by hand — the single biggest switching cost for the
@@ -712,7 +728,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 4 | Natural-Language Quick Capture (4) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Quick add" NL field in the create-mode drawer; `parseTransaction` thin over `runAiFeature`, suggestion-only (never writes); proves §3's "prompt + parse step only" reuse. |
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **✅ Shipped.** Per-budget opt-in carry, derived on read (consecutive-run chain rule); proven, high-value, low-risk; ahead of the more experimental AI assistants. |
 | 6 | Trash UI (8) | Committed | S | No | **✅ Shipped.** `/trash` restore / delete-forever / empty-trash for soft-deleted transactions; no schema change (reuses `deletedAt` + `restoreTransaction`); header count badge; transactions-only, no Pro gate, no cron. |
-| 7 | **Data Import (15)** | Committed | M | No | Onboarding/acquisition lever; reuses export infra. Pairs with the §1–§2 first-run polish. |
+| 7 | **Data Import (15)** | Committed | M | No | **✅ Shipped.** `/import` CSV column-mapper + JSON envelope → preview → confirm; Server Actions; count-based dedup; transactions-only into one account; no schema change. Onboarding/acquisition lever; reused export infra. |
 | 8 | **Transaction Tags (16)** | Committed | M | No | Flexible organization; replaces §12 at a fraction of the cost. |
 | 9 | **Split Transactions (17)** | Committed | M | No | Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | First "insight" assistant; ship + measure independently. |

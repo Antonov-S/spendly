@@ -51,3 +51,7 @@ AGENTS.md
 /.claude
 .mcp.json
 .playwright-mcp
+
+# Local manual-QA import fixtures (kept out of the repo)
+import-hard.csv
+import-hard.json
