@@ -254,6 +254,46 @@ export const EXPORT_CSV_COLUMNS = [
  */
 export const EXPORT_CSV_EXCEL_HINT = "sep=,";
 
+/**
+ * The mappable Spendly fields, in display order (data-import-spec §5.2). Drives
+ * the CSV column mapper + `suggestMapping`. `date` and `amount` are required; the
+ * rest are optional (an unmapped `type` is derived from the amount sign).
+ */
+export const IMPORT_FIELDS = [
+  "date",
+  "amount",
+  "type",
+  "category",
+  "merchant",
+  "note",
+] as const;
+
+export type ImportFieldKey = (typeof IMPORT_FIELDS)[number];
+
+/**
+ * Whitelisted CSV date input formats (data-import-spec §5.3), auto-detected from
+ * the date column and user-overridable in the mapper. Anything outside this set
+ * → null → invalid row. `YYYY-MM-DD` is the export's own (zero-config round-trip).
+ */
+export const IMPORT_DATE_FORMATS = [
+  "YYYY-MM-DD",
+  "MM/DD/YYYY",
+  "DD/MM/YYYY",
+  "DD.MM.YYYY",
+] as const;
+
+export type ImportDateFormat = (typeof IMPORT_DATE_FORMATS)[number];
+
+/**
+ * Category-resolution policy options for the radio control (data-import-spec C2).
+ * `CREATE` mints a new user-owned category for an unmatched name; `UNCATEGORIZED`
+ * leaves it null.
+ */
+export const CATEGORY_RESOLUTION_OPTIONS = [
+  { value: "CREATE", label: "Create missing categories" },
+  { value: "UNCATEGORIZED", label: "Leave unmatched as Uncategorized" },
+] as const;
+
 /** Cadence options for the recurring template form select. */
 export const CADENCE_OPTIONS = [
   { value: "DAILY", label: "Daily" },

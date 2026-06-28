@@ -89,7 +89,11 @@ export const RATE_LIMITS = {
   //    SHARED across every AI feature. The COGS rail; runAiFeature always checks
   //    it regardless of which feature is calling.
   aiSuggest: { limit: 20, window: "1 h" },
-  aiMonthly: { limit: 500, window: "30 d" }
+  aiMonthly: { limit: 500, window: "30 d" },
+  // Data import: per-userId budget shared by inspectCsv / previewImport /
+  // commitImport. A few inspect/preview cycles plus the commit fit comfortably;
+  // a script hammering import does not. Fail-open when Upstash is unconfigured.
+  import: { limit: 5, window: "1 m" }
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -145,6 +149,21 @@ export const GOAL_AMOUNT_MAX = 1_000_000;
 export const PROFILE_NAME_MAX = 80;
 
 /**
+ * Transaction free-text field caps (Zod guards + the import normalizer's D9
+ * truncation). Single-sourced here so the drawer validation and the importer
+ * agree on the same ceilings.
+ */
+export const MERCHANT_MAX = 120;
+export const NOTE_MAX = 500;
+
+/**
+ * Max length of a category name (Zod guard + the import resolver's D9 bound:
+ * category text longer than this is invalid for creation and falls back to null
+ * rather than minting a truncated category).
+ */
+export const CATEGORY_NAME_MAX = 50;
+
+/**
  * Min in-scope transactions before the Reports *trend* charts (income vs
  * expenses, cashflow) render instead of the "Add N more transactions to see
  * spending trends" nudge. Drives the canonical nudge copy (`Add ${N - count}…`).
@@ -190,6 +209,36 @@ export const EXPORT_FILENAME_PREFIX = "spendly-export";
  * expected path.
  */
 export const EXPORT_MAX_TRANSACTIONS = 10_000;
+
+/* ── Data import (data-import-spec §9) ────────────────────────────────────── */
+
+/**
+ * Hard cap on data rows accepted per import (mirrors EXPORT_MAX_TRANSACTIONS;
+ * can diverge later). Over this → whole-import structural error, no writes (S4).
+ */
+export const IMPORT_MAX_ROWS = 10_000;
+
+/** Reject an upload larger than this before any parsing (cheap first guard, S4). */
+export const IMPORT_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/** Rows shown in the preview sample table. */
+export const IMPORT_PREVIEW_SAMPLE_SIZE = 20;
+
+/** Max per-row issues listed in the preview before "and N more". */
+export const IMPORT_MAX_ISSUES = 50;
+
+/**
+ * Per-cell hard truncation during the CSV scan — an abuse bound (S7), distinct
+ * from the per-field product caps (merchant/note in D9). Counts total accumulated
+ * characters of one field, so a never-closed quote can't grow an unbounded cell.
+ */
+export const IMPORT_MAX_CELL_CHARS = 10_000;
+
+/**
+ * Skipped-row share at/above which the preview shows the loud "most rows won't
+ * import — check your mapping / date format" warning (T5). Non-blocking.
+ */
+export const IMPORT_HIGH_SKIP_RATIO = 0.8;
 
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {

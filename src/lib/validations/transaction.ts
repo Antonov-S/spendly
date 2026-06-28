@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MERCHANT_MAX, NOTE_MAX } from "@/lib/system-constants";
 
 /**
  * Validation for the transaction write actions. The user always enters a
@@ -38,8 +39,8 @@ export const createTransactionSchema = z.object({
     .min(1)
     .nullish()
     .transform((v) => v ?? null),
-  merchant: optionalText(120),
-  note: optionalText(500),
+  merchant: optionalText(MERCHANT_MAX),
+  note: optionalText(NOTE_MAX),
 });
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
@@ -56,8 +57,8 @@ export const transferSchema = z
     date: dateString,
     fromAccountId: z.string().min(1, "Select a source account"),
     toAccountId: z.string().min(1, "Select a destination account"),
-    merchant: optionalText(120),
-    note: optionalText(500),
+    merchant: optionalText(MERCHANT_MAX),
+    note: optionalText(NOTE_MAX),
   })
   .refine((d) => d.fromAccountId !== d.toAccountId, {
     message: "Choose two different accounts",

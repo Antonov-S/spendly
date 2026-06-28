@@ -13,6 +13,17 @@ Spendly uses a three-layer data access pattern: **async server components** call
 > `src/app/api/export/**`. Read-only — no Server Actions, no `revalidate*`. See `docs/ROADMAP.md` §6
 > and `docs/features/data-export-spec.md`.
 
+> **✅ Data import is a Server Action, not a route (`feature/data-import`).** Import is the **inverse**
+> of export and the rationale flips: a file *upload* **can** be a Server Action (Next 16 / React 19
+> pass `File`/`FormData` natively), and import **writes to the Transaction ledger** — so it stays on
+> the standard mutation path (`src/actions/import.ts`: `inspectCsv` / `previewImport` / `commitImport`,
+> all `auth()` → rate-limit → `{ success, data?, error? }`), **not** an API route. It keeps the
+> three-layer split: pure parse/resolve/dedup transforms in `src/lib/import/*`, server-only reads in
+> `src/lib/db/import.ts` (`getImportTargets`, `countExistingForDedup`), and the atomic `createMany`
+> write co-located with `revalidate*` in the action. No new API route, no ESLint override, no schema
+> change. The size-capped single-request shape is why the upload doesn't need a streamed route (that
+> would only matter for a future large/async import). See `docs/features/data-import-spec.md`.
+
 ---
 
 ## Transaction

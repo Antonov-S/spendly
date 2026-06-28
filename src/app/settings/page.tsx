@@ -4,7 +4,7 @@ export const metadata = { title: "Settings" };
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { getUserOverview } from "@/lib/db/profile";
 import { reconcileCheckoutReturn } from "@/lib/db/billing";
@@ -199,6 +199,24 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           </p>
           <div className="mt-4">
             <ExportLinks accountId={exportAccountId} />
+          </div>
+        </div>
+        <div className="mt-4 rounded-lg border border-info/30 bg-info/10 p-4">
+          <p className="text-[12px] font-medium text-ink">
+            Migrating from another app?
+          </p>
+          <p className="mt-1 text-[12px] text-ink-2">
+            Bring your history in from a CSV or a Spendly JSON export. You map the
+            columns and review a preview before anything is saved.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/import"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3.5 py-2 text-[13px] font-medium text-ink shadow-sm transition-colors hover:border-info/50 hover:text-info"
+            >
+              <Upload size={15} />
+              Import data
+            </Link>
           </div>
         </div>
       </section>
