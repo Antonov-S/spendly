@@ -1,4 +1,4 @@
-# Current Feature: Trash UI (POST-MVP §8)
+# Current Feature
 
 ## Status
 
@@ -6,49 +6,11 @@ Not Started
 
 ## Goals
 
-- Add a `/trash` page listing soft-deleted transactions (newest deletion first)
-- Per-row **Restore** action (reuses existing `restoreTransaction`) and **Delete forever** (new `hardDeleteTransaction`) with confirm dialog
-- Optional **Empty trash** bulk action (`emptyTrash`) — confirm-gated with row count
-- Count badge in the Transactions page header ("Recently deleted · 3"), hidden at 0
-- No schema change; no Pro gate; transactions only (goals/budgets/accounts are hard-deleted)
-
 ## Notes
 
-**What already exists (reuse):**
-- `Transaction.deletedAt` + `@@index([deletedAt])` — no schema change
-- `restoreTransaction(id)` in `src/actions/transactions.ts` — reuse unchanged (clears `deletedAt`, handles transfer pairs, ownership-checked)
-- `collapseTransfers` in `src/lib/transactions.ts` — reuse for all-accounts mode in trash
-- `revalidateTransactionViews()` in `src/lib/revalidation.ts` — extend to also touch `/trash`
-- Confirm dialog pattern — mirror `ConfirmDeleteDialog` from goals/recurring (native `<dialog>`)
-- `AppShell`, `requireOnboarded()`, `getSidebarUser` — `/trash` uses same guards as `/transactions`
-
-**New deliverables:**
-1. `getDeletedTransactions(userId)` in `src/lib/db/transactions.ts` — `deletedAt: { not: null }`, ordered by `deletedAt desc`, `take: TRANSACTIONS_PAGE_SIZE`, no archived-account exclusion, runs `collapseTransfers`
-2. `getDeletedTransactionCount(userId)` — cheap `count` query, folded into `/transactions` `Promise.all`
-3. `TrashTransaction` type in `src/types/transactions.ts` extends `FeedTransaction` with `deletedAt: Date`
-4. `hardDeleteTransaction(id)` + `emptyTrash()` in `src/actions/transactions.ts`
-5. `formatDeletedAt(deletedAt, nowMs)` pure helper in `src/lib/transactions.ts` — "Deleted 3 days ago · Jun 25"
-6. `/trash` page + `TrashView`, `TrashRow`, `ConfirmDeleteDialog`, `TrashEmptyState` components
-7. Entry point: "Recently deleted" link with badge in `transactions-header.tsx`
-8. `/trash` added to `auth.config.ts` `isProtected`
-9. Help content updated: flip "no Trash view" copy in `src/lib/help/content.ts`
-10. `docs/project-overview.md` updated: graduate Trash from Out-of-Scope, add `/trash` route row
-
-**Key decisions:**
-- D1: Dedicated `/trash` route, linked from Transactions header (not sidebar, not Settings)
-- D5: No account-filter scoping — flat all-accounts recovery list
-- D8: Deletion label = relative + absolute ("Deleted 3 days ago · Jun 25"), pure helper, unit-testable
-- D9: "Empty trash" button hidden (not disabled) when list is empty
-- D10: One reused Sonner toast id per action kind with rolling count; errors not deduped
-- D11: Badge suppressed at count 0; refreshes via existing `revalidateTransactionViews()`
-- D12: Restore clears only `deletedAt` — transaction returns to original chronological position in feed
-
-**Testing (per coding-standards — actions + lib only, no components):**
-- `test/actions/transactions.test.ts`: `hardDeleteTransaction` (unauth, not-found, live-row rejected, single delete, transfer deleteMany, revalidation); `emptyTrash` (deleteMany scope, zero-row no-op, auth guard)
-- `test/lib/db/transactions.test.ts` (new/extended): `getDeletedTransactions` where-shape + transfer collapse; `getDeletedTransactionCount` where-shape
-- `test/lib/transactions.test.ts` (extend): `formatDeletedAt` relative buckets + absolute suffix + year logic
-
 ## History
+
+- **Trash UI (Post-MVP §8)** — `/trash` "Recently deleted" recovery surface for soft-deleted transactions. Per-row **Restore** (reuses `restoreTransaction` unchanged) and **Delete forever** (new `hardDeleteTransaction`), plus **Empty trash** bulk action (`emptyTrash`) — both permanent deletes confirm-gated. No schema change: reuses `Transaction.deletedAt` + `@@index([deletedAt])`; new `getDeletedTransactions` (all-accounts, newest-first, `collapseTransfers` for transfer pairs, no archived exclusion) + `getDeletedTransactionCount` in `src/lib/db/transactions.ts`; `TrashTransaction extends FeedTransaction` in `src/types/transactions.ts`; pure `formatDeletedAt` helper ("Deleted 3 days ago · Jun 25"). Entry: "Recently deleted · N" count badge in `transactions-header.tsx` (suppressed at 0), refreshed by the existing `revalidateTransactionViews()` (extended to touch `/trash`). Components in `src/components/trash/`: `TrashView` (coordinator — rolling-count Sonner toasts per action kind, `router.refresh()` after each mutation, "Empty trash" hidden when list is empty), `TrashRow` (type-border + category icon + deletion label + Restore / Delete forever), `ConfirmDeleteDialog` (native `<dialog>`, transfer-aware copy), `TrashEmptyState`. `/trash` added to `auth.config.ts` `isProtected`. Help copy flipped from "no Trash view"; docs: `project-overview.md` route row + Out-of-Scope graduation + architecture note; `POST-MVP-ROADMAP.md` §8 + delivery row 6 marked shipped; `entity-types.md` + `entity-crud-architecture.md` updated. No Pro gate, no cron/auto-purge, transactions only. 18 new tests — 605 total pass, build + lint clean. Spec: `docs/features/trash-ui-spec.md`.
 
 - **Budget Rollover (Post-MVP §7)** — Opt-in per-budget **"Roll over remainder"** toggle. When on, a budget's **effective limit** = `base limit + prior month's remainder` (`effective − spent`), carried while the budget stays rollover-on across consecutive calendar months. Carry is **positive** (underspent → more room) or **negative** (overspent → less room). **Derive on read:** `resolveRolloverCarry` walks back the consecutive rollover run (bounded by `ROLLOVER_MAX_LOOKBACK_MONTHS = 24`), trims at the first gap/rollover-off month, sorts chronologically, folds via pure `rolloverCarryIn`, and rounds once at the boundary — no stored carry, no cron. **Chain rule:** a gap month or rollover-off month resets the run; the next rollover-on month starts fresh from its base. **Single edge source:** `budgetProgressWithCarry(spent, baseLimit, carriedAmount)` owns the `effectiveLimit ≤ 0 → danger/100%` case; the `/budgets` row, dashboard panel, and `countAtRiskBudgets` all route through it. Carry copy direction-worded by one shared `formatCarry` helper (`↻ +€100 rolled over` / `↻ €70 overspent last month`). Per-budget `Boolean @default(false)` flag (migration `add_budget_rollover` — pure additive). Not a Pro gate; free for all users. New: `src/lib/rollover.ts` (`rolloverCarryIn`, `effectiveLimit`, `RolloverPoint`); `previousPeriod` in `budget-period.ts`; `ROLLOVER_MAX_LOOKBACK_MONTHS` in `system-constants.ts`. Extended: `budget.ts` (`roundMoney`, `budgetProgressWithCarry`, `formatCarry`, `mapBudgetRow`, `summarizeBudgets` → effective totals); `db/budgets.ts` (`resolveRolloverCarry` + `getBudgets`/`getBudgetForEdit` wiring); `db/dashboard.ts` (shared carry); `insights.ts` (effective-limit at-risk count); `validations/budget.ts` + `actions/budgets.ts` (rollover threaded through create/update/seed); `budget-form-drawer.tsx` (toggle + worked example); `budget-list.tsx` + `budgets-panel.tsx` (effective limit display + carry line). Two static `BudgetRow[]` literals (`marketing/dashboard-snapshot.ts`, `mock-data.ts`) updated to satisfy the new required fields. Docs: help "No rollover" item rewritten; `project-overview.md` schema mirror + feature note + Out-of-Scope reframe; `POST-MVP-ROADMAP.md` §7 + delivery row 5 marked shipped. 587 tests pass (29 new in `rollover.test.ts` + extensions to budget/period/action/db/insights suites), build + lint clean. Spec: `docs/features/budget-rollover-spec.md`.
 
