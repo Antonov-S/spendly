@@ -65,6 +65,7 @@ Spendly's product design centers on conscious capture and a strict separation be
 - **Dashboard** — a state screen only: hero balance, monthly metric strip (income / expenses / cashflow), sparkline, and top budgets.
 - **Reports** — a separate analytics module with four charts (spending by category, income vs expenses, cashflow trend, account balance over time), a period selector, and per-chart empty-state nudges (Free: last 3 months; Pro: last 12 months).
 - **Data export (CSV / JSON)** — available on **all** tiers, never Pro-gated; withholding a user's own data erodes trust.
+- **Data import (CSV / JSON)** — migrate history in at `/import`: upload → (column-map) → preview → confirm, with tolerant parsing and idempotent re-import. Tier-agnostic, like export.
 - **Settings** — display-name edit, billing (plan read-out + Upgrade / Manage), data export, and category management on a single `/settings` surface.
 - **User categories** — create, edit, and delete your own categories (name + icon + color) inline in the pickers, alongside the immutable system defaults.
 - **Authentication** — email/password and Google OAuth, with email verification and password reset.
@@ -339,6 +340,7 @@ Authentication is built on **NextAuth v5 (Auth.js)** with the Prisma adapter and
 - [x] Dashboard insights strip
 - [x] Reports & analytics
 - [x] Data export (CSV / JSON)
+- [x] Data import (CSV / JSON) — `/import` migration (column-mapping + JSON envelope)
 - [x] Settings page
 - [x] User category management
 - [x] Stripe Pro billing

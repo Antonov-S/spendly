@@ -201,6 +201,7 @@ The canonical ledger entry; every movement of money, whether income, expense, or
 - **Soft delete.** Deleted transactions receive a `deletedAt` timestamp and are excluded from all active queries and the balance formula. Users have 8 seconds to undo via snackbar; beyond that, soft-deleted transactions are recoverable from the `/trash` "Recently deleted" surface (restore or permanently delete) — shipped post-MVP (`feature/trash-ui`, §8). Hard deletion happens **only** through that Trash UI (`hardDeleteTransaction` / `emptyTrash`), and only on rows that are already soft-deleted.
 - `categoryId` is set to `null` via `onDelete: SetNull` if the referenced category is deleted.
 - `recurringTemplateId` is set to `null` via `onDelete: SetNull` if the template is deleted; the transaction record itself is retained.
+- **Bulk import is an ordinary creation path.** `/import` (`commitImport`, `feature/data-import`, POST-MVP §15) bulk-creates rows from a CSV or Spendly JSON export into one chosen account — the same signed-amount / `@db.Date` / account-currency rules as a single create, written via `createMany`. INCOME/EXPENSE only (transfers skipped), count-based dedup makes re-import idempotent, and imported rows are **indistinguishable from manually-entered ones** (no provenance column — no schema change).
 
 ---
 

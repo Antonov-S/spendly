@@ -66,8 +66,20 @@ adds `getDeletedTransactions` / `getDeletedTransactionCount`, `hardDeleteTransac
 and a header count badge. Transactions-only, no Pro gate, no cron/auto-purge. See
 `docs/features/trash-ui-spec.md`.
 
-**Next concrete slice: §15 — Data Import** (delivery slot 7). CSV column-mapping + JSON
-schema-versioned import; the counterpart to the shipped export.
+**✅ §15 — Data Import shipped** (delivery slot 7, `feature/data-import`). The migration
+counterpart to export, live at `/import` (from `/settings` → Data & privacy). Three Server
+Actions (`inspectCsv` / `previewImport` / `commitImport`) — **not** an API route (a file upload
+*can* be a Server Action) — drive **upload → (map, CSV only) → preview → confirm**; nothing is
+written until the dry-run preview is confirmed. One pure pipeline (`src/lib/import/*`) for both
+formats: RFC-4180 CSV parser + majority-vote dialect detection + index-based column mapping +
+tolerant date/amount/type parsing; JSON via the strict-version / lenient-shape envelope parser.
+One target account; INCOME/EXPENSE only (transfers skipped + counted); **count-based dedup** makes
+re-import idempotent; categories resolved (NFC) and optionally created; atomic `createMany` write.
+Tier-agnostic (no `isPro`), per-user rate-limited; no schema change. See
+`docs/features/data-import-spec.md`.
+
+**Next concrete slice: §16 — Transaction Tags** (delivery slot 8). Free-form labels orthogonal
+to categories (a `Tag` model + `TransactionTag` join), filterable in the feed; supersedes §12.
 
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
@@ -815,8 +827,10 @@ be fully replaced by Tags (kept parked, not killed).
    §0 evidence), as written.
 6. **Pro surface** — do the AI features warrant an "AI" section in `/settings` (usage, limits,
    toggle)?
-7. **§15 import** — dedup strategy (hash of key fields vs. skip-on-match), and how unknown
-   categories/accounts resolve (auto-create vs. map vs. Uncategorized)?
+7. ~~**§15 import** — dedup strategy, and how unknown categories/accounts resolve?~~ **Resolved
+   (shipped):** count-based multiset dedup on `(date, signedAmount, type, merchant, note)`
+   (idempotent re-import); unknown categories → user-chosen **Create** or **Uncategorized**;
+   single target account (file's account column is informational only).
 8. **§16 tags** — join table vs. `text[]` column; name-only vs. colored; do tags get a Reports
    breakdown chart, and are they free (recommended) or Pro?
 9. **§17 splits** — split-line child table vs. linked sub-transactions; confirm splits stay
