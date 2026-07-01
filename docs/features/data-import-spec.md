@@ -544,23 +544,25 @@ it renders an empty state ("Create an account first to import into it" → `/acc
 
 `<ImportFlow>` (client) is the coordinator:
 
-1. **Format toggle** — CSV / JSON.
-2. **Upload** — a file `<input>` (drag-drop is a MAY). On select: CSV → `inspectCsv`; JSON → straight to
-   step 3.
-3. **Configure** — CSV shows `<ColumnMapper>` (per-field header `<select>`s pre-filled by
+1. **Upload** — a single **drag-and-drop drop zone** (click-to-browse retained) that accepts either type;
+   the format (CSV / JSON) is **auto-detected from the filename extension** via `detectImportFormat`
+   (`src/lib/import/format.ts`), not chosen by a toggle. An unrecognized extension is rejected inline.
+   On select: CSV → `inspectCsv`; JSON → straight to step 2. _(The original CSV/JSON format toggle was
+   replaced by this unified drop zone in `fix/import-drop-zone` — see `docs/fixes/import-drop-zone-spec.md`.)_
+2. **Configure** — CSV shows `<ColumnMapper>` (per-field header `<select>`s pre-filled by
    `suggestMapping`, plus date-format + decimal-separator, both **seeded from the detected `dialect`**
    and editable — T5); both formats show the **target account** selector, **category-resolution** radio
    (`CREATE` / `UNCATEGORIZED`), and the **"Skip duplicates"** toggle (default on). The detected dialect
    (delimiter · decimal separator · date format) is shown as a small "Detected: …" line so the user
    verifies auto-detection before previewing.
-4. **Preview** — calls `previewImport`; `<ImportPreview>` renders the counts (`toCreate`,
+3. **Preview** — calls `previewImport`; `<ImportPreview>` renders the counts (`toCreate`,
    `duplicatesSkipped`, `invalidSkipped`, `transfersSkipped`, `newCategories`), a **sample table**
    (first `IMPORT_PREVIEW_SAMPLE_SIZE` normalized rows with resolved category + per-row flag, including
    any "truncated" flag from D9), and a capped **issues list** (`IMPORT_MAX_ISSUES`). When the skipped
    share is `≥ IMPORT_HIGH_SKIP_RATIO` it leads with the **high-skip warning** (T5) — a loud "check your
    mapping / date format" banner above the counts, without blocking Confirm. A quieter **currency
    notice** (D2) states that every row will take the target account's currency.
-5. **Confirm** — `commitImport` (passing the preview's `toCreate` as `expectedCreate`, D6); on success a
+4. **Confirm** — `commitImport` (passing the preview's `toCreate` as `expectedCreate`, D6); on success a
    Sonner toast (`"Imported N transactions"`) + `router.refresh()`; the result panel offers "View
    transactions" → `/transactions`. If `divergedFromPreview` is set, a calm inline notice explains the
    count drifted because the account changed since the preview (D6).

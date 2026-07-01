@@ -10,6 +10,7 @@ import {
   type ImportDateFormat,
 } from "@/lib/constants";
 import { inspectCsv, previewImport, commitImport } from "@/actions/import";
+import { detectImportFormat } from "@/lib/import/format";
 import { ColumnMapper } from "@/components/import/column-mapper";
 import { ImportPreview } from "@/components/import/import-preview";
 import type {
@@ -50,8 +51,8 @@ const secondaryBtn =
 /**
  * The /import coordinator (data-import-spec §8). Stateless server side: the chosen
  * `File` is held in memory and re-sent on each call (inspect → preview → commit).
- * Flow: format toggle → upload → configure (CSV adds a column mapper) → preview →
- * confirm. Nothing is written until Confirm.
+ * Flow: drop/choose a file (format auto-detected from the extension) → configure
+ * (CSV adds a column mapper) → preview → confirm. Nothing is written until Confirm.
  */
 export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
   const router = useRouter();
@@ -61,6 +62,7 @@ export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
   const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [inspection, setInspection] = useState<CsvInspection | null>(null);
   const [mapping, setMapping] = useState<ImportMapping>(EMPTY_MAPPING);
@@ -75,8 +77,7 @@ export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
   const [preview, setPreview] = useState<ImportPreviewData | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
 
-  function reset(nextFormat: ImportFormat = format) {
-    setFormat(nextFormat);
+  function reset() {
     setFile(null);
     setStep("upload");
     setError(null);
@@ -110,14 +111,23 @@ export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
 
   function handleFile(selected: File | null) {
     setError(null);
-    setFile(selected);
     setPreview(null);
     setResult(null);
     if (!selected) {
+      setFile(null);
       setStep("upload");
       return;
     }
-    if (format === "json") {
+    const detected = detectImportFormat(selected.name);
+    if (!detected) {
+      setFile(null);
+      setStep("upload");
+      setError("Unsupported file — drop a .csv or .json file.");
+      return;
+    }
+    setFormat(detected);
+    setFile(selected);
+    if (detected === "json") {
       setStep("configure");
       return;
     }
@@ -134,6 +144,12 @@ export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
         setError(res.error);
       }
     });
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFile(e.dataTransfer.files?.[0] ?? null);
   }
 
   function handlePreview() {
@@ -172,37 +188,31 @@ export function ImportFlow({ accounts, categoryCount }: ImportFlowProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Format toggle */}
-      <div className="flex gap-1.5">
-        {(["csv", "json"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => reset(f)}
-            className={`rounded-lg border px-3.5 py-1.5 text-[12px] font-medium transition-colors ${
-              format === f
-                ? "border-success/50 bg-success/10 text-success"
-                : "border-line bg-surface-2 text-ink-2 hover:text-ink"
-            }`}
-          >
-            {f.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
       {/* Upload */}
       <section className={sectionClass}>
-        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line bg-surface-2 px-4 py-8 text-center transition-colors hover:border-success/50">
+        <label
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={onDrop}
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center transition-colors ${
+            isDragging
+              ? "border-success bg-success/10"
+              : "border-line bg-surface-2 hover:border-success/50"
+          }`}
+        >
           <Upload size={20} className="text-ink-2" />
           <span className="text-[13px] font-medium text-ink">
-            {file ? file.name : `Choose a ${format.toUpperCase()} file`}
+            {file ? file.name : "Drop a CSV or JSON file, or click to browse"}
           </span>
           <span className="text-[11px] text-ink-3">
-            Up to 10 MB · {format === "csv" ? "any column layout" : "Spendly JSON export"}
+            Up to 10 MB · CSV (any column layout) or a Spendly JSON export
           </span>
           <input
             type="file"
-            accept={format === "csv" ? ".csv,text/csv" : ".json,application/json"}
+            accept=".csv,.json,text/csv,application/json"
             className="hidden"
             onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
           />
