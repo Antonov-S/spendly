@@ -47,13 +47,14 @@ export function DeleteAccountDialog({ email }: DeleteAccountDialogProps) {
   }
 
   return (
-    <section
+    <div
       aria-labelledby="delete-account-heading"
-      className="rounded-xl border border-danger/30 bg-surface p-6"
+      role="group"
+      className="rounded-lg border border-danger/30 bg-danger/10 p-4"
     >
       <h2
         id="delete-account-heading"
-        className="text-[13px] font-medium text-danger"
+        className="text-[12px] font-medium text-danger"
       >
         Delete account
       </h2>
@@ -123,6 +124,6 @@ export function DeleteAccountDialog({ email }: DeleteAccountDialogProps) {
           </div>
         </form>
       </dialog>
-    </section>
+    </div>
   );
 }
