@@ -219,10 +219,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </Link>
           </div>
         </div>
-      </section>
 
-      {/* Danger zone — kept last (§3 D7) */}
-      <DeleteAccountDialog email={user.email} />
+        {/* Delete account — danger-tinted inner card, kept last (§3 D7) */}
+        <div className="mt-4">
+          <DeleteAccountDialog email={user.email} />
+        </div>
+      </section>
     </div>
   );
 }
