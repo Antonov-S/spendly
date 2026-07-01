@@ -34,6 +34,7 @@ model User {
   budgets            Budget[]
   goals              Goal[]
   recurringTemplates RecurringTemplate[]
+  tags               Tag[]
 
   @@index([deletedAt])
 }
@@ -179,6 +180,7 @@ model Transaction {
   financialAccount  FinancialAccount   @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
   category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
+  tags              TransactionTag[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -188,6 +190,45 @@ model Transaction {
   @@index([userId, categoryId])
   @@index([transferPairId])
   @@index([deletedAt])
+}
+
+// ─── Tag ──────────────────────────────────────────────
+// Free-form, user-owned label orthogonal to Category. Flat list, no hierarchy.
+// A transaction carries many tags via the TransactionTag join. There are NO
+// system tags — every tag is owned (unlike Category, which has a shared tier).
+// Case-insensitive name uniqueness per owner is hardened by a functional
+// `(lower(name), userId)` index (migration tag_name_ci_unique).
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String? // optional hex accent; null → neutral default chip color at render
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions TransactionTag[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+// ─── TransactionTag ───────────────────────────────────
+// Explicit many-to-many join (chosen over a text[] column so feed/report
+// filtering and a future tag breakdown stay first-class SQL). Composite PK
+// means a tag can't be applied to the same transaction twice.
+
+model TransactionTag {
+  transactionId String
+  tagId         String
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([transactionId, tagId])
+  @@index([tagId])
+  @@index([transactionId])
 }
 
 // ─── Budget ───────────────────────────────────────────

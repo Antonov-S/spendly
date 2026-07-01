@@ -1,9 +1,11 @@
 import { ArrowLeftRight } from "lucide-react";
 import { CategoryIcon } from "@/components/dashboard/category-icon";
+import { TagChipRow } from "@/components/tags/tag-chip";
 import { formatCurrency, formatSigned } from "@/lib/format";
 import { resolveIcon } from "@/lib/icon-map";
 import { TYPE_BORDER_COLOR } from "@/lib/transactions";
 import { UNCATEGORIZED } from "@/lib/constants";
+import { TAG_CHIPS_VISIBLE_MAX } from "@/lib/system-constants";
 import { cn } from "@/lib/utils";
 import type { CategoryRef } from "@/types/dashboard";
 import type { FeedTransaction } from "@/types/transactions";
@@ -68,6 +70,12 @@ export function TransactionRow({
           <span className="truncate text-[10px] text-ink-3 md:hidden">
             {isTransfer ? accountLabel : category.name}
           </span>
+          {/* Tag chips — metadata under the description, bounded per §10.3. */}
+          <TagChipRow
+            tags={txn.tags}
+            visibleMax={TAG_CHIPS_VISIBLE_MAX}
+            className="mt-1"
+          />
         </span>
       </div>
 

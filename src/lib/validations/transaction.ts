@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MERCHANT_MAX, NOTE_MAX } from "@/lib/system-constants";
+import {
+  MERCHANT_MAX,
+  NOTE_MAX,
+  TAG_MAX_PER_TRANSACTION,
+} from "@/lib/system-constants";
 
 /**
  * Validation for the transaction write actions. The user always enters a
@@ -28,6 +32,17 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((v) => (v ? v : null));
 
+/**
+ * Optional, bounded tag-id array. Lenient (defaults to `[]`) so existing callers
+ * and the AI / quick-add draft path that don't send tags keep working. Ownership
+ * of each id is checked in the action, not here.
+ */
+const tagIds = z
+  .array(z.string().min(1))
+  .max(TAG_MAX_PER_TRANSACTION, `Up to ${TAG_MAX_PER_TRANSACTION} tags`)
+  .optional()
+  .transform((v) => v ?? []);
+
 /** Create an income or expense. `type` drives the sign server-side. */
 export const createTransactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE"]),
@@ -41,6 +56,7 @@ export const createTransactionSchema = z.object({
     .transform((v) => v ?? null),
   merchant: optionalText(MERCHANT_MAX),
   note: optionalText(NOTE_MAX),
+  tagIds,
 });
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;

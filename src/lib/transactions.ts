@@ -62,12 +62,21 @@ export function buildTransactionWhere(
     where.categoryId = { in: filters.categoryIds };
   }
 
+  // Tag filter — match-any (OR): a row matches if it carries at least one
+  // selected tag. Deliberately NO `type !== "TRANSFER"` guard (unlike category):
+  // v1 never tags transfers, so a tag filter naturally yields no transfer rows,
+  // which is correct — a transfer isn't wrongly hidden, it simply doesn't match.
+  if (filters.tagIds && filters.tagIds.length > 0) {
+    where.tags = { some: { tagId: { in: filters.tagIds } } };
+  }
+
   if (filters.q) {
     const contains = { contains: filters.q, mode: "insensitive" as const };
     where.OR = [
       { merchant: contains },
       { note: contains },
       { category: { name: contains } },
+      { tags: { some: { tag: { name: contains } } } },
     ];
   }
 
@@ -95,6 +104,7 @@ function toRow(leg: TransactionLeg): FeedTransaction {
     accountName: leg.accountName,
     isTransferLeg: leg.isTransferLeg,
     transferPairId: leg.transferPairId ?? undefined,
+    tags: leg.tags,
   };
 }
 
@@ -115,6 +125,8 @@ function toTransferRow(
     counterpartyAccountName: counterparty?.accountName,
     isTransferLeg: true,
     transferPairId: primary.transferPairId ?? undefined,
+    // Transfers carry no tags in v1.
+    tags: [],
   };
 }
 

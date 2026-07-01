@@ -164,6 +164,27 @@ export const NOTE_MAX = 500;
 export const CATEGORY_NAME_MAX = 50;
 
 /**
+ * Max length of a tag name (Zod guard). Shorter than a category name — tags are
+ * terse labels (`reimbursable`, `vacation-2026`), not descriptive buckets.
+ */
+export const TAG_NAME_MAX = 32;
+
+/**
+ * Max tags assignable to a single transaction. A write guardrail against
+ * unbounded join rows — enforced both client-side (the picker disables "Add" at
+ * the cap) and server-side (the Zod `tagIds` array bound). Tag *count* itself is
+ * unlimited; only per-transaction assignments are capped.
+ */
+export const TAG_MAX_PER_TRANSACTION = 12;
+
+/**
+ * How many tag chips a feed row renders before collapsing the remainder into a
+ * non-interactive `+N` pill. Keeps row height bounded no matter how many tags a
+ * transaction carries; the full feed and the dashboard rows share this constant.
+ */
+export const TAG_CHIPS_VISIBLE_MAX = 3;
+
+/**
  * Min in-scope transactions before the Reports *trend* charts (income vs
  * expenses, cashflow) render instead of the "Add N more transactions to see
  * spending trends" nudge. Drives the canonical nudge copy (`Add ${N - count}…`).
