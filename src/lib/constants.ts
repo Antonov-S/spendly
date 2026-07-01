@@ -203,6 +203,33 @@ export const DEFAULT_CATEGORY_COLOR = CATEGORY_COLORS[0];
 export const DEFAULT_CATEGORY_ICON = CATEGORY_ICONS[0];
 
 /**
+ * Tag accent swatches offered in the tag drawer. Any valid hex is still accepted
+ * by the validator — this palette is just the curated set the UI presents (same
+ * relationship as `CATEGORY_COLORS`). Tags have no icon, only an optional color.
+ */
+export const TAG_COLORS = [
+  "#7F77DD",
+  "#378ADD",
+  "#0EA5E9",
+  "#10B981",
+  "#1D9E75",
+  "#EF9F27",
+  "#F97316",
+  "#D85A30",
+  "#D4537E",
+  "#EC4899",
+  "#6366F1",
+  "#888780",
+] as const;
+
+/**
+ * A tag defaults to name-only (no color) — the user opts into a color. Null is
+ * rendered as a neutral chip. Named so the "no color" default has one source of
+ * truth (mirrors `DEFAULT_CATEGORY_COLOR`).
+ */
+export const DEFAULT_TAG_COLOR: string | null = null;
+
+/**
  * Reports period selector options (UI data). `param` is the `?period=` value;
  * `months` is the count of calendar months (including the current one) the
  * window spans and drives the query bounds.

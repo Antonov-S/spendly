@@ -30,6 +30,7 @@ function row(overrides: Record<string, unknown>) {
     deletedAt: new Date(Date.UTC(2026, 5, 20)),
     category: { name: "Dining", color: "#000000", icon: "UtensilsCrossed" },
     financialAccount: { name: "Checking" },
+    tags: [],
     ...overrides,
   };
 }
@@ -55,6 +56,21 @@ describe("getDeletedTransactions", () => {
     // regardless of their account's archive state.
     const arg = findMany.mock.calls[0][0] as { where: Record<string, unknown> };
     expect(arg.where).not.toHaveProperty("financialAccount");
+  });
+
+  it("sorts a row's tags by name (not join order)", async () => {
+    findMany.mockResolvedValue([
+      row({
+        id: "t1",
+        tags: [
+          { tag: { id: "z", name: "zeta", color: null } },
+          { tag: { id: "a", name: "alpha", color: "#10B981" } },
+        ],
+      }) as never,
+    ]);
+
+    const rows = await getDeletedTransactions("u1");
+    expect(rows[0].tags.map((t) => t.name)).toEqual(["alpha", "zeta"]);
   });
 
   it("attaches deletedAt to each collapsed row", async () => {

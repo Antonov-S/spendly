@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { requireOnboarded } from "@/lib/auth/guards";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
+import { getUserTags } from "@/lib/db/tags";
 import { getDeletedTransactionCount } from "@/lib/db/transactions";
 import { getSidebarUser } from "@/lib/db/profile";
 import { parseDateParam, parseType } from "@/lib/transactions";
@@ -22,6 +23,7 @@ interface TransactionsPageProps {
     from?: string;
     to?: string;
     category?: string;
+    tag?: string;
     account?: string;
     q?: string;
   }>;
@@ -36,11 +38,13 @@ export default async function TransactionsPage({
   const sp = await searchParams;
 
   const categoryIds = sp.category?.split(",").filter(Boolean);
+  const tagIds = sp.tag?.split(",").filter(Boolean);
   const filters: TransactionFilters = {
     type: parseType(sp.type),
     from: parseDateParam(sp.from),
     to: parseDateParam(sp.to),
     categoryIds: categoryIds?.length ? categoryIds : undefined,
+    tagIds: tagIds?.length ? tagIds : undefined,
     accountId: sp.account || undefined,
     q: sp.q?.trim() || undefined,
   };
@@ -50,16 +54,19 @@ export default async function TransactionsPage({
       filters.from ||
       filters.to ||
       filters.categoryIds ||
+      filters.tagIds ||
       filters.accountId ||
       filters.q
   );
 
-  const [accounts, categories, sidebarUser, deletedCount] = await Promise.all([
-    getUserAccounts(userId),
-    getUserCategories(userId),
-    getSidebarUser(userId),
-    getDeletedTransactionCount(userId),
-  ]);
+  const [accounts, categories, tags, sidebarUser, deletedCount] =
+    await Promise.all([
+      getUserAccounts(userId),
+      getUserCategories(userId),
+      getUserTags(userId),
+      getSidebarUser(userId),
+      getDeletedTransactionCount(userId),
+    ]);
 
   const nowMs = Date.now();
 
@@ -69,7 +76,7 @@ export default async function TransactionsPage({
       user={sidebarUser}
     >
       <TransactionsHeader deletedCount={deletedCount} />
-      <FilterBar categories={categories} />
+      <FilterBar categories={categories} tags={tags} />
 
       {/* Re-suspend (show skeleton) whenever the filters change. */}
       <Suspense key={JSON.stringify(sp)} fallback={<FeedSkeleton />}>

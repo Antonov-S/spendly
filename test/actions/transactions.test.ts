@@ -23,6 +23,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     financialAccount: { findFirst: vi.fn(), findMany: vi.fn() },
     category: { findFirst: vi.fn() },
+    tag: { count: vi.fn() },
+    transactionTag: { createMany: vi.fn(), deleteMany: vi.fn() },
     transaction: {
       create: vi.fn(),
       update: vi.fn(),
@@ -59,6 +61,14 @@ function lastCreateManyLegs(): Array<{
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: run the interactive-transaction callback against the prisma mock so
+  // `createTransaction`/`updateTransaction` exercise their writes. Tests using the
+  // array form (updateTransfer) override this with `mockResolvedValue`.
+  vi.mocked(prisma.$transaction).mockImplementation(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (async (arg: any) =>
+      typeof arg === "function" ? arg(prisma) : arg) as never
+  );
 });
 
 describe("loadMoreTransactions", () => {
@@ -195,6 +205,98 @@ describe("createTransaction", () => {
     expect(res.success).toBe(false);
     expect(prisma.financialAccount.findFirst).not.toHaveBeenCalled();
   });
+
+  it("validates tag ownership and writes the join rows in the same transaction", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.tag.count).mockResolvedValue(2 as never);
+    vi.mocked(prisma.transaction.create).mockResolvedValue({ id: "tx1" } as never);
+    vi.mocked(prisma.transactionTag.createMany).mockResolvedValue({
+      count: 2,
+    } as never);
+
+    const res = await createTransaction({
+      type: "EXPENSE",
+      amount: 25,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: ["tg1", "tg2"],
+    });
+
+    expect(res.success).toBe(true);
+    // Ownership checked against session userId for the exact set.
+    expect(prisma.tag.count).toHaveBeenCalledWith({
+      where: { id: { in: ["tg1", "tg2"] }, userId: "u1" },
+    });
+    expect(prisma.transactionTag.createMany).toHaveBeenCalledWith({
+      data: [
+        { transactionId: "tx1", tagId: "tg1" },
+        { transactionId: "tx1", tagId: "tg2" },
+      ],
+    });
+  });
+
+  it("rejects a foreign/unknown tag id and creates no transaction", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    // Only 1 of the 2 requested ids is owned.
+    vi.mocked(prisma.tag.count).mockResolvedValue(1 as never);
+
+    const res = await createTransaction({
+      type: "EXPENSE",
+      amount: 25,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: ["tg1", "not-mine"],
+    });
+
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error).toBe("Tag not found.");
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+    expect(prisma.transactionTag.createMany).not.toHaveBeenCalled();
+  });
+
+  it("dedupes duplicate tag ids before the ownership check and write", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.tag.count).mockResolvedValue(1 as never);
+    vi.mocked(prisma.transaction.create).mockResolvedValue({ id: "tx1" } as never);
+    vi.mocked(prisma.transactionTag.createMany).mockResolvedValue({
+      count: 1,
+    } as never);
+
+    const res = await createTransaction({
+      type: "EXPENSE",
+      amount: 25,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: ["tg1", "tg1"],
+    });
+
+    expect(res.success).toBe(true);
+    // Deduped to a single id — count expects length 1, one join row written.
+    expect(prisma.tag.count).toHaveBeenCalledWith({
+      where: { id: { in: ["tg1"] }, userId: "u1" },
+    });
+    expect(prisma.transactionTag.createMany).toHaveBeenCalledWith({
+      data: [{ transactionId: "tx1", tagId: "tg1" }],
+    });
+  });
 });
 
 describe("updateTransaction", () => {
@@ -203,6 +305,7 @@ describe("updateTransaction", () => {
     vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
       id: "t1",
       isTransferLeg: false,
+      tags: [],
     } as never);
     vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
       currency: "USD",
@@ -248,6 +351,109 @@ describe("updateTransaction", () => {
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/transfer/i);
     expect(prisma.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it("replaces the tag set (deleteMany then createMany) when it changed", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      isTransferLeg: false,
+      tags: [{ tagId: "old" }],
+    } as never);
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "USD",
+    } as never);
+    vi.mocked(prisma.tag.count).mockResolvedValue(1 as never);
+    vi.mocked(prisma.transaction.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.transactionTag.deleteMany).mockResolvedValue({
+      count: 1,
+    } as never);
+    vi.mocked(prisma.transactionTag.createMany).mockResolvedValue({
+      count: 1,
+    } as never);
+
+    const res = await updateTransaction("t1", {
+      type: "EXPENSE",
+      amount: 40,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: ["new"],
+    });
+
+    expect(res.success).toBe(true);
+    expect(prisma.transactionTag.deleteMany).toHaveBeenCalledWith({
+      where: { transactionId: "t1" },
+    });
+    expect(prisma.transactionTag.createMany).toHaveBeenCalledWith({
+      data: [{ transactionId: "t1", tagId: "new" }],
+    });
+  });
+
+  it("clears all tags when an empty set is submitted", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      isTransferLeg: false,
+      tags: [{ tagId: "old" }],
+    } as never);
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "USD",
+    } as never);
+    vi.mocked(prisma.transaction.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.transactionTag.deleteMany).mockResolvedValue({
+      count: 1,
+    } as never);
+
+    const res = await updateTransaction("t1", {
+      type: "EXPENSE",
+      amount: 40,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: [],
+    });
+
+    expect(res.success).toBe(true);
+    expect(prisma.transactionTag.deleteMany).toHaveBeenCalledWith({
+      where: { transactionId: "t1" },
+    });
+    // No new rows written when the set is emptied.
+    expect(prisma.transactionTag.createMany).not.toHaveBeenCalled();
+  });
+
+  it("skips the join write entirely when the tag set is unchanged", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      isTransferLeg: false,
+      tags: [{ tagId: "a" }, { tagId: "b" }],
+    } as never);
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "USD",
+    } as never);
+    vi.mocked(prisma.tag.count).mockResolvedValue(2 as never);
+    vi.mocked(prisma.transaction.update).mockResolvedValue({} as never);
+
+    // Same set, different order — still "unchanged".
+    const res = await updateTransaction("t1", {
+      type: "EXPENSE",
+      amount: 40,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: ["b", "a"],
+    });
+
+    expect(res.success).toBe(true);
+    expect(prisma.transactionTag.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.transactionTag.createMany).not.toHaveBeenCalled();
   });
 });
 

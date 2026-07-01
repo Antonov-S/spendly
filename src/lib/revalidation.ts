@@ -58,3 +58,15 @@ export function revalidateCategoryViews() {
   revalidatePath("/dashboard"); // recent-transactions + budget panel
   revalidatePath("/reports"); // spending-by-category chart
 }
+
+/**
+ * Revalidate every surface that lists or assigns tags. Narrower than categories:
+ * tags don't touch budgets/goals/reports (no tag Reports chart in v1). A tag
+ * rename/recolor must repaint every feed chip — hence `/transactions` and
+ * `/dashboard` too, not just the `/settings` manage list.
+ */
+export function revalidateTagViews() {
+  revalidatePath("/settings"); // the manage list
+  revalidatePath("/transactions"); // picker + filter pill + feed chips
+  revalidatePath("/dashboard"); // recent-transactions rows may show chips
+}

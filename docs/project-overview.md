@@ -214,6 +214,7 @@ model User {
   budgets            Budget[]
   goals              Goal[]
   recurringTemplates RecurringTemplate[]
+  tags               Tag[]
 }
 
 // ─── NextAuth Models ──────────────────────────────────
@@ -332,6 +333,43 @@ model Category {
   @@index([userId])
 }
 
+// ─── Tag ──────────────────────────────────────────────
+// Free-form, user-owned label orthogonal to Category. Flat list, no hierarchy,
+// NO system tier (every tag has a non-null userId). Case-insensitive per-owner
+// name uniqueness is hardened by a functional (lower(name), userId) index
+// (migration tag_name_ci_unique). A transaction carries many via TransactionTag.
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String?  // optional hex accent; null → neutral chip
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions TransactionTag[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+// ─── TransactionTag ───────────────────────────────────
+// Explicit many-to-many join (chosen over a text[] column so feed/report
+// filtering and a future tag breakdown stay first-class SQL). Composite PK.
+
+model TransactionTag {
+  transactionId String
+  tagId         String
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([transactionId, tagId])
+  @@index([tagId])
+  @@index([transactionId])
+}
+
 // ─── Transaction ──────────────────────────────────────
 // Transfers create two records sharing the same transferPairId.
 // Both legs have isTransferLeg = true to prevent accidental recategorization.
@@ -357,6 +395,7 @@ model Transaction {
   financialAccount  FinancialAccount   @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
   category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
+  tags              TransactionTag[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -568,6 +607,18 @@ Soft delete: deleted transactions receive `deletedAt` timestamp and disappear fr
 > confirm (`feature/nl-quick-capture`, POST-MVP §4). Neither ever writes — `createTransaction` stays the
 > sole writer, preserving the conscious-capture confirm moment. See
 > `docs/features/nl-quick-capture-spec.md`.
+
+> **✅ Shipped — Transaction tags (`feature/transaction-tags`, POST-MVP §16).** Free-form, user-owned
+> labels **orthogonal to categories** (`vacation-2026`, `reimbursable`) — a transaction can carry
+> several. Created inline in the drawer (income/expense only; a multi-select `<TagPickerField>` with a
+> "+ New tag" affordance), rendered as chips on feed rows (max 3 + `+N`), **match-any (OR)** filterable
+> via a `?tag=` pill on `/transactions` (tag name also folded into search), and managed on `/settings`.
+> New models `Tag` + `TransactionTag` (many-to-many join); every tag is user-owned (no system tier);
+> case-insensitive per-user name dedup via a functional `(lower(name), userId)` unique index. Hard
+> delete + confirm (joins cascade, transactions survive; no undo). `createTransaction`/
+> `updateTransaction` stay the sole writers of the join rows (all-or-nothing ownership check). Not
+> Pro-gated, no count limit (per-transaction cap `TAG_MAX_PER_TRANSACTION = 12`). Transfers carry no
+> tags in v1; export/import of tags is deferred. See `docs/features/transaction-tags-spec.md`.
 
 ### Financial Accounts
 

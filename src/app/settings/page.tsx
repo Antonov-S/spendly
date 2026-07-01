@@ -10,10 +10,12 @@ import { getUserOverview } from "@/lib/db/profile";
 import { reconcileCheckoutReturn } from "@/lib/db/billing";
 import { getAccountLabels } from "@/lib/db/accounts";
 import { getManageableCategories } from "@/lib/db/categories";
+import { getManageableTags } from "@/lib/db/tags";
 import { Avatar } from "@/components/ui/avatar";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { PlanBadge } from "@/components/settings/plan-badge";
 import { ManageCategories } from "@/components/categories/manage-categories";
+import { ManageTags } from "@/components/tags/manage-tags";
 import { SettingsNameForm } from "@/components/settings/settings-name-form";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
@@ -61,9 +63,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   // accounts (active + archived). An unresolvable id is normalized away so the
   // label and the actual download never disagree (avoids a silently-empty file).
   const requestedAccountId = sp.account || undefined;
-  const [accounts, categories] = await Promise.all([
+  const [accounts, categories, tags] = await Promise.all([
     getAccountLabels(session.user.id),
     getManageableCategories(session.user.id),
+    getManageableTags(session.user.id),
   ]);
   const scoped = requestedAccountId
     ? accounts.find((a) => a.id === requestedAccountId)
@@ -176,6 +179,9 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
       {/* Categories */}
       <ManageCategories categories={categories} />
+
+      {/* Tags */}
+      <ManageTags tags={tags} />
 
       {/* Data & privacy */}
       <section

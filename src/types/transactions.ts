@@ -1,3 +1,5 @@
+import type { TagOption } from "@/types/tags";
+
 /** The three transaction kinds, as stored on `Transaction.type`. */
 export type TransactionTypeValue = "INCOME" | "EXPENSE" | "TRANSFER";
 
@@ -30,6 +32,14 @@ export interface CategoryOption {
   icon: string;
 }
 
+/** A tag as it appears on a feed row (chip render). */
+export interface FeedTag {
+  id: string;
+  name: string;
+  /** Optional hex accent; null renders as a neutral chip. */
+  color: string | null;
+}
+
 /**
  * Feed filter state, parsed from URL search params. All fields are optional —
  * an empty object means "all transactions". `type` undefined = the "All" pill.
@@ -41,9 +51,11 @@ export interface TransactionFilters {
   /** Inclusive end of the date range (calendar date at UTC midnight). */
   to?: Date;
   categoryIds?: string[];
+  /** Tag ids to match (match-any / OR). undefined or empty = no tag filter. */
+  tagIds?: string[];
   /** A specific account from the topbar selector; undefined = all accounts. */
   accountId?: string;
-  /** Free-text search across merchant, note, and category name. */
+  /** Free-text search across merchant, note, category name, and tag name. */
   q?: string;
 }
 
@@ -67,6 +79,8 @@ export interface TransactionLeg {
   financialAccountId: string;
   accountName: string;
   category: FeedCategory | null;
+  /** Tags on this leg, already sorted by name. Empty for transfers (v1). */
+  tags: FeedTag[];
 }
 
 /** A single display row in the feed, after transfer pairs are collapsed. */
@@ -84,6 +98,8 @@ export interface FeedTransaction {
   counterpartyAccountName?: string;
   isTransferLeg: boolean;
   transferPairId?: string;
+  /** Tags on this row, already sorted by name. Empty for transfers (v1). */
+  tags: FeedTag[];
 }
 
 /**
@@ -126,16 +142,20 @@ export interface EditableTransaction {
   /** Income/expense only. */
   financialAccountId?: string;
   categoryId?: string | null;
+  /** Income/expense only: the tag ids currently assigned. */
+  tagIds?: string[];
   /** Transfer only. */
   transferPairId?: string;
   fromAccountId?: string;
   toAccountId?: string;
 }
 
-/** Accounts + categories needed by the drawer's selectors. */
+/** Accounts + categories + tags needed by the drawer's selectors. */
 export interface DrawerFormData {
   accounts: AccountOption[];
   categories: CategoryOption[];
+  /** The user's tags for the multi-select tag picker (income/expense only). */
+  tags: TagOption[];
   /** Drives the Pro-only "Suggest" (AI categorization) affordance. */
   isPro: boolean;
 }

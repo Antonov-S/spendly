@@ -15,15 +15,21 @@ type QueriedTransaction = Prisma.TransactionGetPayload<{
   include: {
     category: { select: { name: true; color: true; icon: true } };
     financialAccount: { select: { name: true } };
+    tags: { select: { tag: { select: { id: true; name: true; color: true } } } };
   };
 }>;
 
 const FEED_INCLUDE = {
   category: { select: { name: true, color: true, icon: true } },
   financialAccount: { select: { name: true } },
+  tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
 } satisfies Prisma.TransactionInclude;
 
-/** Normalize a queried row into a `TransactionLeg` with a resolved category. */
+/**
+ * Normalize a queried row into a `TransactionLeg` with a resolved category and
+ * name-sorted tags. Tags are sorted here (not left in join order) so the same
+ * transaction always renders its chips in the same order everywhere.
+ */
 function toLeg(tx: QueriedTransaction): TransactionLeg {
   return {
     id: tx.id,
@@ -44,6 +50,9 @@ function toLeg(tx: QueriedTransaction): TransactionLeg {
           icon: tx.category.icon,
         }
       : null,
+    tags: tx.tags
+      .map((t) => t.tag)
+      .sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 

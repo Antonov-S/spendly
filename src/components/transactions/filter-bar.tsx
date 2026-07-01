@@ -6,9 +6,11 @@ import { Search, ChevronDown, Check } from "lucide-react";
 import { TRANSACTION_TYPE_FILTERS, SEARCH_DEBOUNCE_MS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { CategoryOption } from "@/types/transactions";
+import type { TagOption } from "@/types/tags";
 
 interface FilterBarProps {
   categories: CategoryOption[];
+  tags: TagOption[];
 }
 
 /**
@@ -16,7 +18,7 @@ interface FilterBarProps {
  * (type / from / to / category / q) so it's shareable and back/forward-safe.
  * The account scope lives in the global topbar selector, not here.
  */
-export function FilterBar({ categories }: FilterBarProps) {
+export function FilterBar({ categories, tags }: FilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,6 +29,13 @@ export function FilterBar({ categories }: FilterBarProps) {
   const from = searchParams.get("from") ?? "";
   const to = searchParams.get("to") ?? "";
   const q = searchParams.get("q") ?? "";
+
+  // Tag filter — id-based. Resolve the URL ids against the known tag list so a
+  // deleted/unknown id is silently dropped (never rendered) and any interaction
+  // rewrites the URL to only-known ids (§9.1). No transfer guard (unlike category).
+  const knownTagIds = new Set(tags.map((t) => t.id));
+  const activeTagIds = (searchParams.get("tag")?.split(",").filter(Boolean) ?? [])
+    .filter((id) => knownTagIds.has(id));
 
   // Category filtering is meaningless for transfers (they have no category).
   const categoryDisabled = currentType === "TRANSFER";
@@ -50,6 +59,14 @@ export function FilterBar({ categories }: FilterBarProps) {
     setParam("category", [...next].join(",") || null);
   }
 
+  function toggleTag(id: string) {
+    // Base the toggle on the resolved active set so any stale id also drops out.
+    const next = new Set(activeTagIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setParam("tag", [...next].join(",") || null);
+  }
+
   // Debounced search: keep the input snappy, update the URL after a pause.
   const [searchValue, setSearchValue] = useState(q);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -70,7 +87,9 @@ export function FilterBar({ categories }: FilterBarProps) {
   }
 
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
   const selectedCount = selectedCategoryIds.length;
+  const selectedTagCount = activeTagIds.length;
 
   return (
     <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
@@ -170,6 +189,59 @@ export function FilterBar({ categories }: FilterBarProps) {
           </>
         )}
       </div>
+
+      {/* Tag multi-select — match-any (OR). No transfer guard (v1 never tags
+          transfers, so a tag filter simply yields no transfer rows). */}
+      {tags.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setTagOpen((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={tagOpen}
+            className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] text-ink-2 transition-colors hover:bg-surface-2"
+          >
+            {selectedTagCount > 0 ? `Tags · ${selectedTagCount}` : "Tags"}
+            <ChevronDown size={13} className="text-ink-3" />
+          </button>
+
+          {tagOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setTagOpen(false)}
+              />
+              <ul
+                role="listbox"
+                aria-multiselectable
+                className="absolute left-0 top-full z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-xl"
+              >
+                {tags.map((tag) => {
+                  const checked = activeTagIds.includes(tag.id);
+                  return (
+                    <li key={tag.id} role="option" aria-selected={checked}>
+                      <button
+                        type="button"
+                        onClick={() => toggleTag(tag.id)}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2"
+                      >
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: tag.color ?? "#888780" }}
+                        />
+                        <span className="flex-1 truncate">{tag.name}</span>
+                        {checked && (
+                          <Check size={14} className="shrink-0 text-success" />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Search — fills the rest of the mobile row, fixed width / right-aligned on desktop */}
       <div className="relative flex-1 md:ml-auto md:flex-none">

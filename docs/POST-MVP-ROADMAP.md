@@ -78,8 +78,12 @@ re-import idempotent; categories resolved (NFC) and optionally created; atomic `
 Tier-agnostic (no `isPro`), per-user rate-limited; no schema change. See
 `docs/features/data-import-spec.md`.
 
-**Next concrete slice: §16 — Transaction Tags** (delivery slot 8). Free-form labels orthogonal
-to categories (a `Tag` model + `TransactionTag` join), filterable in the feed; supersedes §12.
+**✅ §16 — Transaction Tags shipped** (delivery slot 8, `feature/transaction-tags`). Free-form,
+user-owned labels orthogonal to categories (`Tag` + `TransactionTag` join, two additive tables +
+a functional `(lower(name), userId)` unique index), created inline in the drawer, match-any
+filterable in the feed, managed on `/settings`. Income/expense only; hard delete + confirm;
+`createTransaction`/`updateTransaction` stay the sole writers. Not Pro-gated. Export/import of tags
+deferred. Supersedes §12. See `docs/features/transaction-tags-spec.md`.
 
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
@@ -551,9 +555,10 @@ size cap (reuse `EXPORT_MAX_TRANSACTIONS`?); how transfers are represented on im
 
 ---
 
-## 16. Transaction Tags
+## 16. Transaction Tags — ✅ Shipped
 
-**Effort: M · Value: high (flexible organization; replaces §12).**
+**Effort: M · Value: high (flexible organization; replaces §12).** Shipped as `feature/transaction-tags`
+— see `docs/features/transaction-tags-spec.md` for the realized design.
 
 Free-form labels **orthogonal to categories** — `tax-deductible`, `reimbursable`, `vacation-2026`,
 `business-trip` — that a transaction can carry several of, filterable in the feed and Reports.
@@ -741,7 +746,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 5 | **Budget Rollover (7)** | Committed | S–M | No | **✅ Shipped.** Per-budget opt-in carry, derived on read (consecutive-run chain rule); proven, high-value, low-risk; ahead of the more experimental AI assistants. |
 | 6 | Trash UI (8) | Committed | S | No | **✅ Shipped.** `/trash` restore / delete-forever / empty-trash for soft-deleted transactions; no schema change (reuses `deletedAt` + `restoreTransaction`); header count badge; transactions-only, no Pro gate, no cron. |
 | 7 | **Data Import (15)** | Committed | M | No | **✅ Shipped.** `/import` CSV column-mapper + JSON envelope → preview → confirm; Server Actions; count-based dedup; transactions-only into one account; no schema change. Onboarding/acquisition lever; reused export infra. |
-| 8 | **Transaction Tags (16)** | Committed | M | No | Flexible organization; replaces §12 at a fraction of the cost. |
+| 8 | **Transaction Tags (16)** | Committed | M | No | **✅ Shipped.** `Tag` + `TransactionTag` join (+ functional CI-unique index); inline create in the drawer, match-any feed filter, `/settings` management; income/expense only; hard delete; export/import deferred. Replaces §12 at a fraction of the cost. |
 | 9 | **Split Transactions (17)** | Committed | M | No | Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | First "insight" assistant; ship + measure independently. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | Strengthens budgeting; pairs with §7's rollover data. |

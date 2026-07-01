@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getTransactions } from "@/lib/db/transactions";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
+import { getUserTags } from "@/lib/db/tags";
 import { getAiProfile } from "@/lib/db/ai";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
 import { revalidateTransactionViews } from "@/lib/revalidation";
@@ -47,6 +48,22 @@ function round2(n: number): number {
 }
 
 /**
+ * Verify every tag id belongs to the user — all-or-nothing, never silently drop
+ * an unknown id. Returns the deduped, verified set, or an error string. Skips the
+ * DB round-trip when there are no tags.
+ */
+async function resolveOwnedTagIds(
+  userId: string,
+  tagIds: string[]
+): Promise<{ ok: true; ids: string[] } | { ok: false; error: string }> {
+  const ids = [...new Set(tagIds)];
+  if (ids.length === 0) return { ok: true, ids };
+  const owned = await prisma.tag.count({ where: { id: { in: ids }, userId } });
+  if (owned !== ids.length) return { ok: false, error: "Tag not found." };
+  return { ok: true, ids };
+}
+
+/**
  * Read-only pagination for the transactions feed: returns the next cursor page
  * for the signed-in user.
  */
@@ -68,7 +85,7 @@ export async function loadMoreTransactions(
   }
 }
 
-/** Accounts + categories for the drawer selectors (active accounts only). */
+/** Accounts + categories + tags for the drawer selectors (active accounts only). */
 export async function getDrawerFormData(): Promise<{
   success: boolean;
   data?: DrawerFormData;
@@ -78,12 +95,13 @@ export async function getDrawerFormData(): Promise<{
   if (!session?.user?.id) return { success: false, error: NOT_AUTHED.error };
 
   try {
-    const [accounts, categories, { isPro }] = await Promise.all([
+    const [accounts, categories, tags, { isPro }] = await Promise.all([
       getUserAccounts(session.user.id),
       getUserCategories(session.user.id),
+      getUserTags(session.user.id),
       getAiProfile(session.user.id),
     ]);
-    return { success: true, data: { accounts, categories, isPro } };
+    return { success: true, data: { accounts, categories, tags, isPro } };
   } catch (error) {
     console.error("getDrawerFormData failed", error);
     return { success: false, error: "Could not load the form." };
@@ -114,6 +132,7 @@ export async function getTransactionForEdit(id: string): Promise<{
         transferPairId: true,
         financialAccountId: true,
         categoryId: true,
+        tags: { select: { tagId: true } },
       },
     });
     if (!tx) return { success: false, error: "Transaction not found." };
@@ -130,6 +149,7 @@ export async function getTransactionForEdit(id: string): Promise<{
           note: tx.note,
           financialAccountId: tx.financialAccountId,
           categoryId: tx.categoryId,
+          tagIds: tx.tags.map((t) => t.tagId),
         },
       };
     }
@@ -174,8 +194,16 @@ export async function createTransaction(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { type, amount, date, financialAccountId, categoryId, merchant, note } =
-    parsed.data;
+  const {
+    type,
+    amount,
+    date,
+    financialAccountId,
+    categoryId,
+    merchant,
+    note,
+    tagIds,
+  } = parsed.data;
 
   try {
     const account = await prisma.financialAccount.findFirst({
@@ -192,19 +220,34 @@ export async function createTransaction(
       if (!category) return { success: false, error: "Category not found." };
     }
 
+    const tags = await resolveOwnedTagIds(userId, tagIds);
+    if (!tags.ok) return { success: false, error: tags.error };
+
     const magnitude = round2(amount);
-    await prisma.transaction.create({
-      data: {
-        userId,
-        type,
-        amount: type === "EXPENSE" ? -magnitude : magnitude,
-        currency: account.currency,
-        date: dateInputToUtc(date),
-        financialAccountId,
-        categoryId: categoryId ?? null,
-        merchant,
-        note,
-      },
+    // One atomic write so a transaction never lands without its tags (or vice-versa).
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
+        data: {
+          userId,
+          type,
+          amount: type === "EXPENSE" ? -magnitude : magnitude,
+          currency: account.currency,
+          date: dateInputToUtc(date),
+          financialAccountId,
+          categoryId: categoryId ?? null,
+          merchant,
+          note,
+        },
+        select: { id: true },
+      });
+      if (tags.ids.length > 0) {
+        await tx.transactionTag.createMany({
+          data: tags.ids.map((tagId) => ({
+            transactionId: created.id,
+            tagId,
+          })),
+        });
+      }
     });
 
     revalidateTransactionViews();
@@ -228,13 +271,21 @@ export async function updateTransaction(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { type, amount, date, financialAccountId, categoryId, merchant, note } =
-    parsed.data;
+  const {
+    type,
+    amount,
+    date,
+    financialAccountId,
+    categoryId,
+    merchant,
+    note,
+    tagIds,
+  } = parsed.data;
 
   try {
     const existing = await prisma.transaction.findFirst({
       where: { id, userId, deletedAt: null },
-      select: { id: true, isTransferLeg: true },
+      select: { id: true, isTransferLeg: true, tags: { select: { tagId: true } } },
     });
     if (!existing) return { success: false, error: "Transaction not found." };
     if (existing.isTransferLeg) {
@@ -255,19 +306,41 @@ export async function updateTransaction(
       if (!category) return { success: false, error: "Category not found." };
     }
 
+    const tags = await resolveOwnedTagIds(userId, tagIds);
+    if (!tags.ok) return { success: false, error: tags.error };
+
+    // Unchanged-set skip: an edit re-submits the whole tag set, and most edits
+    // leave it identical to what's stored — compare the normalized sets and skip
+    // the join delete/recreate entirely when equal. Only replace when they differ.
+    const currentSet = new Set(existing.tags.map((t) => t.tagId));
+    const nextSet = new Set(tags.ids);
+    const tagsUnchanged =
+      currentSet.size === nextSet.size &&
+      [...nextSet].every((t) => currentSet.has(t));
+
     const magnitude = round2(amount);
-    await prisma.transaction.update({
-      where: { id },
-      data: {
-        type,
-        amount: type === "EXPENSE" ? -magnitude : magnitude,
-        currency: account.currency,
-        date: dateInputToUtc(date),
-        financialAccountId,
-        categoryId: categoryId ?? null,
-        merchant,
-        note,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id },
+        data: {
+          type,
+          amount: type === "EXPENSE" ? -magnitude : magnitude,
+          currency: account.currency,
+          date: dateInputToUtc(date),
+          financialAccountId,
+          categoryId: categoryId ?? null,
+          merchant,
+          note,
+        },
+      });
+      if (!tagsUnchanged) {
+        await tx.transactionTag.deleteMany({ where: { transactionId: id } });
+        if (tags.ids.length > 0) {
+          await tx.transactionTag.createMany({
+            data: tags.ids.map((tagId) => ({ transactionId: id, tagId })),
+          });
+        }
+      }
     });
 
     revalidateTransactionViews();

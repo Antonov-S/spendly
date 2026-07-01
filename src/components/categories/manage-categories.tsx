@@ -91,7 +91,7 @@ export function ManageCategories({ categories }: ManageCategoriesProps) {
           are always available.
         </p>
       ) : (
-        <ul className="mt-4 flex flex-col gap-1">
+        <ul className="mt-4 flex max-h-105 flex-col gap-1 overflow-y-auto pr-1">
           {categories.map((c) => {
             const Icon = resolveIcon(c.icon);
             return (

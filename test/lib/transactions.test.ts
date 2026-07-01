@@ -26,6 +26,7 @@ function leg(overrides: Partial<TransactionLeg>): TransactionLeg {
     financialAccountId: "acc1",
     accountName: "Checking",
     category: null,
+    tags: [],
     ...overrides,
   };
 }
@@ -41,6 +42,7 @@ function feedRow(overrides: Partial<FeedTransaction>): FeedTransaction {
     amount: -10,
     accountName: "Checking",
     isTransferLeg: false,
+    tags: [],
     ...overrides,
   };
 }
@@ -96,12 +98,31 @@ describe("buildTransactionWhere", () => {
     expect(where.categoryId).toBeUndefined();
   });
 
-  it("searches merchant, note, and category name (case-insensitive)", () => {
+  it("filters by tag ids with match-any (OR) semantics", () => {
+    const where = buildTransactionWhere("u1", { tagIds: ["tg1", "tg2"] });
+    expect(where.tags).toEqual({ some: { tagId: { in: ["tg1", "tg2"] } } });
+  });
+
+  it("adds no tag clause for an empty or undefined tag list", () => {
+    expect(buildTransactionWhere("u1", { tagIds: [] }).tags).toBeUndefined();
+    expect(buildTransactionWhere("u1", {}).tags).toBeUndefined();
+  });
+
+  it("does NOT skip the tag filter for transfers (no TRANSFER guard, unlike category)", () => {
+    const where = buildTransactionWhere("u1", {
+      type: "TRANSFER",
+      tagIds: ["tg1"],
+    });
+    expect(where.tags).toEqual({ some: { tagId: { in: ["tg1"] } } });
+  });
+
+  it("searches merchant, note, category name, and tag name (case-insensitive)", () => {
     const where = buildTransactionWhere("u1", { q: "coffee" });
     expect(where.OR).toEqual([
       { merchant: { contains: "coffee", mode: "insensitive" } },
       { note: { contains: "coffee", mode: "insensitive" } },
       { category: { name: { contains: "coffee", mode: "insensitive" } } },
+      { tags: { some: { tag: { name: { contains: "coffee", mode: "insensitive" } } } } },
     ]);
   });
 });
@@ -111,6 +132,38 @@ describe("collapseTransfers", () => {
     const legs = [leg({ id: "a" }), leg({ id: "b" })];
     const rows = collapseTransfers(legs);
     expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+
+  it("carries a non-transfer leg's tags onto its row, and gives transfers no tags", () => {
+    const legs = [
+      leg({
+        id: "a",
+        tags: [
+          { id: "tg1", name: "vacation-2026", color: "#7F77DD" },
+          { id: "tg2", name: "reimbursable", color: null },
+        ],
+      }),
+      leg({
+        id: "out",
+        type: "TRANSFER",
+        isTransferLeg: true,
+        transferPairId: "p1",
+        amount: -100,
+        financialAccountId: "acc1",
+      }),
+      leg({
+        id: "in",
+        type: "TRANSFER",
+        isTransferLeg: true,
+        transferPairId: "p1",
+        amount: 100,
+        financialAccountId: "acc2",
+      }),
+    ];
+    const rows = collapseTransfers(legs);
+    expect(rows[0].tags.map((t) => t.id)).toEqual(["tg1", "tg2"]);
+    // The collapsed transfer row carries no tags (v1).
+    expect(rows[1].tags).toEqual([]);
   });
 
   it("collapses a pair to one outflow row with the destination named (all accounts)", () => {

@@ -32,6 +32,7 @@ import {
   type ParsedField,
 } from "@/actions/ai/track-parse-outcome";
 import { CategoryPickerField } from "@/components/categories/category-picker-field";
+import { TagPickerField } from "@/components/tags/tag-picker-field";
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
 import { todayDateInputValue } from "@/lib/date";
@@ -67,6 +68,7 @@ export function TransactionDrawer({
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayDateInputValue);
   const [categoryId, setCategoryId] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [accountId, setAccountId] = useState("");
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
@@ -167,6 +169,7 @@ export function TransactionDrawer({
         } else {
           setAccountId(t.financialAccountId ?? "");
           setCategoryId(t.categoryId ?? "");
+          setTagIds(t.tagIds ?? []);
         }
       });
     } else {
@@ -175,6 +178,7 @@ export function TransactionDrawer({
       setAmount("");
       setDate(todayDateInputValue());
       setCategoryId("");
+      setTagIds([]);
       setAccountId("");
       setFromAccountId("");
       setToAccountId("");
@@ -207,6 +211,7 @@ export function TransactionDrawer({
 
   const accounts = formData?.accounts ?? [];
   const categories = formData?.categories ?? [];
+  const tags = formData?.tags ?? [];
   const noAccounts = formData !== null && accounts.length === 0;
   const busy = isPending || loadingEdit;
 
@@ -333,6 +338,7 @@ export function TransactionDrawer({
           type,
           financialAccountId: accountId,
           categoryId: categoryId || null,
+          tagIds,
         };
         res =
           editId !== null
@@ -548,6 +554,17 @@ export function TransactionDrawer({
               {suggestNote && (
                 <p className="mt-1 text-[11px] text-ink-3">{suggestNote}</p>
               )}
+            </Field>
+          )}
+
+          {/* Tags — hidden for transfers (v1). Free-form labels orthogonal to category. */}
+          {!isTransfer && (
+            <Field label="Tags" optional>
+              <TagPickerField
+                tags={tags}
+                value={tagIds}
+                onChange={setTagIds}
+              />
             </Field>
           )}
 
