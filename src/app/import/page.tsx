@@ -28,7 +28,7 @@ export default async function ImportPage() {
 
   return (
     <AppShell accounts={accounts} user={sidebarUser}>
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
+      <div className="mx-auto flex w-full max-w-lg flex-col gap-5 px-4 py-6">
         <Link
           href="/settings"
           className="inline-flex items-center gap-1.5 text-[12px] text-ink-2 transition-colors hover:text-ink"
