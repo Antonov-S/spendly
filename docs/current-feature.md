@@ -1,34 +1,12 @@
-# Current Feature: Split Transactions (Post-MVP §17)
+# Current Feature
 
 ## Status
 
-Complete
+Not Started
 
 ## Goals
 
-- Add a single additive `TransactionSplit` child model (`transactionId`, `categoryId?`, `amount`, `note?`) via migration `add_transaction_splits` — no existing table changes, no `isSplit` column (split status derived from child-row presence), no backfill, no CHECK constraint.
-- Thread a `splits` array + cross-field superRefine into `createTransactionSchema`/`updateTransactionSchema`: split-mode is EXPENSE-only, ≥2 lines, lines must sum to `abs(amount)` to the cent, and split-mode is mutually exclusive with a top-level `categoryId`.
-- Keep `createTransaction`/`updateTransaction` the **sole writers**: write/replace split rows in the same atomic `$transaction` as tags, with all-or-nothing category ownership (`resolveOwnedSplitCategories`); parent `categoryId` nulled on split (display cleanliness); update replaces lines via `deleteMany`→`createMany`.
-- **Aggregation (load-bearing):** extract `getCategorySpend` to `src/lib/db/split-spend.ts` (two-groupBy union — non-split rows via `splits: { none: {} }` + split lines — no double count) and rewire `getBudgets`, `resolveRolloverCarry`, `getBudgetsData`, and `getCategoryBreakdown` to use it.
-- Feed: split parent renders one row with a `Split · N` chip, expandable (dedicated a11y disclosure) to show per-category lines; extend `FEED_INCLUDE`/`toLeg` to carry `splits` + derived `isSplit`.
-- Drawer: EXPENSE-only "Split" mode replacing the single Category field with per-line category+amount+note rows, live running total, "Distribute remaining" button, and a must-sum-to-total + all-categorized Save gate; pure logic in `src/lib/split.ts` (`splitRemaining`/`isSplitBalanced`/`assignRemainder`).
-- Export: JSON gains nested `splits` + derived `isSplit` per transaction (envelope `schemaVersion` 1→2); CSV labels a split's Category column `Split`. Import of splits deferred (documented top follow-up).
-- Extract `round2` to shared `src/lib/money.ts` (used by validation + actions); add constants (`SPLIT_MIN_LINES=2`, `SPLIT_MAX_LINES=20`, `SPLIT_NOTE_MAX=120`, `SPLIT_LABEL`, `SPLIT_ICON`) and types (`FeedSplit`, `isSplit`/`splits` on transaction + export types).
-- Vitest coverage: validation superRefine, action split write/replace + ownership, `getCategorySpend` conservation invariant, budgets split spend, `split.ts` helpers, `money.ts`, insights free-rider coupling, and a cross-surface single→split invariance test.
-
 ## Notes
-
-- Spec: `docs/features/split-transactions-spec.md`. POST-MVP-ROADMAP §17, Delivery slot #9. First committed item after Transaction Tags (§16); highest blast-radius non-AI win.
-- **Not Pro-gated** — core categorization accuracy, free on both tiers (same stance as Tags / user categories).
-- **The core risk is §7 (Aggregation)**, not schema/UI. The child-table design keeps parent `amount` the single source of truth, so balances (`startingBalance + SUM(amount)`) are provably unaffected. Double-counting is **structurally** impossible: non-split rows via `splits: { none: {} }`, split lines via the join — a parent can never be in both.
-- **Conservation property to test:** for any window, `Σ getCategorySpend()` over all categories == `Σ abs(amount)` of in-window non-deleted EXPENSE transactions.
-- **Easy-to-miss:** `resolveRolloverCarry` must also swap to `getCategorySpend` (§7.2) — it reads spend for *past* months and would under-count carried split spend otherwise.
-- **Untouched aggregations (verified no-change):** `getMonthlyComparison`/cashflow/income-vs-expenses (bucket by amount+date), `getAccountBalanceHistory`/balances (sum parent amount), `getReportTxCount` (counts transactions).
-- **Explicit out-of-scope:** splitting transfers/income (EXPENSE-only), splits across accounts, per-split tags/merchants/dates, import of splits (JSON writes but doesn't read back — flattens to Uncategorized on round-trip; top post-release follow-up), Reports split-breakdown chart / split filter pill, search over split-line categories/notes (documented limitation), rollover code changes (works as a consequence), soft-delete/undo for split lines (follow the parent).
-- **Open decisions — recommended resolutions (§15):** inline "Split" text button on Category row; amount entry with live remaining; `round2` in new `src/lib/money.ts`; dedicated disclosure caret for feed expand; CSV label-only; defer import round-trip; **derive** split status (no stored `isSplit` column). "Distribute remaining" is in v1 scope.
-- **Deviation (mirrors Tags):** expandable split detail on the full `/transactions` feed only; dashboard recent-transactions list shows the `Split · N` chip but is not expandable.
-- Migration is a plain `prisma migrate dev` (additive, no `--create-only`); apply to `development` Neon branch, production deferred to normal deploy.
-- Docs to update on completion (§16): POST-MVP-ROADMAP §17, project-overview, data-export-spec, data-import-spec, entity-types, entity-crud-architecture, `/help` Transactions explainer.
 
 ## History
 
