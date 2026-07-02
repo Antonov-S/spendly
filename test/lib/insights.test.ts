@@ -44,6 +44,14 @@ describe("countAtRiskBudgets", () => {
     expect(countAtRiskBudgets(rows)).toBe(4);
   });
 
+  it("flags a budget pushed over the threshold by split-fed spend", () => {
+    // getBudgetsData now derives `spent` via getCategorySpend, so split-line
+    // spend attributed to a category counts here with zero insights-code change.
+    // Category c1 has €0 direct spend but €85 from split lines against a €100
+    // budget → 85% ≥ threshold → at risk. Pins the free-rider coupling (§7).
+    expect(countAtRiskBudgets([{ spent: 85, limit: 100 }])).toBe(1);
+  });
+
   it("ignores non-finite / malformed inputs rather than false-positiving", () => {
     const rows = [
       { spent: NaN, limit: 100 },

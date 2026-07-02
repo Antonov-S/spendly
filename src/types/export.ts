@@ -35,8 +35,26 @@ export interface ExportTransactionRow {
   financialAccountId: string;
   categoryId: string | null;
   recurringTemplateId: string | null;
+  /**
+   * Derived convenience field (`splits.length > 0`) — NOT a data-model column;
+   * there is no `Transaction.isSplit`. `splits` is the sole source of truth.
+   */
+  isSplit: boolean;
+  /**
+   * Split lines (schemaVersion 2). Empty unless the transaction is split;
+   * `categoryId` is null when the split's category was deleted (SetNull). CSV
+   * ignores this (a split stays one `Split`-labelled row); JSON is lossless.
+   */
+  splits: ExportSplit[];
   /** ISO 8601 (D3). */
   createdAt: string;
+}
+
+/** One split line inside an exported transaction (JSON only). */
+export interface ExportSplit {
+  categoryId: string | null;
+  amount: number;
+  note: string | null;
 }
 
 export interface ExportAccount {

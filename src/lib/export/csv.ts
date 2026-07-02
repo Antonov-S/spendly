@@ -1,4 +1,4 @@
-import { EXPORT_CSV_COLUMNS } from "@/lib/constants";
+import { EXPORT_CSV_COLUMNS, SPLIT_LABEL } from "@/lib/constants";
 import type { ExportTransactionRow } from "@/types/export";
 
 /**
@@ -78,11 +78,14 @@ export function csvRow(values: string[]): string {
  * mapping can never drift.
  */
 export function transactionToCsvRow(row: ExportTransactionRow): string {
+  // A split stays one reconciling row; its Category reads "Split" (its parent
+  // categoryId is null). Per-category attribution is served by the JSON export.
+  const category = row.isSplit ? SPLIT_LABEL : row.category;
   return csvRow([
     escapeCsvField(row.date),
     escapeCsvField(row.amount),
     escapeCsvField(row.type),
-    escapeCsvTextField(row.category),
+    escapeCsvTextField(category),
     escapeCsvTextField(row.account),
     escapeCsvTextField(row.merchant),
     escapeCsvTextField(row.note),

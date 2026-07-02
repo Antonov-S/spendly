@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, SplitSquareHorizontal } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -33,8 +33,10 @@ import {
 } from "@/actions/ai/track-parse-outcome";
 import { CategoryPickerField } from "@/components/categories/category-picker-field";
 import { TagPickerField } from "@/components/tags/tag-picker-field";
+import { SplitEditor } from "@/components/transactions/split-editor";
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
 import { BREAKPOINTS } from "@/lib/system-constants";
+import { isSplitBalanced, type SplitDraft } from "@/lib/split";
 import { todayDateInputValue } from "@/lib/date";
 import { getDefaultActiveAccount } from "@/lib/account";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -69,6 +71,9 @@ export function TransactionDrawer({
   const [date, setDate] = useState(todayDateInputValue);
   const [categoryId, setCategoryId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
+  // Split mode (EXPENSE only). `splits` replaces the single category when on.
+  const [isSplit, setIsSplit] = useState(false);
+  const [splits, setSplits] = useState<SplitDraft[]>([]);
   const [accountId, setAccountId] = useState("");
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
@@ -142,6 +147,9 @@ export function TransactionDrawer({
     setParseConfidence(null);
     setParsePromptVersion(null);
     setDraftSnapshot(null);
+    // Clear split mode; the edit branch re-hydrates it below when applicable.
+    setIsSplit(false);
+    setSplits([]);
 
     getDrawerFormData().then((res) => {
       if (active && res.success && res.data) setFormData(res.data);
@@ -170,6 +178,16 @@ export function TransactionDrawer({
           setAccountId(t.financialAccountId ?? "");
           setCategoryId(t.categoryId ?? "");
           setTagIds(t.tagIds ?? []);
+          if (t.isSplit && t.splits && t.splits.length > 0) {
+            setIsSplit(true);
+            setSplits(
+              t.splits.map((s) => ({
+                categoryId: s.categoryId,
+                amount: s.amount,
+                note: s.note ?? "",
+              }))
+            );
+          }
         }
       });
     } else {
@@ -315,6 +333,33 @@ export function TransactionDrawer({
     return edited;
   }
 
+  // Switching away from EXPENSE clears split mode (splits are EXPENSE-only).
+  function handleTypeChange(next: TransactionTypeValue) {
+    setType(next);
+    if (next !== "EXPENSE" && isSplit) {
+      setIsSplit(false);
+      setSplits([]);
+    }
+  }
+
+  // Toggle split mode. Turning on seeds two empty lines (the minimum) and clears
+  // the single category; turning off drops the lines and restores the picker.
+  function toggleSplit() {
+    if (isSplit) {
+      setIsSplit(false);
+      setSplits([]);
+    } else {
+      setCategoryId("");
+      setSplits([
+        { categoryId: "", amount: 0, note: "" },
+        { categoryId: "", amount: 0, note: "" },
+      ]);
+      setIsSplit(true);
+    }
+  }
+
+  const splitReady = !isSplit || isSplitBalanced(Number(amount), splits);
+
   function handleSubmit() {
     setError(null);
     const base = {
@@ -337,8 +382,16 @@ export function TransactionDrawer({
           ...base,
           type,
           financialAccountId: accountId,
-          categoryId: categoryId || null,
+          // Split mode and a single category are mutually exclusive (server-enforced).
+          categoryId: isSplit ? null : categoryId || null,
           tagIds,
+          splits: isSplit
+            ? splits.map((s) => ({
+                categoryId: s.categoryId,
+                amount: s.amount,
+                note: s.note.trim() || null,
+              }))
+            : [],
         };
         res =
           editId !== null
@@ -474,7 +527,7 @@ export function TransactionDrawer({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setType(option.value)}
+                onClick={() => handleTypeChange(option.value)}
                 className={cn(
                   "rounded-md py-1.5 text-[12px] font-medium transition-colors",
                   type === option.value
@@ -518,41 +571,75 @@ export function TransactionDrawer({
             <Field
               label="Category"
               action={
-                isPro ? (
-                  <button
-                    type="button"
-                    onClick={handleSuggest}
-                    disabled={isSuggesting || !hasSuggestInput}
-                    title={
-                      !hasSuggestInput
-                        ? "Add a merchant or note first"
-                        : undefined
-                    }
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Sparkles className="size-3.5" />
-                    {isSuggesting ? "Thinking…" : "Suggest"}
-                  </button>
-                ) : null
+                <div className="flex items-center gap-1">
+                  {/* Split toggle — expenses only. A neutral bordered chip:
+                      differentiated from the grey label by full-contrast text +
+                      border + icon, NOT by a hue (blue is reserved for AI
+                      affordances, green for "+ New category"). */}
+                  {type === "EXPENSE" && (
+                    <button
+                      type="button"
+                      onClick={toggleSplit}
+                      aria-pressed={isSplit}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium text-ink transition-colors",
+                        isSplit
+                          ? "border-ink-3 bg-ink/10"
+                          : "border-line bg-surface-2 hover:border-ink-3"
+                      )}
+                    >
+                      <SplitSquareHorizontal className="size-3.5" />
+                      {isSplit ? "Splitting · tap to undo" : "Split expense"}
+                    </button>
+                  )}
+                  {/* AI Suggest — Pro, hidden in split mode (no single category). */}
+                  {!isSplit && isPro && (
+                    <button
+                      type="button"
+                      onClick={handleSuggest}
+                      disabled={isSuggesting || !hasSuggestInput}
+                      title={
+                        !hasSuggestInput
+                          ? "Add a merchant or note first"
+                          : undefined
+                      }
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Sparkles className="size-3.5" />
+                      {isSuggesting ? "Thinking…" : "Suggest"}
+                    </button>
+                  )}
+                </div>
               }
             >
-              <CategoryPickerField
-                categories={categories}
-                value={categoryId}
-                onChange={(id) => {
-                  setCategoryId(id);
-                  // A manual change clears any "AI guess" hint styling.
-                  setSuggestionConfidence(null);
-                }}
-                emptyLabel="Uncategorized"
-              />
-              {suggestionConfidence === "low" && (
-                <p className="mt-1 text-[11px] text-ai">
-                  AI guess — double-check it.
-                </p>
-              )}
-              {suggestNote && (
-                <p className="mt-1 text-[11px] text-ink-3">{suggestNote}</p>
+              {isSplit ? (
+                <SplitEditor
+                  categories={categories}
+                  total={Number(amount) || 0}
+                  splits={splits}
+                  onChange={setSplits}
+                />
+              ) : (
+                <>
+                  <CategoryPickerField
+                    categories={categories}
+                    value={categoryId}
+                    onChange={(id) => {
+                      setCategoryId(id);
+                      // A manual change clears any "AI guess" hint styling.
+                      setSuggestionConfidence(null);
+                    }}
+                    emptyLabel="Uncategorized"
+                  />
+                  {suggestionConfidence === "low" && (
+                    <p className="mt-1 text-[11px] text-ai">
+                      AI guess — double-check it.
+                    </p>
+                  )}
+                  {suggestNote && (
+                    <p className="mt-1 text-[11px] text-ink-3">{suggestNote}</p>
+                  )}
+                </>
               )}
             </Field>
           )}
@@ -651,7 +738,7 @@ export function TransactionDrawer({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={busy || noAccounts}
+            disabled={busy || noAccounts || !splitReady}
             className="w-full rounded-lg bg-success py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {busy ? "Saving…" : "Save transaction"}
@@ -719,13 +806,15 @@ function Field({
 }) {
   return (
     <div className="mt-4">
-      <div className="flex items-center justify-between">
-        <Label>
+      {/* Margin lives on the row (not the label) so the body clears a taller
+          action control — e.g. the bordered Split toggle — without overlapping. */}
+      <div className="mb-1.5 flex min-h-6 items-center justify-between gap-2">
+        <span className="text-[11px] font-medium text-ink-2">
           {label}
           {optional && (
             <span className="ml-1 font-normal text-ink-3">(optional)</span>
           )}
-        </Label>
+        </span>
         {action}
       </div>
       {children}

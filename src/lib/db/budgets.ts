@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { getCategorySpend } from "@/lib/db/split-spend";
 import { mapBudgetRow, roundMoney, summarizeBudgets } from "@/lib/budget";
 import { monthBounds, previousPeriod } from "@/lib/budget-period";
 import { rolloverCarryIn, type RolloverPoint } from "@/lib/rollover";
@@ -47,7 +48,7 @@ export async function resolveRolloverCarry(
     const ids = [...active];
     const { monthStart, nextMonthStart } = monthBounds(cursor.month, cursor.year);
 
-    const [budgets, spend] = await Promise.all([
+    const [budgets, spentByCategory] = await Promise.all([
       prisma.budget.findMany({
         where: {
           userId,
@@ -59,24 +60,17 @@ export async function resolveRolloverCarry(
         },
         select: { categoryId: true, amount: true },
       }),
-      prisma.transaction.groupBy({
-        by: ["categoryId"],
-        where: {
-          userId,
-          deletedAt: null,
-          type: "EXPENSE",
-          date: { gte: monthStart, lt: nextMonthStart },
-          categoryId: { in: ids },
-        },
-        _sum: { amount: true },
-      }),
+      // Split-aware: a prior month's spend that was split must still count
+      // against that month's budget when carried forward.
+      getCategorySpend(
+        userId,
+        { gte: monthStart, lt: nextMonthStart },
+        { categoryIds: ids }
+      ),
     ]);
 
     const baseByCategory = new Map(
       budgets.map((b) => [b.categoryId, Number(b.amount)])
-    );
-    const spentByCategory = new Map(
-      spend.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
     );
 
     // A category survives this step only if it had a rollover-on budget here;
@@ -124,22 +118,13 @@ export async function getBudgets(
     orderBy: { createdAt: "asc" },
   });
 
-  // One DB-side aggregation: signed sum of in-window EXPENSE spend per category,
-  // scoped to the categories that actually have a budget this period.
-  const spendByCategory = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: {
-      userId,
-      deletedAt: null,
-      type: "EXPENSE",
-      date: { gte: monthStart, lt: nextMonthStart },
-      categoryId: { in: budgets.map((b) => b.categoryId) },
-    },
-    _sum: { amount: true },
-  });
-
-  const spentMap = new Map<string, number>(
-    spendByCategory.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
+  // Split-aware per-category EXPENSE spend for the window, scoped to the
+  // categories that actually have a budget this period (a split transaction is
+  // attributed to its lines, not its parent — see getCategorySpend).
+  const spentMap = await getCategorySpend(
+    userId,
+    { gte: monthStart, lt: nextMonthStart },
+    { categoryIds: budgets.map((b) => b.categoryId) }
   );
 
   const rolloverIds = budgets.filter((b) => b.rollover).map((b) => b.categoryId);

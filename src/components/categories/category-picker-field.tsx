@@ -16,6 +16,12 @@ interface CategoryPickerFieldProps {
   emptyLabel?: string;
   /** When true the select is read-only and the "+ New category" affordance hides. */
   disabled?: boolean;
+  /**
+   * When false, hides the "+ New category" affordance while keeping the select
+   * fully interactive (unlike `disabled`). Used by the split editor so each line
+   * is a single-row select that aligns with its amount + remove controls.
+   */
+  allowCreate?: boolean;
 }
 
 /**
@@ -31,6 +37,7 @@ export function CategoryPickerField({
   onChange,
   emptyLabel,
   disabled = false,
+  allowCreate = true,
 }: CategoryPickerFieldProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   /** Categories created inline this session (merged with the prop list, deduped). */
@@ -62,7 +69,7 @@ export function CategoryPickerField({
         ))}
       </select>
 
-      {!disabled && (
+      {!disabled && allowCreate && (
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}

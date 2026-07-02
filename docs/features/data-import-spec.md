@@ -8,6 +8,15 @@
 > It removes the single biggest switching cost for the target user — *"already track, struggle to
 > maintain it"* — who today must re-enter a spreadsheet / Mint / YNAB / Monarch history by hand.
 
+> **⚠ Known limitation (high-priority follow-up) — split transactions.** Split Transactions
+> (POST-MVP §17) bumped the JSON export envelope to `schemaVersion: 2` with a nested `splits` array,
+> but **import still ignores `splits` in v1**: import accepts both `schemaVersion` 1 and 2 and reads only
+> `data.transactions`, so a Spendly JSON export → import round-trip **flattens a split back to a single
+> Uncategorized transaction** (the parent's `categoryId` is null). This is the only functional round-trip
+> gap in the feature — closing it (read `splits` when `schemaVersion >= 2`, re-validate the sum, write
+> `TransactionSplit` rows) is a self-contained additive follow-up with no schema change. Also note feed
+> search does not cover split-line categories/notes in v1.
+
 This spec follows [entity-crud-architecture.md](../entity-crud-architecture.md) and is the **inverse**
 of [data-export-spec.md](./data-export-spec.md). Where export is a **read that produces a download**
 (and therefore had to be an API route), import is a **mutation that consumes an upload** — so it is a

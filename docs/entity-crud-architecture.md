@@ -24,6 +24,20 @@ Spendly uses a three-layer data access pattern: **async server components** call
 > change. The size-capped single-request shape is why the upload doesn't need a streamed route (that
 > would only matter for a future large/async import). See `docs/features/data-import-spec.md`.
 
+> **✅ Split-aware category aggregation (`feature/split-transactions`).** The `TransactionSplit` child
+> table (added like the `Tag`/`TransactionTag` join — additive, no existing-table change) re-attributes an
+> expense's spend across categories **for aggregation only**; the parent `Transaction.amount` stays the
+> single source of truth, so derived balances are untouched. All per-category spend now routes through one
+> server-only helper `getCategorySpend` (`src/lib/db/split-spend.ts`): a two-`groupBy` union — non-split
+> rows (`splits: { none: {} }`) + split lines through the parent relation — merged additively, so
+> double-counting is **structurally impossible** (a split parent is excluded from the single-category sum
+> *because it has children*, and re-enters only via its lines). Consumed by `getBudgets`,
+> `resolveRolloverCarry`, `getBudgetsData`, and the Reports `getCategoryBreakdown`. Writes stay on the
+> sole-writer path: `createTransaction`/`updateTransaction` write/replace split rows inside the existing
+> atomic `$transaction`. Split status is **derived** (`splits.length > 0`) — no `Transaction.isSplit`
+> column. `revalidateTransactionViews()` gained `/reports` (split spend now moves the category breakdown).
+> See `docs/features/split-transactions-spec.md`.
+
 ---
 
 ## Transaction

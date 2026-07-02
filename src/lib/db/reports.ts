@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { getCategorySpend } from "@/lib/db/split-spend";
 import { UNCATEGORIZED } from "@/lib/constants";
 import {
   periodBounds,
@@ -45,19 +46,15 @@ export async function getCategoryBreakdown(
   opts: ReportFetchOpts
 ): Promise<CategorySlice[]> {
   const { from, to } = periodBounds(opts.months);
-  const grouped = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: {
-      ...reportTxWhere(userId, opts.accountId),
-      type: "EXPENSE",
-      date: { gte: from, lt: to },
-    },
-    _sum: { amount: true },
-  });
+  // Split-aware per-category spend: a split transaction is attributed to its
+  // lines, not its parent. The `null` key holds genuinely-uncategorized spend.
+  const spend = await getCategorySpend(
+    userId,
+    { gte: from, lt: to },
+    { accountFilter: reportTxWhere(userId, opts.accountId).financialAccount }
+  );
 
-  const ids = grouped
-    .map((g) => g.categoryId)
-    .filter((id): id is string => id !== null);
+  const ids = [...spend.keys()].filter((id): id is string => id !== null);
   const categories = ids.length
     ? await prisma.category.findMany({
         where: { id: { in: ids } },
@@ -66,15 +63,15 @@ export async function getCategoryBreakdown(
     : [];
   const byId = new Map(categories.map((c) => [c.id, c]));
 
-  return grouped
-    .map((g): CategorySlice => {
-      const cat = g.categoryId ? byId.get(g.categoryId) : undefined;
+  return [...spend.entries()]
+    .map(([categoryId, total]): CategorySlice => {
+      const cat = categoryId ? byId.get(categoryId) : undefined;
       return {
-        categoryId: g.categoryId,
+        categoryId,
         name: cat?.name ?? UNCATEGORIZED.name,
         icon: cat?.icon ?? UNCATEGORIZED.icon,
         color: cat?.color ?? UNCATEGORIZED.color,
-        total: Math.abs(Number(g._sum.amount ?? 0)),
+        total,
       };
     })
     .filter((s) => s.total > 0)

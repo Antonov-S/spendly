@@ -8,6 +8,7 @@ import { getUserCategories } from "@/lib/db/categories";
 import { getUserTags } from "@/lib/db/tags";
 import { getAiProfile } from "@/lib/db/ai";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
+import { round2 } from "@/lib/money";
 import { revalidateTransactionViews } from "@/lib/revalidation";
 import {
   createTransactionSchema,
@@ -42,11 +43,6 @@ const NOT_AUTHED: MutationResult = {
   error: "You must be signed in.",
 };
 
-/** Round a money magnitude to the 2 decimals the Decimal(12,2) column stores. */
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 /**
  * Verify every tag id belongs to the user — all-or-nothing, never silently drop
  * an unknown id. Returns the deduped, verified set, or an error string. Skips the
@@ -61,6 +57,25 @@ async function resolveOwnedTagIds(
   const owned = await prisma.tag.count({ where: { id: { in: ids }, userId } });
   if (owned !== ids.length) return { ok: false, error: "Tag not found." };
   return { ok: true, ids };
+}
+
+/**
+ * Verify every distinct split-line category belongs to the user (own category)
+ * or is a system category — all-or-nothing, mirroring `resolveOwnedTagIds`. An
+ * unknown/foreign category id fails the whole write rather than silently dropping
+ * a line. Skips the DB round-trip when there are no splits.
+ */
+async function resolveOwnedSplitCategories(
+  userId: string,
+  splits: { categoryId: string }[]
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ids = [...new Set(splits.map((s) => s.categoryId))];
+  if (ids.length === 0) return { ok: true };
+  const owned = await prisma.category.count({
+    where: { id: { in: ids }, OR: [{ userId }, { userId: null }] },
+  });
+  if (owned !== ids.length) return { ok: false, error: "Category not found." };
+  return { ok: true };
 }
 
 /**
@@ -133,6 +148,10 @@ export async function getTransactionForEdit(id: string): Promise<{
         financialAccountId: true,
         categoryId: true,
         tags: { select: { tagId: true } },
+        splits: {
+          select: { categoryId: true, amount: true, note: true },
+          orderBy: { amount: "desc" },
+        },
       },
     });
     if (!tx) return { success: false, error: "Transaction not found." };
@@ -150,6 +169,12 @@ export async function getTransactionForEdit(id: string): Promise<{
           financialAccountId: tx.financialAccountId,
           categoryId: tx.categoryId,
           tagIds: tx.tags.map((t) => t.tagId),
+          isSplit: tx.splits.length > 0,
+          splits: tx.splits.map((s) => ({
+            categoryId: s.categoryId ?? "",
+            amount: Number(s.amount),
+            note: s.note,
+          })),
         },
       };
     }
@@ -203,7 +228,9 @@ export async function createTransaction(
     merchant,
     note,
     tagIds,
+    splits,
   } = parsed.data;
+  const isSplit = splits.length > 0; // local only — never persisted (no isSplit column)
 
   try {
     const account = await prisma.financialAccount.findFirst({
@@ -223,8 +250,13 @@ export async function createTransaction(
     const tags = await resolveOwnedTagIds(userId, tagIds);
     if (!tags.ok) return { success: false, error: tags.error };
 
+    if (isSplit) {
+      const owned = await resolveOwnedSplitCategories(userId, splits);
+      if (!owned.ok) return { success: false, error: owned.error };
+    }
+
     const magnitude = round2(amount);
-    // One atomic write so a transaction never lands without its tags (or vice-versa).
+    // One atomic write so a transaction never lands without its tags/splits.
     await prisma.$transaction(async (tx) => {
       const created = await tx.transaction.create({
         data: {
@@ -234,7 +266,9 @@ export async function createTransaction(
           currency: account.currency,
           date: dateInputToUtc(date),
           financialAccountId,
-          categoryId: categoryId ?? null,
+          // Nulled when split so the feed/edit surfaces show the Split chip, not
+          // a stale single category (query (a) already excludes split parents).
+          categoryId: isSplit ? null : (categoryId ?? null),
           merchant,
           note,
         },
@@ -245,6 +279,18 @@ export async function createTransaction(
           data: tags.ids.map((tagId) => ({
             transactionId: created.id,
             tagId,
+          })),
+        });
+      }
+      if (isSplit) {
+        // Split lines are pure attribution data — no per-row lifecycle (no
+        // deletedAt, no counters, no cascade out), so a batched createMany is safe.
+        await tx.transactionSplit.createMany({
+          data: splits.map((s) => ({
+            transactionId: created.id,
+            categoryId: s.categoryId,
+            amount: round2(s.amount),
+            note: s.note,
           })),
         });
       }
@@ -280,7 +326,9 @@ export async function updateTransaction(
     merchant,
     note,
     tagIds,
+    splits,
   } = parsed.data;
+  const isSplit = splits.length > 0;
 
   try {
     const existing = await prisma.transaction.findFirst({
@@ -309,6 +357,11 @@ export async function updateTransaction(
     const tags = await resolveOwnedTagIds(userId, tagIds);
     if (!tags.ok) return { success: false, error: tags.error };
 
+    if (isSplit) {
+      const owned = await resolveOwnedSplitCategories(userId, splits);
+      if (!owned.ok) return { success: false, error: owned.error };
+    }
+
     // Unchanged-set skip: an edit re-submits the whole tag set, and most edits
     // leave it identical to what's stored — compare the normalized sets and skip
     // the join delete/recreate entirely when equal. Only replace when they differ.
@@ -328,7 +381,7 @@ export async function updateTransaction(
           currency: account.currency,
           date: dateInputToUtc(date),
           financialAccountId,
-          categoryId: categoryId ?? null,
+          categoryId: isSplit ? null : (categoryId ?? null),
           merchant,
           note,
         },
@@ -340,6 +393,20 @@ export async function updateTransaction(
             data: tags.ids.map((tagId) => ({ transactionId: id, tagId })),
           });
         }
+      }
+      // Splits are always replaced (no unchanged-set optimization): an edit to a
+      // split is inherently a full re-entry, and this handles toggling split-mode
+      // on/off both directions via the presence/absence of new lines.
+      await tx.transactionSplit.deleteMany({ where: { transactionId: id } });
+      if (isSplit) {
+        await tx.transactionSplit.createMany({
+          data: splits.map((s) => ({
+            transactionId: id,
+            categoryId: s.categoryId,
+            amount: round2(s.amount),
+            note: s.note,
+          })),
+        });
       }
     });
 

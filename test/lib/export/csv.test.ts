@@ -24,6 +24,8 @@ function row(overrides: Partial<ExportTransactionRow> = {}): ExportTransactionRo
     financialAccountId: "a1",
     categoryId: "c1",
     recurringTemplateId: null,
+    isSplit: false,
+    splits: [],
     createdAt: "2026-06-15T10:00:00.000Z",
     ...overrides,
   };
@@ -142,5 +144,20 @@ describe("transactionsToCsv", () => {
   it("does not prepend a BOM", () => {
     const csv = transactionsToCsv([]);
     expect(csv.charCodeAt(0)).not.toBe(0xfeff);
+  });
+
+  it("labels a split transaction's Category column 'Split' (one reconciling row)", () => {
+    const csv = transactionsToCsv([
+      row({
+        isSplit: true,
+        category: null,
+        splits: [
+          { categoryId: "c1", amount: 55, note: null },
+          { categoryId: "c2", amount: 25, note: null },
+        ],
+      }),
+    ]);
+    const dataLine = csv.split("\r\n")[1];
+    expect(dataLine).toBe("2026-06-15,-47,EXPENSE,Split,Checking,Aldi,");
   });
 });

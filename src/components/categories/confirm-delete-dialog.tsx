@@ -79,7 +79,8 @@ export function ConfirmDeleteCategoryDialog({
         This will delete{" "}
         <span className="font-medium text-ink">{name ?? "this category"}</span>.
         {uncategorizedNote}
-        {deletedNote} This cannot be undone.
+        {deletedNote} Any split lines using this category become uncategorized
+        too. This cannot be undone.
       </p>
 
       <div className="mt-5 flex gap-2">

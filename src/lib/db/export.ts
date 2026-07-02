@@ -83,6 +83,10 @@ export async function getTransactionsForExport(
       createdAt: true,
       financialAccount: { select: { name: true } },
       category: { select: { name: true } },
+      splits: {
+        select: { categoryId: true, amount: true, note: true },
+        orderBy: { amount: "desc" },
+      },
     },
     orderBy: { date: "desc" },
     take: EXPORT_MAX_TRANSACTIONS + 1,
@@ -102,6 +106,13 @@ export async function getTransactionsForExport(
     financialAccountId: r.financialAccountId,
     categoryId: r.categoryId,
     recurringTemplateId: r.recurringTemplateId,
+    // Derived convenience field (schemaVersion 2); `splits` is the source of truth.
+    isSplit: r.splits.length > 0,
+    splits: r.splits.map((s) => ({
+      categoryId: s.categoryId,
+      amount: Number(s.amount),
+      note: s.note,
+    })),
     createdAt: r.createdAt.toISOString(),
   }));
 }

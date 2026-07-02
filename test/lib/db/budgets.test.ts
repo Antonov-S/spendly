@@ -6,11 +6,15 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     budget: { findMany: vi.fn() },
     transaction: { groupBy: vi.fn() },
+    transactionSplit: { groupBy: vi.fn() },
   },
 }));
 
 const budgetFindMany = vi.mocked(prisma.budget.findMany);
 const transactionGroupBy = vi.mocked(prisma.transaction.groupBy);
+// Split-line aggregation half of getCategorySpend; defaults to "no splits" so the
+// existing single-category assertions are unaffected (a split-fed case sets it).
+const splitGroupBy = vi.mocked(prisma.transactionSplit.groupBy);
 
 function budgetRow(
   id: string,
@@ -33,6 +37,8 @@ describe("getBudgets", () => {
   beforeEach(() => {
     budgetFindMany.mockReset();
     transactionGroupBy.mockReset();
+    splitGroupBy.mockReset();
+    splitGroupBy.mockResolvedValue([] as never); // no split lines by default
   });
 
   it("aggregates spend DB-side, scoped to the budgeted categories' ids", async () => {
@@ -193,12 +199,36 @@ describe("getBudgets", () => {
     // Stopped after Feb — never queried January.
     expect(budgetFindMany).toHaveBeenCalledTimes(2);
   });
+
+  it("includes split-line spend for a budgeted category whose parent tx category is null", async () => {
+    budgetFindMany.mockResolvedValue([
+      budgetRow("b1", "c1", 400, "Groceries"),
+      budgetRow("b2", "c2", 200, "Household"),
+    ] as never);
+    // Non-split expenses: only c2 has a directly-categorized expense (€30).
+    transactionGroupBy.mockResolvedValue([
+      { categoryId: "c2", _sum: { amount: -30 } },
+    ] as never);
+    // A split transaction (parent categoryId null) attributes €55→c1, €25→c2.
+    splitGroupBy.mockResolvedValue([
+      { categoryId: "c1", _sum: { amount: 55 } },
+      { categoryId: "c2", _sum: { amount: 25 } },
+    ] as never);
+
+    const result = await getBudgets("user-1", 6, 2026);
+
+    // c1's spend comes entirely from the split line; c2 merges direct + split.
+    expect(result.rows.find((r) => r.id === "b1")?.spent).toBe(55);
+    expect(result.rows.find((r) => r.id === "b2")?.spent).toBe(55); // 30 + 25
+  });
 });
 
 describe("resolveRolloverCarry", () => {
   beforeEach(() => {
     budgetFindMany.mockReset();
     transactionGroupBy.mockReset();
+    splitGroupBy.mockReset();
+    splitGroupBy.mockResolvedValue([] as never); // no split lines by default
   });
 
   it("short-circuits to an empty map with zero queries for an empty rollover set", async () => {

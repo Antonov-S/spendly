@@ -185,6 +185,26 @@ export const TAG_MAX_PER_TRANSACTION = 12;
 export const TAG_CHIPS_VISIBLE_MAX = 3;
 
 /**
+ * A split needs at least two categories to mean anything — a single line is just
+ * a category. Enforced by the drawer Save gate and the create/update superRefine.
+ */
+export const SPLIT_MIN_LINES = 2;
+
+/**
+ * Per-transaction cap on split lines (mirrors `TAG_MAX_PER_TRANSACTION`'s
+ * bounding intent). Enforced client-side (the "+ Add split" button disables at
+ * the cap) and server-side (the Zod `splits` array bound).
+ */
+export const SPLIT_MAX_LINES = 20;
+
+/**
+ * Per-line split note cap. Deliberately shorter than the transaction `NOTE_MAX`
+ * (500): a split-line note is a terse "what was this slice" label, not a full
+ * memo, so it can't dwarf its own amount in the UI.
+ */
+export const SPLIT_NOTE_MAX = 120;
+
+/**
  * Min in-scope transactions before the Reports *trend* charts (income vs
  * expenses, cashflow) render instead of the "Add N more transactions to see
  * spending trends" nudge. Drives the canonical nudge copy (`Add ${N - count}…`).
@@ -218,7 +238,7 @@ export const HELP_TOC_MIN_SECTIONS = 5;
  * §6.2): renaming/removing a key, changing a field's type/units, or changing
  * the date/number encoding. Lets a future importer detect format generations.
  */
-export const EXPORT_JSON_SCHEMA_VERSION = 1;
+export const EXPORT_JSON_SCHEMA_VERSION = 2;
 
 /** Download filename stem: `spendly-export-YYYY-MM-DD.<ext>`. */
 export const EXPORT_FILENAME_PREFIX = "spendly-export";

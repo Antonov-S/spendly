@@ -27,6 +27,8 @@ function leg(overrides: Partial<TransactionLeg>): TransactionLeg {
     accountName: "Checking",
     category: null,
     tags: [],
+    isSplit: false,
+    splits: [],
     ...overrides,
   };
 }
@@ -43,6 +45,8 @@ function feedRow(overrides: Partial<FeedTransaction>): FeedTransaction {
     accountName: "Checking",
     isTransferLeg: false,
     tags: [],
+    isSplit: false,
+    splits: [],
     ...overrides,
   };
 }

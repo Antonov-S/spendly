@@ -105,6 +105,8 @@ function toRow(leg: TransactionLeg): FeedTransaction {
     isTransferLeg: leg.isTransferLeg,
     transferPairId: leg.transferPairId ?? undefined,
     tags: leg.tags,
+    isSplit: leg.isSplit,
+    splits: leg.splits,
   };
 }
 
@@ -127,6 +129,9 @@ function toTransferRow(
     transferPairId: primary.transferPairId ?? undefined,
     // Transfers carry no tags in v1.
     tags: [],
+    // A transfer is never split (splits are EXPENSE-only).
+    isSplit: false,
+    splits: [],
   };
 }
 

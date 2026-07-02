@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { resolveIcon } from "@/lib/icon-map";
 import { resolveRolloverCarry } from "@/lib/db/budgets";
-import { UNCATEGORIZED } from "@/lib/constants";
+import { getCategorySpend } from "@/lib/db/split-spend";
+import { SPLIT_ICON, SPLIT_LABEL, UNCATEGORIZED } from "@/lib/constants";
 import type {
   DashboardSummary,
   TransactionRow,
@@ -187,6 +188,7 @@ export async function getRecentTransactions(
       include: {
         category: { select: { name: true, color: true, icon: true } },
         financialAccount: { select: { name: true } },
+        _count: { select: { splits: true } },
       },
     }),
     prisma.transaction.count({
@@ -203,17 +205,26 @@ export async function getRecentTransactions(
     id: tx.id,
     type: tx.type,
     description: tx.merchant ?? tx.note ?? "Transaction",
-    category: tx.category
-      ? {
-          name: tx.category.name,
-          color: tx.category.color,
-          icon: resolveIcon(tx.category.icon),
-        }
-      : {
-          name: UNCATEGORIZED.name,
-          color: UNCATEGORIZED.color,
-          icon: resolveIcon(UNCATEGORIZED.icon),
-        },
+    // A split parent has categoryId: null — show a "Split" label (not
+    // Uncategorized). The compact dashboard list isn't expandable (spec §9.2).
+    category:
+      tx._count.splits > 0
+        ? {
+            name: SPLIT_LABEL,
+            color: UNCATEGORIZED.color,
+            icon: resolveIcon(SPLIT_ICON),
+          }
+        : tx.category
+          ? {
+              name: tx.category.name,
+              color: tx.category.color,
+              icon: resolveIcon(tx.category.icon),
+            }
+          : {
+              name: UNCATEGORIZED.name,
+              color: UNCATEGORIZED.color,
+              icon: resolveIcon(UNCATEGORIZED.icon),
+            },
     dateLabel: toDateLabel(tx.date, today),
     account: tx.financialAccount.name,
     amount: Number(tx.amount),
@@ -239,22 +250,12 @@ export async function getBudgetsData(
     },
   });
 
-  // One DB-side aggregation: signed sum of in-window EXPENSE spend per category,
-  // scoped to the categories that actually have a budget this period.
-  const spendByCategory = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: {
-      userId,
-      deletedAt: null,
-      type: "EXPENSE",
-      date: { gte: monthStart, lte: monthEnd },
-      categoryId: { in: budgets.map((b) => b.categoryId) },
-    },
-    _sum: { amount: true },
-  });
-
-  const spentMap = new Map<string, number>(
-    spendByCategory.map((g) => [g.categoryId!, Math.abs(Number(g._sum.amount ?? 0))])
+  // Split-aware per-category EXPENSE spend, scoped to budgeted categories. Keeps
+  // its own inclusive `lte: monthEnd` window (getCategorySpend is window-agnostic).
+  const spentMap = await getCategorySpend(
+    userId,
+    { gte: monthStart, lte: monthEnd },
+    { categoryIds: budgets.map((b) => b.categoryId) }
   );
 
   // Same carry resolution as the /budgets page so the two surfaces agree.
