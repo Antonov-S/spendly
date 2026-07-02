@@ -23,6 +23,7 @@ import {
   PiggyBank,
   CreditCard,
   Banknote,
+  SplitSquareHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,6 +53,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   PiggyBank,
   CreditCard,
   Banknote,
+  // Split-transaction chip (SPLIT_ICON).
+  SplitSquareHorizontal,
 };
 
 export function resolveIcon(name: string): LucideIcon {

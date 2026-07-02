@@ -328,6 +328,7 @@ model Category {
   transactions       Transaction[]
   budgets            Budget[]
   recurringTemplates RecurringTemplate[]
+  splits             TransactionSplit[]
 
   @@unique([name, userId])
   @@index([userId])
@@ -396,6 +397,7 @@ model Transaction {
   category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
   tags              TransactionTag[]
+  splits            TransactionSplit[] // presence of ≥ 1 row ⇒ split; no isSplit column
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -405,6 +407,29 @@ model Transaction {
   @@index([userId, categoryId])
   @@index([transferPairId])
   @@index([deletedAt])
+}
+
+// ─── TransactionSplit ─────────────────────────────────
+// A line of a split transaction. The parent Transaction.amount stays the single
+// source of truth for balances; splits ONLY re-attribute that amount across
+// categories for budget + Reports aggregation (positive magnitudes summing to
+// abs(parent.amount)). Split status is DERIVED (splits.length > 0) — there is no
+// Transaction.isSplit column. EXPENSE parents only (v1).
+
+model TransactionSplit {
+  id        String   @id @default(cuid())
+  amount    Decimal  @db.Decimal(12, 2)
+  note      String?
+  createdAt DateTime @default(now())
+
+  transactionId String
+  categoryId    String?
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId])
+  @@index([categoryId])
 }
 
 // ─── Budget ───────────────────────────────────────────
@@ -619,6 +644,21 @@ Soft delete: deleted transactions receive `deletedAt` timestamp and disappear fr
 > `updateTransaction` stay the sole writers of the join rows (all-or-nothing ownership check). Not
 > Pro-gated, no count limit (per-transaction cap `TAG_MAX_PER_TRANSACTION = 12`). Transfers carry no
 > tags in v1; export/import of tags is deferred. See `docs/features/transaction-tags-spec.md`.
+
+> **✅ Shipped — Split transactions (`feature/split-transactions`, POST-MVP §17).** One **expense** split
+> across multiple categories (€80 shop = €55 Groceries + €25 Household). It stays **one row / one amount**
+> (derived balances are provably unaffected), but its spend is **attributed across categories** for budgets
+> and Reports. New additive `TransactionSplit` child table — **split status is derived from child-row
+> presence, there is no `Transaction.isSplit` column** (the parent's `categoryId` is nulled when split, for
+> display). The load-bearing change is aggregation: one shared `getCategorySpend` (`src/lib/db/split-spend.ts`)
+> does a two-`groupBy` union — non-split rows via `splits: { none: {} }` + split lines — so double-counting
+> is **structurally impossible**, consumed by `getBudgets`, `resolveRolloverCarry`, `getBudgetsData`, and the
+> Reports `getCategoryBreakdown`. Drawer "Split" mode (per-line category+amount+note, live running total,
+> "Distribute remaining", must-sum Save gate); the feed row shows a `Split · N` chip and expands to its
+> lines. **EXPENSE-only, single-account, not Pro-gated.** JSON export is `schemaVersion: 2` with a nested
+> `splits` array (CSV keeps a split as one `Split`-labelled row); **import of splits is deferred** (a JSON
+> round-trip flattens a split to Uncategorized in v1 — the top post-release follow-up). See
+> `docs/features/split-transactions-spec.md`.
 
 ### Financial Accounts
 
@@ -947,8 +987,11 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 > the first non-auth API routes (a file download can't be a Server Action). CSV is a flat RFC-4180
 > ledger (UTF-8 BOM + an Excel `sep=,` hint so it opens straight into columns; formula-injection-safe
 > free-text columns; transfers as two rows so `SUM(Amount)` reconciles). JSON is a versioned envelope
-> `{ schemaVersion: 1, exportedAt, data }` with derived account balances, **user-owned categories
+> `{ schemaVersion: 2, exportedAt, data }` with derived account balances, **user-owned categories
 > only**, budgets, goals + nested contributions, recurring templates, and non-deleted transactions.
+> (Split Transactions bumped the envelope to `schemaVersion: 2`: each transaction now carries a nested
+> `splits` array + a derived `isSplit`; CSV keeps a split as one `Split`-labelled row. **Import ignores
+> `splits` in v1** — a JSON round-trip flattens a split to Uncategorized; the top post-release follow-up.)
 > Both are `auth()`-guarded and `userId`-scoped, **tier-agnostic (no `isPro` read)**, per-user
 > rate-limited with a unified `{ error, code }` 401/429/413 contract, and scoped by the `?account=`
 > filter (account-bound entities scope; budgets/goals/categories stay full — the intentional

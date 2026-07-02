@@ -31,6 +31,7 @@ function row(overrides: Record<string, unknown>) {
     category: { name: "Dining", color: "#000000", icon: "UtensilsCrossed" },
     financialAccount: { name: "Checking" },
     tags: [],
+    splits: [],
     ...overrides,
   };
 }

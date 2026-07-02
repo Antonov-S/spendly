@@ -41,6 +41,18 @@ export interface FeedTag {
 }
 
 /**
+ * One line of a split transaction as it appears on a feed row (expandable
+ * detail). `category` is null when the split's category was deleted (SetNull) —
+ * it renders Uncategorized. `amount` is a positive magnitude.
+ */
+export interface FeedSplit {
+  id: string;
+  category: FeedCategory | null;
+  amount: number;
+  note: string | null;
+}
+
+/**
  * Feed filter state, parsed from URL search params. All fields are optional —
  * an empty object means "all transactions". `type` undefined = the "All" pill.
  */
@@ -81,6 +93,10 @@ export interface TransactionLeg {
   category: FeedCategory | null;
   /** Tags on this leg, already sorted by name. Empty for transfers (v1). */
   tags: FeedTag[];
+  /** Derived: `splits.length > 0`. There is no stored `isSplit` column. */
+  isSplit: boolean;
+  /** Split lines (largest first). Empty unless the transaction is split. */
+  splits: FeedSplit[];
 }
 
 /** A single display row in the feed, after transfer pairs are collapsed. */
@@ -100,6 +116,10 @@ export interface FeedTransaction {
   transferPairId?: string;
   /** Tags on this row, already sorted by name. Empty for transfers (v1). */
   tags: FeedTag[];
+  /** Derived: `splits.length > 0`. There is no stored `isSplit` column. */
+  isSplit: boolean;
+  /** Split lines (largest first). Empty unless the transaction is split. */
+  splits: FeedSplit[];
 }
 
 /**
@@ -144,6 +164,10 @@ export interface EditableTransaction {
   categoryId?: string | null;
   /** Income/expense only: the tag ids currently assigned. */
   tagIds?: string[];
+  /** Derived: true when the transaction has split lines. */
+  isSplit?: boolean;
+  /** Split lines to pre-fill the drawer's split editor (largest first). */
+  splits?: { categoryId: string; amount: number; note: string | null }[];
   /** Transfer only. */
   transferPairId?: string;
   fromAccountId?: string;

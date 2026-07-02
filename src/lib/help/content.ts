@@ -138,6 +138,11 @@ export const HELP_SECTIONS: HelpSection[] = [
           "Pick the type and enter the amount — Spendly handles the sign. Expenses subtract, income adds.",
       },
       {
+        term: "Split across categories",
+        detail:
+          "An expense can be split across several categories — a €80 shop as €55 Groceries + €25 Household. It stays one transaction (your balance is unchanged), but each budget and report counts only its share. Turn on Split on the expense, add the lines, and make them add up to the total.",
+      },
+      {
         term: "Undo",
         detail:
           "Deleting is a soft delete with an 8-second snackbar undo. After that, deleted transactions wait in Recently deleted, where you can restore them or delete them permanently.",

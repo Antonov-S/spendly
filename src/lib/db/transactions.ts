@@ -16,13 +16,32 @@ type QueriedTransaction = Prisma.TransactionGetPayload<{
     category: { select: { name: true; color: true; icon: true } };
     financialAccount: { select: { name: true } };
     tags: { select: { tag: { select: { id: true; name: true; color: true } } } };
+    splits: {
+      select: {
+        id: true;
+        amount: true;
+        note: true;
+        category: { select: { name: true; color: true; icon: true } };
+      };
+    };
   };
 }>;
 
+// `splits` loads for every page row (most come back `[]`) — one extra batched
+// relation load per page, accepted over a conditional second fetch (spec §5.1).
 const FEED_INCLUDE = {
   category: { select: { name: true, color: true, icon: true } },
   financialAccount: { select: { name: true } },
   tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+  splits: {
+    select: {
+      id: true,
+      amount: true,
+      note: true,
+      category: { select: { name: true, color: true, icon: true } },
+    },
+    orderBy: { amount: "desc" }, // largest slice first, stable render order
+  },
 } satisfies Prisma.TransactionInclude;
 
 /**
@@ -53,6 +72,15 @@ function toLeg(tx: QueriedTransaction): TransactionLeg {
     tags: tx.tags
       .map((t) => t.tag)
       .sort((a, b) => a.name.localeCompare(b.name)),
+    isSplit: tx.splits.length > 0,
+    splits: tx.splits.map((s) => ({
+      id: s.id,
+      amount: Number(s.amount),
+      note: s.note,
+      category: s.category
+        ? { name: s.category.name, color: s.category.color, icon: s.category.icon }
+        : null,
+    })),
   };
 }
 

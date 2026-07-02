@@ -10,6 +10,12 @@ This spec follows [entity-crud-architecture.md](../entity-crud-architecture.md) 
 already-shipped slices. It is the **first feature in the codebase to use a non-auth API route** —
 and that is correct, not a deviation (§2).
 
+> **Update — `schemaVersion: 2` (Split Transactions, POST-MVP §17).** The JSON envelope is now version
+> **2**: each transaction carries a nested `splits: { categoryId, amount, note }[]` array plus a derived
+> `isSplit` (a computed convenience field, **not** a data-model column — `splits` is the source of truth).
+> CSV keeps a split as **one reconciling row** with the Category column reading `Split`. Import accepts
+> both v1 and v2 but **ignores `splits` in v1** — see `data-import-spec.md`'s known-limitation note.
+
 **How to read this spec (layering).** It is ordered **contract → model → implementation → tests**:
 
 | Layer | Section | What it is |

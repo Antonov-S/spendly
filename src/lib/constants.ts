@@ -255,6 +255,16 @@ export const UNCATEGORIZED = {
 } as const;
 
 /**
+ * Pseudo-category label shown in place of a single category for a split
+ * transaction — the feed row's Category cell and the CSV export's Category
+ * column (which keeps a split as one reconciling row, see data-export-spec).
+ */
+export const SPLIT_LABEL = "Split";
+
+/** Lucide icon name for the split chip (resolved client-side via `resolveIcon`). */
+export const SPLIT_ICON = "SplitSquareHorizontal";
+
+/**
  * CSV export column headers, in output order (data-export-spec §5). Drives both
  * `EXPORT_CSV_HEADER` and the per-row builder, so the header line and the cell
  * order can never drift. Date/Amount/Type are controlled columns; the remaining

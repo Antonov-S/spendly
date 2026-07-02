@@ -81,7 +81,13 @@ export function parseImportEnvelope(text: string): EnvelopeParseResult {
   if (!parsed.success) {
     return { ok: false, error: "bad_envelope", message: BAD_SHAPE_MESSAGE };
   }
-  if (parsed.data.schemaVersion !== EXPORT_JSON_SCHEMA_VERSION) {
+  // Accept any generation from 1 up to the current version (the newer-than-current
+  // case is caught above with a friendlier message). v2 added an optional per-tx
+  // `splits` array which import ignores in v1 — so a v1 and v2 file parse identically.
+  if (
+    parsed.data.schemaVersion < 1 ||
+    parsed.data.schemaVersion > EXPORT_JSON_SCHEMA_VERSION
+  ) {
     return { ok: false, error: "bad_envelope", message: BAD_SHAPE_MESSAGE };
   }
 

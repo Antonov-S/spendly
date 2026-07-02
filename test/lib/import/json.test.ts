@@ -30,12 +30,19 @@ describe("parseImportEnvelope", () => {
   });
 
   it("rejects a higher schemaVersion with the newer-version message", () => {
-    const res = parseImportEnvelope(envelope([{ date: "x", amount: 1, type: "INCOME" }], 2));
+    const res = parseImportEnvelope(envelope([{ date: "x", amount: 1, type: "INCOME" }], 3));
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.error).toBe("bad_envelope");
       expect(res.message).toMatch(/newer version/i);
     }
+  });
+
+  it("accepts a v2 envelope (splits ignored on import in v1)", () => {
+    const res = parseImportEnvelope(
+      envelope([{ date: "2026-06-15", amount: 10, type: "EXPENSE" }], 2)
+    );
+    expect(res.ok).toBe(true);
   });
 
   it("ignores unknown extra fields on the envelope and on a transaction (forward-compat)", () => {

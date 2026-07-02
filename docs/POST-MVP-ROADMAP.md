@@ -582,6 +582,24 @@ chart; any Pro gate (recommend free — it's core organization, not depth).
 
 ## 17. Split Transactions
 
+> **✅ Shipped (`feature/split-transactions`).** `TransactionSplit` child table (additive migration
+> `add_transaction_splits`; **no `Transaction.isSplit` column** — split status is derived from child-row
+> presence; no CHECK constraint). EXPENSE-only, single-account, **not Pro-gated**. Aggregation rewired
+> through one shared `getCategorySpend` (`src/lib/db/split-spend.ts`, a two-`groupBy` union — non-split
+> rows via `splits: { none: {} }` + split lines — so double-counting is *structurally* impossible),
+> consumed by `getBudgets`, `resolveRolloverCarry`, `getBudgetsData`, and `getCategoryBreakdown`;
+> `getMonthlyComparison` / balances / `getReportTxCount` bucket by amount+date and are unchanged.
+> `createTransaction`/`updateTransaction` stay the sole writers (splits ride the existing atomic
+> `$transaction` with tags; parent `categoryId` nulled when split; update replaces lines). Drawer gains a
+> "Split" mode (per-line category+amount+note, live running total, **"Distribute remaining"**, must-sum
+> Save gate; pure logic in `src/lib/split.ts`); the `/transactions` feed row shows a `Split · N` chip and
+> expands (a11y disclosure); the dashboard recent list shows the chip, not expandable. JSON export bumped
+> to **`schemaVersion: 2`** with a nested `splits` array (+ derived `isSplit`); CSV labels the Category
+> `Split`. `round2` extracted to `src/lib/money.ts`; `formatCurrencyCents` added. **Import of splits is
+> deferred** — the JSON path writes splits but doesn't read them back in v1 (a round-trip flattens a split
+> to Uncategorized); the top post-release follow-up. Feed search over split-line categories/notes also
+> deferred. See `docs/features/split-transactions-spec.md`.
+
 **Effort: M · Value: high, but high blast radius.**
 
 One transaction split across multiple categories — €80 at a supermarket = €55 Groceries + €25
@@ -747,7 +765,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 6 | Trash UI (8) | Committed | S | No | **✅ Shipped.** `/trash` restore / delete-forever / empty-trash for soft-deleted transactions; no schema change (reuses `deletedAt` + `restoreTransaction`); header count badge; transactions-only, no Pro gate, no cron. |
 | 7 | **Data Import (15)** | Committed | M | No | **✅ Shipped.** `/import` CSV column-mapper + JSON envelope → preview → confirm; Server Actions; count-based dedup; transactions-only into one account; no schema change. Onboarding/acquisition lever; reused export infra. |
 | 8 | **Transaction Tags (16)** | Committed | M | No | **✅ Shipped.** `Tag` + `TransactionTag` join (+ functional CI-unique index); inline create in the drawer, match-any feed filter, `/settings` management; income/expense only; hard delete; export/import deferred. Replaces §12 at a fraction of the cost. |
-| 9 | **Split Transactions (17)** | Committed | M | No | Everyday categorization accuracy; highest blast radius of the non-AI wins. |
+| 9 | **Split Transactions (17)** | Committed | M | No | **✅ Shipped.** `TransactionSplit` child (derived split status, no `isSplit` column); one shared `getCategorySpend` two-`groupBy` union rewires budgets/rollover/dashboard/reports (double-count structurally impossible); EXPENSE-only, single-account; JSON `schemaVersion: 2`; import of splits deferred. Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | First "insight" assistant; ship + measure independently. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | Strengthens budgeting; pairs with §7's rollover data. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |

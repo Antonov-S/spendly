@@ -22,9 +22,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financialAccount: { findFirst: vi.fn(), findMany: vi.fn() },
-    category: { findFirst: vi.fn() },
+    category: { findFirst: vi.fn(), count: vi.fn() },
     tag: { count: vi.fn() },
     transactionTag: { createMany: vi.fn(), deleteMany: vi.fn() },
+    transactionSplit: { createMany: vi.fn(), deleteMany: vi.fn() },
     transaction: {
       create: vi.fn(),
       update: vi.fn(),
@@ -297,6 +298,104 @@ describe("createTransaction", () => {
       data: [{ transactionId: "tx1", tagId: "tg1" }],
     });
   });
+
+  it("writes a split expense: nulls the parent category + writes N split rows atomically", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.category.count).mockResolvedValue(2 as never);
+    vi.mocked(prisma.transaction.create).mockResolvedValue({ id: "t1" } as never);
+
+    const res = await createTransaction({
+      type: "EXPENSE",
+      amount: 80,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: [],
+      splits: [
+        { categoryId: "c1", amount: 55, note: "food" },
+        { categoryId: "c2", amount: 25, note: null },
+      ],
+    });
+
+    expect(res.success).toBe(true);
+    // Ownership: all-or-nothing count over the distinct category ids.
+    expect(prisma.category.count).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["c1", "c2"] },
+        OR: [{ userId: "u1" }, { userId: null }],
+      },
+    });
+    // Parent: categoryId nulled, signed amount, NO isSplit column persisted.
+    const createArg = vi.mocked(prisma.transaction.create).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(createArg.data.categoryId).toBeNull();
+    expect(createArg.data.amount).toBe(-80);
+    expect(createArg.data).not.toHaveProperty("isSplit");
+    // Split rows written via a batched createMany.
+    expect(vi.mocked(prisma.transactionSplit.createMany).mock.calls[0][0]).toEqual({
+      data: [
+        { transactionId: "t1", categoryId: "c1", amount: 55, note: "food" },
+        { transactionId: "t1", categoryId: "c2", amount: 25, note: null },
+      ],
+    });
+  });
+
+  it("rejects a split with a foreign/unknown split category — all-or-nothing", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.category.count).mockResolvedValue(1 as never); // only 1 of 2 owned
+
+    const res = await createTransaction({
+      type: "EXPENSE",
+      amount: 80,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: [],
+      splits: [
+        { categoryId: "c1", amount: 55, note: null },
+        { categoryId: "cX", amount: 25, note: null },
+      ],
+    });
+
+    expect(res).toEqual({ success: false, error: "Category not found." });
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+    expect(prisma.transactionSplit.createMany).not.toHaveBeenCalled();
+  });
+
+  it("does not write split rows for a normal single-category expense", async () => {
+    signIn();
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.category.findFirst).mockResolvedValue({ id: "c1" } as never);
+    vi.mocked(prisma.transaction.create).mockResolvedValue({ id: "t1" } as never);
+
+    await createTransaction({
+      type: "EXPENSE",
+      amount: 40,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: "c1",
+      merchant: null,
+      note: null,
+      tagIds: [],
+      splits: [],
+    });
+
+    expect(prisma.category.count).not.toHaveBeenCalled();
+    expect(prisma.transactionSplit.createMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateTransaction", () => {
@@ -454,6 +553,86 @@ describe("updateTransaction", () => {
     expect(res.success).toBe(true);
     expect(prisma.transactionTag.deleteMany).not.toHaveBeenCalled();
     expect(prisma.transactionTag.createMany).not.toHaveBeenCalled();
+  });
+
+  it("converts single→split: nulls the category and replaces the lines", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      isTransferLeg: false,
+      tags: [],
+    } as never);
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.category.count).mockResolvedValue(2 as never);
+
+    const res = await updateTransaction("t1", {
+      type: "EXPENSE",
+      amount: 80,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: null,
+      merchant: null,
+      note: null,
+      tagIds: [],
+      splits: [
+        { categoryId: "c1", amount: 55, note: null },
+        { categoryId: "c2", amount: 25, note: null },
+      ],
+    });
+
+    expect(res.success).toBe(true);
+    const updateArg = vi.mocked(prisma.transaction.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(updateArg.data.categoryId).toBeNull();
+    // Lines are always replaced: deleteMany then createMany.
+    expect(prisma.transactionSplit.deleteMany).toHaveBeenCalledWith({
+      where: { transactionId: "t1" },
+    });
+    expect(vi.mocked(prisma.transactionSplit.createMany).mock.calls[0][0]).toEqual({
+      data: [
+        { transactionId: "t1", categoryId: "c1", amount: 55, note: null },
+        { transactionId: "t1", categoryId: "c2", amount: 25, note: null },
+      ],
+    });
+  });
+
+  it("converts split→single: deletes the lines and restores a category", async () => {
+    signIn();
+    vi.mocked(prisma.transaction.findFirst).mockResolvedValue({
+      id: "t1",
+      isTransferLeg: false,
+      tags: [],
+    } as never);
+    vi.mocked(prisma.financialAccount.findFirst).mockResolvedValue({
+      currency: "EUR",
+    } as never);
+    vi.mocked(prisma.category.findFirst).mockResolvedValue({ id: "c9" } as never);
+
+    const res = await updateTransaction("t1", {
+      type: "EXPENSE",
+      amount: 40,
+      date: "2026-06-10",
+      financialAccountId: "acc1",
+      categoryId: "c9",
+      merchant: null,
+      note: null,
+      tagIds: [],
+      splits: [],
+    });
+
+    expect(res.success).toBe(true);
+    const updateArg = vi.mocked(prisma.transaction.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(updateArg.data.categoryId).toBe("c9");
+    // Existing lines cleared unconditionally; no new lines created.
+    expect(prisma.transactionSplit.deleteMany).toHaveBeenCalledWith({
+      where: { transactionId: "t1" },
+    });
+    expect(prisma.transactionSplit.createMany).not.toHaveBeenCalled();
   });
 });
 

@@ -340,7 +340,7 @@ describe("distinct structural errors (D5)", () => {
   it("bad JSON envelope (newer schemaVersion)", async () => {
     const jsonOpts: ImportOptions = { ...csvOpts, format: "json", mapping: null };
     const envelope = JSON.stringify({
-      schemaVersion: 2,
+      schemaVersion: 3,
       data: { transactions: [{ date: "2026-03-04", amount: 1, type: "INCOME" }] },
     });
     const res = await previewImport(fd(envelope, "x.json"), jsonOpts);

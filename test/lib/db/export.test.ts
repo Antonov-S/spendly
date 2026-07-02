@@ -86,6 +86,7 @@ describe("getTransactionsForExport", () => {
         createdAt: new Date("2026-06-15T10:30:00.000Z"),
         financialAccount: { name: "Checking" },
         category: null,
+        splits: [],
       },
     ] as never);
 
@@ -96,6 +97,8 @@ describe("getTransactionsForExport", () => {
     expect(row.createdAt).toBe("2026-06-15T10:30:00.000Z");
     expect(row.category).toBeNull(); // D5: no "Uncategorized" synthesis
     expect(row.account).toBe("Checking");
+    expect(row.isSplit).toBe(false);
+    expect(row.splits).toEqual([]);
   });
 });
 

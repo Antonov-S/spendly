@@ -15,6 +15,10 @@ export function revalidateTransactionViews() {
   revalidatePath("/dashboard");
   // Spend consumed by a budget is derived from transactions — keep /budgets fresh.
   revalidatePath("/budgets");
+  // The Reports category breakdown is derived from transactions too — and since
+  // splits re-attribute a transaction's spend across categories, a split write
+  // changes those charts, so /reports must be revalidated alongside /budgets.
+  revalidatePath("/reports");
   // Soft-deletes feed the trash list, and restores/hard-deletes drain it.
   revalidatePath("/trash");
 }
