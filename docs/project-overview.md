@@ -92,7 +92,7 @@ Developer-oriented layout reference for implementing the web dashboard. Full vis
 
 **Overall grid:** `220px fixed sidebar | flex-1 main area`. Topbar spans full width at `60px` height above both columns.
 
-**Topbar (left → right):** Logo + wordmark → account selector pill (global filter, shows dot indicator when non-default) → spacer (flex-1) → right group: settings icon · avatar circle. **No search input in topbar. No bell icon** — notifications are post-MVP.
+**Topbar (left → right):** Logo + wordmark → spacer (flex-1) → notification bell → account selector pill (global filter, shows dot indicator when non-default) → right group: settings icon · avatar circle. **No search input in topbar.** The **notification bell** (`feature/in-app-notifications`, POST-MVP §9) is app-wide and **derive-first** (no read/unread, no dismissal state — resolving the item on its page is the only "dismiss"): a count badge + popover panel of per-entity, derived, link-out items (budgets over/at-risk, pending recurring drafts, overdue goals), built from the same single-sourced rules as the dashboard insights strip.
 
 **Sidebar:** Flat nav list with 8px vertical padding, 10px horizontal. Active item: white background, green icon, 0.5px border. Primary daily-use items: Dashboard, Transactions, Budgets, Recurring, Goals, Reports. A separate bottom utility group holds an **Accounts** link (financial account management — a setup/config surface deliberately kept out of the primary daily-use nav) above Help. Help remains anchored to the bottom via `margin-top: auto`.
 

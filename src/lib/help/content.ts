@@ -95,6 +95,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         detail:
           "Free shows the last 3 months; Pro unlocks the last 12. Upgrade under Settings → Billing.",
       },
+      {
+        term: "What is the notification bell for?",
+        detail:
+          "The bell shows things that need your action — budgets over or near their limit, recurring drafts waiting to confirm, and overdue goals. It clears itself when you resolve them; there's nothing to mark as read.",
+      },
     ],
   },
   {

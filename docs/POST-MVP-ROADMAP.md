@@ -511,6 +511,23 @@ so scope this to transactions; "trash for everything" is a larger, separate effo
 
 ## 9. In-App Notifications
 
+> **✅ Shipped (`feature/in-app-notifications`, Delivery Sequence slot 12).** The insights strip is
+> now also an app-wide **notification bell + popover panel** in the topbar (present on every
+> `AppShell` page), answering "is there anything that needs me?" off `/dashboard`. Strictly **rung 1
+> (derive-first)** — **no `Notification` table, no read/unread, no dismissal state (server or
+> client-side)**; resolving an item on its linked page is the only "dismiss". The panel shows
+> **per-entity, derived, link-out items** for four kinds — `budget-over` (danger), `budget-risk`
+> (warning), `draft` (info), `goal-overdue` (warning), realizing the over/at-risk severity split the
+> insights spec deferred — built from the **same single-sourced rules** as the strip (the at-risk
+> threshold was extracted into one `budgetRiskLevel` predicate so the two surfaces can't disagree).
+> Fed by a **lazy read-only Server Action** (`getNotifications`) called on mount + panel open (no prop
+> threading through the 10 pages, never blocks paint), over a **channel-agnostic `server-only`
+> service** (`deriveNotifications`) that composes the existing dashboard fetchers — **no schema
+> change, no migration, no new queries, not Pro-gated, no account scoping**. Engagement telemetry
+> (`notifications_derived` / `notification_panel_opened` / `notification_item_clicked`) ships through
+> the no-op `track()` shim — the evidence the rung-2 persistence decision is gated on. See
+> `docs/features/in-app-notifications-spec.md`.
+
 **Effort: M · Value: medium–high. Deliberately scoped to in-app only.**
 
 A **notification center + dashboard alerts** — **no email or push** (those need scheduling,
@@ -820,7 +837,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | **✅ Shipped.** First "insight" assistant — Pro `/reports` "Generate summary" card phrasing this-month-vs-last. Deterministic `buildReviewFacts` owns every figure; pure `validateReviewNumbers` guard drops any misquoted line (model phrases, never computes — D2). Reuses §3 foundation + `getCategorySpend`/`getBudgets`; read-only, fail-open; no schema. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Suggest budgets" panel on `/budgets`; deterministic per-category ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period, model phrases each rationale (numeric-guarded — D1). Read-only (accept via `createBudget`), fail-open, softer D5 degradation. Reuses §3; extracted the shared numeric-guard core to `numeric-guard.ts`. No schema change, no migration, no new rate entry. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
-| 12 | In-App Notifications (9) | Committed | M | No | Extends the insights strip; in-app only, **derive-first**; persist only on §0 evidence. Optional consistency insight lives here. |
+| 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | Heuristic v1, **no AI dep**; gate on history (§0). |
 | 14 | Cash-Flow Forecast (18) | Committed | M | TBD | Forward-looking awareness enhancement; reuses recurring data. |
 | 15 | Quick-Add Favorites (19) | Committed | S–M | No | Fast manual-entry enhancement; on-demand capture shortcuts. |

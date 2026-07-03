@@ -3,20 +3,40 @@ import { BUDGET_AT_RISK_THRESHOLD } from "@/lib/system-constants";
 import type { DashboardInsights, InsightItem } from "@/types/dashboard";
 
 /**
- * Count budgets at or above the at-risk threshold (includes over-budget). Uses
- * the carry-aware effective limit via `budgetProgressWithCarry`, so a budget
- * whose room shrank from a rolled-in overspend can correctly trip the rail
- * (and an effective limit <= 0 counts as fully over). `carriedAmount` defaults
- * to 0, so non-rollover rows behave exactly as before.
+ * Carry-aware risk classification for one budget row. Single source of the
+ * at-risk threshold rule — `countAtRiskBudgets` (the strip's aggregate) and the
+ * notification builder (§8, per-row severity) both route through this, so the
+ * threshold can never drift between the two surfaces. Three-way: `"over"` at
+ * carry-aware `percent >= 100`, `"at-risk"` at `>= BUDGET_AT_RISK_THRESHOLD`,
+ * else `null`. `budgetProgressWithCarry` owns the `effectiveLimit <= 0 → 100%`
+ * edge and NaN-safe percent, so malformed/zero-limit rows classify as `null`.
+ * `carriedAmount` defaults to 0 → non-rollover rows behave exactly as before.
+ */
+export function budgetRiskLevel(row: {
+  spent: number;
+  limit: number;
+  carriedAmount?: number;
+}): "over" | "at-risk" | null {
+  const { percent } = budgetProgressWithCarry(
+    row.spent,
+    row.limit,
+    row.carriedAmount ?? 0
+  );
+  if (percent >= 100) return "over";
+  if (percent >= BUDGET_AT_RISK_THRESHOLD * 100) return "at-risk";
+  return null;
+}
+
+/**
+ * Count budgets at or above the at-risk threshold (includes over-budget).
+ * Delegates to `budgetRiskLevel` so the rule stays defined once; `!== null`
+ * preserves the old `percent >= 80` semantics exactly (an `"over"` row still
+ * counts in the aggregate).
  */
 export function countAtRiskBudgets(
   rows: ReadonlyArray<{ spent: number; limit: number; carriedAmount?: number }>
 ): number {
-  return rows.filter(
-    (r) =>
-      budgetProgressWithCarry(r.spent, r.limit, r.carriedAmount ?? 0).percent >=
-      BUDGET_AT_RISK_THRESHOLD * 100
-  ).length;
+  return rows.filter((r) => budgetRiskLevel(r) !== null).length;
 }
 
 /**

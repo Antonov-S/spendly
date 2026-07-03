@@ -1,6 +1,55 @@
 import { describe, it, expect } from "vitest";
-import { countAtRiskBudgets, buildInsightItems } from "@/lib/insights";
+import {
+  budgetRiskLevel,
+  countAtRiskBudgets,
+  buildInsightItems,
+} from "@/lib/insights";
 import type { DashboardInsights } from "@/types/dashboard";
+
+describe("budgetRiskLevel", () => {
+  it("classifies exactly 100% spent as over", () => {
+    expect(budgetRiskLevel({ spent: 100, limit: 100 })).toBe("over");
+  });
+
+  it("classifies above 100% as over", () => {
+    expect(budgetRiskLevel({ spent: 150, limit: 100 })).toBe("over");
+  });
+
+  it("classifies exactly 80% spent as at-risk (>= boundary)", () => {
+    expect(budgetRiskLevel({ spent: 80, limit: 100 })).toBe("at-risk");
+  });
+
+  it("classifies 99% as at-risk (below the over boundary)", () => {
+    expect(budgetRiskLevel({ spent: 99, limit: 100 })).toBe("at-risk");
+  });
+
+  it("returns null at 79% (below the at-risk boundary)", () => {
+    expect(budgetRiskLevel({ spent: 79, limit: 100 })).toBeNull();
+  });
+
+  it("uses the effective (base + carry) limit — carry shrinks room across the boundary", () => {
+    // 70 spent against base 100 is at-risk on its own (70%? no — 70% < 80 → null),
+    // but −20 carried in → effective 80 → 70/80 = 87.5% → at-risk.
+    expect(
+      budgetRiskLevel({ spent: 70, limit: 100, carriedAmount: -20 })
+    ).toBe("at-risk");
+  });
+
+  it("treats a carried-away effective limit (<= 0) as over", () => {
+    expect(
+      budgetRiskLevel({ spent: 50, limit: 400, carriedAmount: -400 })
+    ).toBe("over");
+  });
+
+  it("returns null for non-finite inputs (NaN percent is neither over nor at-risk)", () => {
+    expect(budgetRiskLevel({ spent: NaN, limit: 100 })).toBeNull();
+    expect(budgetRiskLevel({ spent: 50, limit: NaN })).toBeNull();
+  });
+
+  it("treats a plain zero limit as over (effective <= 0 → 100%, matching the /budgets bar)", () => {
+    expect(budgetRiskLevel({ spent: 0, limit: 0 })).toBe("over");
+  });
+});
 
 describe("countAtRiskBudgets", () => {
   it("returns 0 for an empty array", () => {
