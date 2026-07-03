@@ -740,6 +740,20 @@ Period selector applies to all charts (current month / last 3 months / last 12 m
 > `REPORTS_MIN_TRANSACTIONS = 15`. The account-balance chart shipped as the full per-month running
 > time-series. See `docs/ROADMAP.md` §5 and `docs/features/reports-page-spec.md`.
 
+> **✅ Shipped — Monthly Review Narrative (Pro AI) (`feature/monthly-review-narrative`, POST-MVP §5).**
+> The first **insight** AI feature: a Pro-only "Generate summary" card at the top of `/reports` that
+> phrases **this calendar month vs last** into 1–4 plain-language sentences (*"Dining is up 31% vs last
+> month. You're €40 under Groceries but €15 over Transport. Net cashflow +€420."*). **Read-only,
+> fail-open, on-demand** — the charts always render regardless. The load-bearing rule: a deterministic
+> `buildReviewFacts` (`src/lib/reports-review.ts`) owns **every** figure and a pure `validateReviewNumbers`
+> guard (`src/lib/ai/review.ts`) drops any generated line whose numbers aren't in the facts — **the model
+> only phrases; it never computes or invents a number.** Figures reuse the split-aware `getCategorySpend`
+> and rollover-aware `getBudgets`, so the narrative agrees with the charts and the `/budgets` bars. Fixed
+> month-over-month window, honors the `?account=` scope, ignores the period pills. Reuses the §3 AI
+> foundation unchanged (`runAiFeature`/`aiJsonRespond`/`getAiProfile`/`--color-ai`) — prompt + parse +
+> facts step + card only; no new client, orchestrator, Pro read, rate policy, schema, or migration. See
+> `docs/features/monthly-review-narrative-spec.md`.
+
 > **MVP note — "last 12 months" is the Pro ceiling, not unbounded "all time."** The period selector tops out at 12 months, so that is the concrete Pro reporting window in MVP. True all-time history (and the unbounded queries it implies) is post-MVP. The Monetization table below uses "Last 12 months" for Pro to match this selector.
 
 ---
