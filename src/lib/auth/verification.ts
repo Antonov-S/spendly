@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/auth/token-hash";
+import { RESET_PREFIX } from "@/lib/auth/password-reset";
 import { VERIFICATION_TOKEN_TTL_HOURS } from "@/lib/system-constants";
 
 const MS_PER_HOUR = 60 * 60 * 1000;
@@ -26,7 +27,8 @@ export async function createVerificationToken(email: string): Promise<string> {
 
 /**
  * Validate and consume a verification token. Returns the associated email on
- * success, or null when the token is unknown, expired, or already used. The raw
+ * success, or null when the token is unknown, expired, already used, or belongs
+ * to the reset namespace (a reset token must never be redeemable here). The raw
  * token from the link is hashed before lookup to match the stored hash.
  * The row is deleted on consume, so a token can only be redeemed once.
  */
@@ -37,7 +39,9 @@ export async function consumeVerificationToken(
   const record = await prisma.verificationToken.findUnique({
     where: { token: hashed },
   });
-  if (!record) {
+  // Reject reset-namespace rows BEFORE the delete — a misrouted reset link must
+  // not be burned here; the user's pending reset stays valid.
+  if (!record || record.identifier.startsWith(RESET_PREFIX)) {
     return null;
   }
 

@@ -117,4 +117,20 @@ describe("consumeVerificationToken", () => {
     expect(result).toBeNull();
     expect(del).toHaveBeenCalledWith({ where: { token: sha256("raw-token") } });
   });
+
+  // Mirror of the guard in consumePasswordResetToken ("rejects a bare-email
+  // verification token without deleting it") — the two consume paths must
+  // each refuse the other namespace without burning the row.
+  it("rejects a reset-namespace token without deleting it", async () => {
+    findUnique.mockResolvedValue({
+      identifier: "reset:test@example.com",
+      token: sha256("raw-token"),
+      expires: new Date(Date.now() + 60_000),
+    } as never);
+
+    const result = await consumeVerificationToken("raw-token");
+
+    expect(result).toBeNull();
+    expect(del).not.toHaveBeenCalled();
+  });
 });

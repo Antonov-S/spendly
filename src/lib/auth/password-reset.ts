@@ -13,7 +13,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
  * bare email. Each flow's `deleteMany`/consume only ever touches its own
  * namespace.
  */
-const RESET_PREFIX = "reset:";
+export const RESET_PREFIX = "reset:";
 
 /**
  * Issue a single-use password-reset token for an email. Clears any existing
