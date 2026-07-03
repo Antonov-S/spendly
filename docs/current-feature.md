@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Monthly Review Narrative (Pro, AI) — Post-MVP §5
 
 ## Status
 
@@ -6,7 +6,60 @@ Not Started
 
 ## Goals
 
+- On `/reports`, a **Pro** user can generate a short, plain-language month-over-month summary
+  (*"Dining is up 31% vs last month. You're €40 under Groceries but €15 over Transport. Net cashflow +€420."*).
+- **Read-only insight** — no write path, no ledger change, no schema/migration. Free users see nothing and no AI call fires.
+- **Fail-open** — charts always render whether or not the narrative succeeds.
+- **The model phrases pre-computed facts; it never computes or invents numbers (D2).** A deterministic
+  `buildReviewFacts` owns every figure; a pure `validateReviewNumbers` guard drops any generated line whose
+  numbers aren't in the facts (throws `AiParseError` → fail-open if none survive).
+- Reuse the §3 AI foundation **unchanged** (`runAiFeature`, `aiJsonRespond`, `getAiProfile`, `track`,
+  `AiParseError`/`AiNoMatchError`, `--color-ai`) — this slice adds only **prompt + parse + facts + UI card**.
+- Ship with Vitest coverage for the pure/action layers; `npm run test:run` + `npm run build` + lint clean.
+
 ## Notes
+
+**New files:**
+- `src/actions/ai/monthly-review.ts` — thin `generateMonthlyReview` action over `runAiFeature`
+  (`feature: "monthly_review"`, `burstLimit: "aiSuggest"` — shared policy, own bucket, no new `RATE_LIMITS`).
+- `src/lib/db/monthly-review.ts` — `getMonthlyReviewInputs(userId, accountId)` (server-only; reuses
+  `getCategorySpend` split-aware + `getBudgets` rollover-aware; `?account=`-scoped; two-month windows via
+  `currentPeriod`/`previousPeriod` + `monthBounds`).
+- `src/lib/reports-review.ts` — pure `buildReviewFacts` + `hasReviewSignal` (+ `ReviewFacts`/`ReviewInputs`
+  types **declared here**, not re-exported from the `"use server"` action — Turbopack constraint).
+- `src/lib/ai/prompts/review.ts` — `REVIEW_INSTRUCTIONS`, `buildReviewInput`, `MONTHLY_REVIEW_PROMPT_VERSION = 1` + changelog.
+- `src/lib/ai/review.ts` — pure `parseReviewJson` + `validateReviewNumbers` (numeric honesty guard) +
+  `NUMERIC_GUARD_MONEY_EPSILON = 0.01` / `NUMERIC_GUARD_PCT_EPSILON = 1`.
+- `src/components/reports/monthly-review.tsx` — Pro-only narrative card (`"use client"`): "Generate summary"
+  (Sparkles, AI accent) → loading → lines under `periodLabel`; "Generated just now" timestamp (D10);
+  regenerate; `?account=` scope via `useSearchParams` (account change clears result); `reviewRunRef` stale guard;
+  `reason`-driven fail-open messages.
+
+**Modified:**
+- `src/lib/system-constants.ts` — add `REVIEW_MIN_MOVER_DELTA` (mover floor, e.g. `5`).
+- `src/lib/validations/ai.ts` — add `monthlyReviewSchema` (`{ accountId: z.string().nullish() }`).
+- `src/components/reports/reports-view.tsx` — render `<MonthlyReview>` above the grid when `isPro` &&
+  `hasEnoughForTrends(txCount)`.
+- `docs/project-overview.md` Reports note + `docs/POST-MVP-ROADMAP.md` §5/slot-10 → shipped.
+
+**Key facts (`ReviewFacts`, all deterministic + unit-tested):** movers ranked by absolute euro change
+(`previous == 0` → `direction: "new"`, `deltaPct: null`); movers below `REVIEW_MIN_MOVER_DELTA` discarded before
+ranking (D8); `topInsight` fixed lead by kind-priority (over-budget > largest mover > cashflow > null, D7);
+budget notes use the **effective** (rollover-adjusted) limit; tie-break by category name ascending;
+`round2` before facts. `hasReviewSignal` false → action throws `AiNoMatchError` → `reason: "no_match"` →
+card shows "Not enough data yet to summarize this month."
+
+**Telemetry:** `runAiFeature` emits the one `ai_result`; action also emits `ai_numeric_guard { feature,
+prompt_version, dropped_count, kept_count }` (counts only, no PII) only when the guard drops ≥1 line.
+
+**Decisions:** D1 on-demand button (not auto-load); D2 phrase-not-compute + numeric verification; D3 fixed
+month-over-month window (ignores period pills, honors account scope); D4 no cache/persistence in v1;
+D6 foundation reuse; D9 English/EUR only but locale-ready seam.
+
+**Tests:** `test/lib/reports-review.test.ts`, `test/lib/ai/review.test.ts`, `test/actions/ai/monthly-review.test.ts`.
+Mock OpenAI + orchestrator deps at the module boundary; no live calls. `runAiFeature` envelope already covered by §3.
+
+Spec: `docs/features/monthly-review-narrative-spec.md`.
 
 ## History
 

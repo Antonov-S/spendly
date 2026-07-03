@@ -85,6 +85,16 @@ filterable in the feed, managed on `/settings`. Income/expense only; hard delete
 `createTransaction`/`updateTransaction` stay the sole writers. Not Pro-gated. Export/import of tags
 deferred. Supersedes §12. See `docs/features/transaction-tags-spec.md`.
 
+**✅ §5 — Monthly Review Narrative shipped** (delivery slot 10, `feature/monthly-review-narrative`).
+The first "insight" AI assistant — a Pro-only "Generate summary" card at the top of `/reports` that
+turns this-month-vs-last into 1–4 plain-language sentences. Read-only, fail-open, on-demand. A
+deterministic `buildReviewFacts` owns every figure and a pure `validateReviewNumbers` guard drops any
+line whose numbers aren't in the facts (the model phrases, never computes — D2). Figures reuse
+`getCategorySpend` + `getBudgets` so the narrative never drifts from the charts; fixed month-over-month
+window honoring `?account=`. Reuses the §3 foundation unchanged — prompt + parse + facts + card only,
+no new client/orchestrator/Pro-read/rate-policy/schema. **Next up: §6 Smart Budget Suggestions**
+(delivery slot 11). See `docs/features/monthly-review-narrative-spec.md`.
+
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
 `ai_category_accepted`/`ai_category_overridden`).
@@ -350,6 +360,19 @@ present low-confidence parses; multi-transaction input ("groceries 40 and gas 30
 ## 5. Monthly Review Narrative (Pro, AI)
 
 **Effort: M · Value: high for Pro (insight layer).**
+
+> **✅ Shipped (`feature/monthly-review-narrative`, delivery slot 10).** The first "insight" AI
+> feature — a Pro-only "Generate summary" card at the top of `/reports` that phrases this-month-vs-last
+> into 1–4 plain-language sentences. **Read-only, fail-open, on-demand (D1).** The load-bearing rule
+> (D2): a deterministic `buildReviewFacts` (`src/lib/reports-review.ts`) owns every figure, and a pure
+> `validateReviewNumbers` guard (`src/lib/ai/review.ts`) drops any generated line whose numbers aren't in
+> the facts — the model only phrases, it never computes or invents. Numbers reuse `getCategorySpend`
+> (split-aware) + `getBudgets` (rollover-aware) so the narrative agrees with the charts and `/budgets`
+> bars. Fixed month-over-month window, honors `?account=`, ignores the period pills (D3). Reuses the §3
+> foundation unchanged (`runAiFeature` / `aiJsonRespond` / `getAiProfile` / `track` / `--color-ai`) —
+> only a prompt + parse + facts step + card, no new client/orchestrator/Pro-read/rate-policy/schema/
+> migration (own burst bucket under the shared `aiSuggest` policy). `ai_numeric_guard` telemetry (counts
+> only) measures how often the D2 guard fires. See `docs/features/monthly-review-narrative-spec.md`.
 
 A short generated summary on `/reports` — "Dining up 31% vs last month; you're €40 under your
 Groceries budget." Read-only; reuses the §3 foundation. Pure insight, no write path. Sliced
@@ -766,7 +789,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 7 | **Data Import (15)** | Committed | M | No | **✅ Shipped.** `/import` CSV column-mapper + JSON envelope → preview → confirm; Server Actions; count-based dedup; transactions-only into one account; no schema change. Onboarding/acquisition lever; reused export infra. |
 | 8 | **Transaction Tags (16)** | Committed | M | No | **✅ Shipped.** `Tag` + `TransactionTag` join (+ functional CI-unique index); inline create in the drawer, match-any feed filter, `/settings` management; income/expense only; hard delete; export/import deferred. Replaces §12 at a fraction of the cost. |
 | 9 | **Split Transactions (17)** | Committed | M | No | **✅ Shipped.** `TransactionSplit` child (derived split status, no `isSplit` column); one shared `getCategorySpend` two-`groupBy` union rewires budgets/rollover/dashboard/reports (double-count structurally impossible); EXPENSE-only, single-account; JSON `schemaVersion: 2`; import of splits deferred. Everyday categorization accuracy; highest blast radius of the non-AI wins. |
-| 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | First "insight" assistant; ship + measure independently. |
+| 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | **✅ Shipped.** First "insight" assistant — Pro `/reports` "Generate summary" card phrasing this-month-vs-last. Deterministic `buildReviewFacts` owns every figure; pure `validateReviewNumbers` guard drops any misquoted line (model phrases, never computes — D2). Reuses §3 foundation + `getCategorySpend`/`getBudgets`; read-only, fail-open; no schema. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | Strengthens budgeting; pairs with §7's rollover data. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | Extends the insights strip; in-app only, **derive-first**; persist only on §0 evidence. Optional consistency insight lives here. |

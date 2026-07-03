@@ -5,6 +5,7 @@ import { ChartCard } from "@/components/reports/chart-card";
 import { ChartEmptyState } from "@/components/reports/chart-empty-state";
 import { PeriodSelector } from "@/components/reports/period-selector";
 import { UpgradePrompt } from "@/components/reports/upgrade-prompt";
+import { MonthlyReview } from "@/components/reports/monthly-review";
 import { SpendingByCategory } from "@/components/reports/spending-by-category";
 import { IncomeVsExpenses } from "@/components/reports/income-vs-expenses";
 import { CashflowTrend } from "@/components/reports/cashflow-trend";
@@ -20,6 +21,8 @@ import type { ReportData } from "@/types/reports";
 interface ReportsViewProps extends ReportData {
   /** Active (non-archived) account ids — drives the balance legend's "(archived)" suffix. */
   activeAccountIds: string[];
+  /** The active `?account=` scope, passed to the Pro Monthly Review action. */
+  accountId: string | undefined;
 }
 
 /**
@@ -38,6 +41,7 @@ export function ReportsView({
   clamped,
   isPro,
   activeAccountIds,
+  accountId,
 }: ReportsViewProps) {
   const { openDrawer } = useAppShell();
   const enoughForTrends = hasEnoughForTrends(txCount);
@@ -60,6 +64,11 @@ export function ReportsView({
       </header>
 
       {clamped && <UpgradePrompt />}
+
+      {/* Month-over-month (this vs last) — fixed window, independent of the
+          period pills (D3). Gated on Pro only; a genuinely sparse month is
+          handled server-side by hasReviewSignal → the card's quiet no-data note. */}
+      {isPro && <MonthlyReview accountId={accountId} />}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <ChartCard title="Spending by category" subtitle={periodLabel}>

@@ -25,3 +25,15 @@ export const parseTransactionSchema = z.object({
 });
 
 export type ParseTransactionInput = z.infer<typeof parseTransactionSchema>;
+
+/**
+ * Input to the `generateMonthlyReview` AI action (Pro Monthly Review Narrative).
+ * The only input is the active account scope — the window is fixed month-over-
+ * month server-side (spec D3), independent of the Reports period pills. `nullish`
+ * mirrors "all accounts" (no `?account=`).
+ */
+export const monthlyReviewSchema = z.object({
+  accountId: z.string().nullish(),
+});
+
+export type MonthlyReviewInput = z.infer<typeof monthlyReviewSchema>;

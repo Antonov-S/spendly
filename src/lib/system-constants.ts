@@ -219,6 +219,14 @@ export const REPORTS_MIN_TRANSACTIONS = 15;
 export const REPORTS_FREE_MAX_MONTHS = 3;
 
 /**
+ * Minimum absolute euro change for a category to count as a "mover" in the Pro
+ * AI Monthly Review Narrative. A €2 → €4 swing is large in percentage terms but
+ * practically noise, so it is dropped BEFORE ranking — the story stays about
+ * money that matters (monthly-review spec §4.2 / D8).
+ */
+export const REVIEW_MIN_MOVER_DELTA = 5;
+
+/**
  * Max entries listed in a chart's accessibility summary (`aria-label`) before
  * it appends "and N more". Keeps the screen-reader summary readable rather than
  * enumerating every month/account.

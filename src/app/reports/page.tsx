@@ -68,6 +68,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           clamped={clamped}
           isPro={isPro}
           activeAccountIds={accounts.map((a) => a.id)}
+          accountId={accountId}
         />
       </Suspense>
     </AppShell>
