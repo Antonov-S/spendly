@@ -76,16 +76,28 @@ export async function checkRateLimit(
 }
 
 /**
- * Best-effort client IP from proxy headers. Vercel sets `x-forwarded-for`;
- * the first entry is the originating client. Falls back to `x-real-ip` and
- * finally a constant so a missing header still produces a stable bucket.
+ * Best-effort client IP from proxy headers, trusting only the platform hop.
+ *
+ * `x-real-ip` is set by the platform edge (Vercel) and is not client-forgeable,
+ * so it wins when present. Otherwise the platform APPENDS the true client hop
+ * to the right of `x-forwarded-for`, so the LAST entry is the trusted one; the
+ * client can prepend anything to the left, so never read [0]. Assumes exactly
+ * one trusted proxy hop (Vercel's edge) — if the app is ever fronted by an
+ * additional proxy (WAF, second CDN), the trusted index changes and this must
+ * be revisited, or the new proxy's IP becomes one shared bucket for everyone.
+ * Falls back to a constant so a missing header still produces a stable bucket.
  */
 export function getClientIp(headers: Headers): string {
+  const realIp = headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const parts = forwarded.split(",");
+    return parts[parts.length - 1].trim();
   }
-  return headers.get("x-real-ip")?.trim() || "unknown";
+
+  return "unknown";
 }
 
 /**

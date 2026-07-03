@@ -92,18 +92,46 @@ describe("checkRateLimit", () => {
 });
 
 describe("getClientIp", () => {
-  it("takes the first entry of x-forwarded-for", async () => {
+  it("prefers x-real-ip even when x-forwarded-for holds a spoofed value", async () => {
     const { getClientIp } = await loadWithoutRedis();
-    const headers = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+    const headers = new Headers({
+      "x-real-ip": "203.0.113.7",
+      "x-forwarded-for": "6.6.6.6, 203.0.113.7",
+    });
 
-    expect(getClientIp(headers)).toBe("1.2.3.4");
+    expect(getClientIp(headers)).toBe("203.0.113.7");
   });
 
-  it("falls back to x-real-ip when x-forwarded-for is absent", async () => {
+  it("uses x-real-ip when it is the only header present", async () => {
     const { getClientIp } = await loadWithoutRedis();
     const headers = new Headers({ "x-real-ip": "9.8.7.6" });
 
     expect(getClientIp(headers)).toBe("9.8.7.6");
+  });
+
+  it("returns a single-entry x-forwarded-for verbatim", async () => {
+    const { getClientIp } = await loadWithoutRedis();
+    const headers = new Headers({ "x-forwarded-for": "1.1.1.1" });
+
+    expect(getClientIp(headers)).toBe("1.1.1.1");
+  });
+
+  it("takes the LAST x-forwarded-for entry — the platform hop, not a spoofed prefix", async () => {
+    const { getClientIp } = await loadWithoutRedis();
+    const headers = new Headers({
+      "x-forwarded-for": "9.9.9.9, 8.8.8.8, 203.0.113.7",
+    });
+
+    expect(getClientIp(headers)).toBe("203.0.113.7");
+  });
+
+  it("trims whitespace around entries", async () => {
+    const { getClientIp } = await loadWithoutRedis();
+    const headers = new Headers({
+      "x-forwarded-for": "9.9.9.9 ,  203.0.113.7  ",
+    });
+
+    expect(getClientIp(headers)).toBe("203.0.113.7");
   });
 
   it("returns 'unknown' when no proxy headers are present", async () => {
