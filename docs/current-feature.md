@@ -1,4 +1,4 @@
-# Current Feature: Monthly Review Narrative (Pro, AI) — Post-MVP §5
+# Current Feature
 
 ## Status
 
@@ -6,62 +6,15 @@ Not Started
 
 ## Goals
 
-- On `/reports`, a **Pro** user can generate a short, plain-language month-over-month summary
-  (*"Dining is up 31% vs last month. You're €40 under Groceries but €15 over Transport. Net cashflow +€420."*).
-- **Read-only insight** — no write path, no ledger change, no schema/migration. Free users see nothing and no AI call fires.
-- **Fail-open** — charts always render whether or not the narrative succeeds.
-- **The model phrases pre-computed facts; it never computes or invents numbers (D2).** A deterministic
-  `buildReviewFacts` owns every figure; a pure `validateReviewNumbers` guard drops any generated line whose
-  numbers aren't in the facts (throws `AiParseError` → fail-open if none survive).
-- Reuse the §3 AI foundation **unchanged** (`runAiFeature`, `aiJsonRespond`, `getAiProfile`, `track`,
-  `AiParseError`/`AiNoMatchError`, `--color-ai`) — this slice adds only **prompt + parse + facts + UI card**.
-- Ship with Vitest coverage for the pure/action layers; `npm run test:run` + `npm run build` + lint clean.
+<!-- Bullet points of what success looks like -->
 
 ## Notes
 
-**New files:**
-- `src/actions/ai/monthly-review.ts` — thin `generateMonthlyReview` action over `runAiFeature`
-  (`feature: "monthly_review"`, `burstLimit: "aiSuggest"` — shared policy, own bucket, no new `RATE_LIMITS`).
-- `src/lib/db/monthly-review.ts` — `getMonthlyReviewInputs(userId, accountId)` (server-only; reuses
-  `getCategorySpend` split-aware + `getBudgets` rollover-aware; `?account=`-scoped; two-month windows via
-  `currentPeriod`/`previousPeriod` + `monthBounds`).
-- `src/lib/reports-review.ts` — pure `buildReviewFacts` + `hasReviewSignal` (+ `ReviewFacts`/`ReviewInputs`
-  types **declared here**, not re-exported from the `"use server"` action — Turbopack constraint).
-- `src/lib/ai/prompts/review.ts` — `REVIEW_INSTRUCTIONS`, `buildReviewInput`, `MONTHLY_REVIEW_PROMPT_VERSION = 1` + changelog.
-- `src/lib/ai/review.ts` — pure `parseReviewJson` + `validateReviewNumbers` (numeric honesty guard) +
-  `NUMERIC_GUARD_MONEY_EPSILON = 0.01` / `NUMERIC_GUARD_PCT_EPSILON = 1`.
-- `src/components/reports/monthly-review.tsx` — Pro-only narrative card (`"use client"`): "Generate summary"
-  (Sparkles, AI accent) → loading → lines under `periodLabel`; "Generated just now" timestamp (D10);
-  regenerate; `?account=` scope via `useSearchParams` (account change clears result); `reviewRunRef` stale guard;
-  `reason`-driven fail-open messages.
-
-**Modified:**
-- `src/lib/system-constants.ts` — add `REVIEW_MIN_MOVER_DELTA` (mover floor, e.g. `5`).
-- `src/lib/validations/ai.ts` — add `monthlyReviewSchema` (`{ accountId: z.string().nullish() }`).
-- `src/components/reports/reports-view.tsx` — render `<MonthlyReview>` above the grid when `isPro` &&
-  `hasEnoughForTrends(txCount)`.
-- `docs/project-overview.md` Reports note + `docs/POST-MVP-ROADMAP.md` §5/slot-10 → shipped.
-
-**Key facts (`ReviewFacts`, all deterministic + unit-tested):** movers ranked by absolute euro change
-(`previous == 0` → `direction: "new"`, `deltaPct: null`); movers below `REVIEW_MIN_MOVER_DELTA` discarded before
-ranking (D8); `topInsight` fixed lead by kind-priority (over-budget > largest mover > cashflow > null, D7);
-budget notes use the **effective** (rollover-adjusted) limit; tie-break by category name ascending;
-`round2` before facts. `hasReviewSignal` false → action throws `AiNoMatchError` → `reason: "no_match"` →
-card shows "Not enough data yet to summarize this month."
-
-**Telemetry:** `runAiFeature` emits the one `ai_result`; action also emits `ai_numeric_guard { feature,
-prompt_version, dropped_count, kept_count }` (counts only, no PII) only when the guard drops ≥1 line.
-
-**Decisions:** D1 on-demand button (not auto-load); D2 phrase-not-compute + numeric verification; D3 fixed
-month-over-month window (ignores period pills, honors account scope); D4 no cache/persistence in v1;
-D6 foundation reuse; D9 English/EUR only but locale-ready seam.
-
-**Tests:** `test/lib/reports-review.test.ts`, `test/lib/ai/review.test.ts`, `test/actions/ai/monthly-review.test.ts`.
-Mock OpenAI + orchestrator deps at the module boundary; no live calls. `runAiFeature` envelope already covered by §3.
-
-Spec: `docs/features/monthly-review-narrative-spec.md`.
+<!-- Additional context, constraints, or details from spec -->
 
 ## History
+
+- **Monthly Review Narrative (Pro, AI) (Post-MVP §5)** — First **insight** AI feature: a Pro-only "Generate summary" card on `/reports` that phrases **this calendar month vs last** into 1–4 plain-language sentences (*"Transport budget is over the limit by 40. Pets spending dropped from 130 to 0. Net cashflow +€915."*). **Read-only, fail-open, on-demand (D1)** — the charts always render regardless; Free users see nothing and no AI call fires. **Load-bearing rule (D2): the model only phrases pre-computed facts; it never computes or invents a number.** A deterministic pure `buildReviewFacts` (`src/lib/reports-review.ts`) owns **every** figure — movers ranked by absolute euro change (`previous == 0` → `direction: "new"`/`deltaPct: null`, never `Infinity`; disappeared category → `down`), a `REVIEW_MIN_MOVER_DELTA = 5` floor dropping trivial swings **before** ranking (D8), over/under budget notes against the **effective** (rollover-adjusted) limit via `effectiveLimit()`, a fixed `topInsight` lead by kind-priority (over-budget > largest mover > cashflow > null, D7), name-ascending tie-break, `round2` throughout. A pure `validateReviewNumbers` (`src/lib/ai/review.ts`) then **drops any generated line whose numbers aren't in the facts** (money within `NUMERIC_GUARD_MONEY_EPSILON = 0.01`, pct within `NUMERIC_GUARD_PCT_EPSILON = 1`; separator/€-tolerant token normalization; all-dropped → `AiParseError` → fail open). Figures reuse the split-aware `getCategorySpend` + rollover-aware `getBudgets` so the narrative agrees with the charts and `/budgets` bars; income/expense totals via a scoped `groupBy(["type"])`. **Fixed month-over-month window** (`currentPeriod`/`previousPeriod` + `monthBounds`), honors `?account=` (same `reportTxWhere` scope rule), **ignores the period pills** (D3). Thin `generateMonthlyReview` action (`src/actions/ai/monthly-review.ts`) over `runAiFeature` (`feature: "monthly_review"`, `burstLimit: "aiSuggest"` — **own bucket under the shared 20/h policy, no new `RATE_LIMITS`**); `hasReviewSignal` false → `AiNoMatchError` → `reason: "no_match"` → quiet "Not enough data yet to summarize this month." **Reuses the §3 AI foundation unchanged** (`runAiFeature`/`aiJsonRespond`/`getAiProfile`/`track`/`AiParseError`/`AiNoMatchError`/`--color-ai`) — prompt + parse + facts step + card only; **no new client, orchestrator, Pro read, rate policy, telemetry sink, color, schema, or migration** (second proof of §3's D6 after §4). Versioned prompt (`MONTHLY_REVIEW_PROMPT_VERSION = 1`). Telemetry: the one `ai_result` from the orchestrator + an `ai_numeric_guard { feature, prompt_version, dropped_count, kept_count }` (counts only, no PII) emitted **only** when the guard drops ≥1 line. **UI:** rendered as a **standalone AI-accented section** (`border-ai/25` + Sparkles header square, **not** a `ChartCard`) with a **fixed self-describing "This month vs last month" subtitle** and the concrete month as an in-body eyebrow — deliberately pulled out of the period-scoped chart grid and gated on **`isPro` only** so it's period-independent (chosen over "show only on the 1-month pill"); `useTransition` loading, "Generated just now" relative timestamp (D10), Regenerate, `reviewRunRef` stale guard, `reason`-driven fail-open copy; account scope arrives as a **prop** (page Suspense `key` remounts on account change, clearing a stale narrative) rather than `useSearchParams`. **Deviations from spec (repo wins):** `AiResult` failure field is `error` not `message`; standalone AI section instead of `ChartCard`; the data-thin gate is `isPro`-only (the spec's `hasEnoughForTrends(txCount)` was period-scoped and wrongly hid the card on the 1-month pill); the numeric guard allows both signed and absolute magnitudes so direction-word prose ("€15 over") stays faithful. New: `src/lib/reports-review.ts`, `src/lib/ai/review.ts`, `src/lib/ai/prompts/review.ts`, `src/lib/db/monthly-review.ts`, `src/actions/ai/monthly-review.ts`, `src/components/reports/monthly-review.tsx`. Constants: `REVIEW_MIN_MOVER_DELTA` (system) + `monthlyReviewSchema` (validations/ai). **38 new tests** (`test/lib/reports-review.test.ts`, `test/lib/ai/review.test.ts`, `test/actions/ai/monthly-review.test.ts`) — **823 total pass**, build + lint clean (0 errors; pre-existing advisory warnings only). Verified live on the `development` Neon branch with a populated demo-pro July (over-budget lead + real Pets drop mover + €915 cashflow, all numbers faithful). No schema change, no migration. Spec: `docs/features/monthly-review-narrative-spec.md`.
 
 - **Split Transactions (Post-MVP §17)** — One **expense** split across multiple categories (€80 shop = €55 Groceries + €25 Household). Stays **one row / one amount** (derived balances provably unaffected) while its spend is **attributed across categories** for budgets + Reports. Additive `TransactionSplit` child model (`id`, `amount Decimal(12,2)`, `note?`, `transactionId` Cascade, `categoryId?` SetNull; two indexes) via plain migration `add_transaction_splits` — **no existing-table change, no `Transaction.isSplit` column** (split status **derived** from child-row presence), no CHECK, no backfill. **EXPENSE-only, single-account, not Pro-gated.** **Aggregation (the load-bearing change):** new server-only `getCategorySpend` (`src/lib/db/split-spend.ts`) does a two-`groupBy` union — non-split rows (`splits: { none: {} }`) + split lines through the parent relation, merged additively, `Math.abs`-ed, returning `Map<string | null, number>` (null key = Uncategorized for Reports; budgets pass `categoryIds` so null never surfaces) — so **double-counting is structurally impossible**. Window passed verbatim (helper is window-agnostic: `/budgets` half-open `lt`, dashboard inclusive `lte`). Rewired `getBudgets`, **`resolveRolloverCarry`** (the easy-to-miss past-month reader), `getBudgetsData`, and Reports `getCategoryBreakdown`; `getMonthlyComparison`/balances/`getReportTxCount` bucket by amount+date and are untouched. `countAtRiskBudgets` inherits split spend for free. **Write path:** `createTransaction`/`updateTransaction` stay sole writers — `resolveOwnedSplitCategories` all-or-nothing ownership (`category.count`, mirrors `resolveOwnedTagIds`), parent `categoryId` nulled when split, split rows written via `createMany` inside the existing atomic `$transaction` with tags; update **replaces** lines (`deleteMany`→`createMany`, no unchanged-set optimization) and toggles split-mode both directions; `getTransactionForEdit` re-hydrates `EditableTransaction.splits`. Transfers untouched. **Validation:** `splits` array + first `.superRefine` in the codebase (EXPENSE-only, ≥`SPLIT_MIN_LINES`, sum-to-total to the cent, mutually exclusive with top-level `categoryId`); `round2` extracted to shared `src/lib/money.ts` (used by validation + actions). **Feed:** `FEED_INCLUDE`/`toLeg` carry `splits` (`amount desc`) + derived `isSplit`; `collapseTransfers` passes through (transfer → `isSplit:false`). **UI:** drawer "Split" toggle (EXPENSE-only, in the Category `Field` action slot, hides AI Suggest in split mode) swaps the single picker for `SplitEditor` (per-line `<CategoryPickerField>` + cent amount + note, "+ Add split" capped, live running total via `formatCurrencyCents`, **"Distribute remaining"**, Save gated on `isSplitBalanced`); pure sum/gate/distribute logic in `src/lib/split.ts`. **Feed row restructured** from a single `<button>` to a container with an inner edit `<button>` + a sibling **disclosure `<button>`** (`aria-expanded`/`aria-controls`, caret `aria-hidden`) revealing the lines — non-split rows behave identically. Dashboard recent list shows a `Split · N` label (detected via `_count.splits`; not expandable) so split parents don't read "Uncategorized". Settings category-delete copy notes split lines fall back to Uncategorized (SetNull). **Export:** JSON envelope bumped `1 → 2` with nested `splits` + derived `isSplit`; CSV keeps a split as one `Split`-labelled row; import accepts v1 & v2 but **ignores `splits` in v1** (round-trip flattens to Uncategorized — documented top post-release follow-up). Feed search over split-line categories/notes also deferred. New: `src/lib/{money,split}.ts`, `src/lib/db/split-spend.ts`, `src/components/transactions/split-editor.tsx`; `formatCurrencyCents` in `format.ts`. Constants: `SPLIT_MIN_LINES=2`/`SPLIT_MAX_LINES=20`/`SPLIT_NOTE_MAX=120` (system), `SPLIT_LABEL`/`SPLIT_ICON` (UI); `EXPORT_JSON_SCHEMA_VERSION` `1→2`. Types: `FeedSplit` + `isSplit`/`splits` on transaction + export types. **Refinements beyond spec:** added `/reports` to `revalidateTransactionViews()` (was missing; split spend now moves the breakdown); added `formatCurrencyCents` (spec said reuse `formatCurrency`, which drops decimals and would misreport "€0.40 left" as "€0"); relaxed the JSON import version check to a `1..CURRENT` range so old exports still import. **63 new/updated tests** (`money`, `split`, `validations/transaction`, `db/split-spend`, `db/split-invariance` new; `db/budgets`, `insights`, `actions/transactions`, `db/export`, `export/csv`, `import/json`, `actions/import`, `lib/transactions` extended) — **785 total pass**, build + lint clean (0 errors; pre-existing advisory warnings only). Migration applied to the `development` Neon branch (`prisma migrate status` clean). Spec: `docs/features/split-transactions-spec.md`.
 
