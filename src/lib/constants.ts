@@ -265,6 +265,15 @@ export const SPLIT_LABEL = "Split";
 export const SPLIT_ICON = "SplitSquareHorizontal";
 
 /**
+ * Max items rendered per notification kind in the topbar panel before
+ * collapsing the remainder into a single "+N more →" link-row (§3/§7).
+ */
+export const NOTIFICATION_GROUP_MAX = 5;
+
+/** Notification badge display cap — a total above this renders as "9+". */
+export const NOTIFICATION_BADGE_MAX = 9;
+
+/**
  * CSV export column headers, in output order (data-export-spec §5). Drives both
  * `EXPORT_CSV_HEADER` and the per-row builder, so the header line and the cell
  * order can never drift. Date/Amount/Type are controlled columns; the remaining

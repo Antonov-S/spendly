@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Landmark, ChevronDown, Menu, Check, Settings2 } from "lucide-react";
 import { Logo } from "@/components/dashboard/logo";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { cn } from "@/lib/utils";
 import type { AccountOption } from "@/types/transactions";
 
@@ -56,6 +57,9 @@ export function Topbar({ onOpenMobileNav, accounts }: TopbarProps) {
       <Logo wordmarkClassName="hidden sm:inline" />
 
       <div className="flex-1" />
+
+      {/* Notification bell — app-wide "anything for me?" surface (POST-MVP §9) */}
+      <NotificationBell />
 
       {/* Account selector pill (global filter), right-aligned */}
       <div className="relative">
