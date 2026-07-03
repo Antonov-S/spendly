@@ -226,6 +226,46 @@ export const REPORTS_FREE_MAX_MONTHS = 3;
  */
 export const REVIEW_MIN_MOVER_DELTA = 5;
 
+/* ── Smart Budget Suggestions (Pro AI) ─────────────────────────────
+ * All tuning knobs for the deterministic suggestion layer live here
+ * (budget-suggest spec §4.2). The fact builder itself is window-agnostic
+ * (D12) — the lookback is consumed only at the fetcher call site. */
+
+/** Complete calendar months of history read before the viewed period. */
+export const BUDGET_SUGGEST_LOOKBACK_MONTHS = 3;
+
+/**
+ * A category is suggestible only with spend in at least this many lookback
+ * months — one-off purchases never become budget proposals (D8).
+ */
+export const BUDGET_SUGGEST_MIN_MONTHS_WITH_SPEND = 2;
+
+/** Minimum median (EUR) for a category to be suggestible — filters noise (D8). */
+export const BUDGET_SUGGEST_MIN_MEDIAN = 10;
+
+/**
+ * Adaptive rounding tiers for suggested amounts (D2): the median is rounded UP
+ * to the step of the first tier it fits, so small suggestions stay precise and
+ * large ones don't read as false precision (€740 rent → €750, not €741).
+ */
+export const BUDGET_SUGGEST_ROUND_STEPS = [
+  { upTo: 100, step: 5 },
+  { upTo: 500, step: 10 },
+  { upTo: Infinity, step: 25 },
+] as const;
+
+/** A month is a "spike" when it exceeds this multiple of the median — informational only. */
+export const BUDGET_SUGGEST_SPIKE_RATIO = 1.5;
+
+/**
+ * Relative spread of months-with-spend, `(max − min) / median`, at or above
+ * which a suggestion is flagged "variable" instead of "consistent" (D11).
+ */
+export const BUDGET_SUGGEST_VARIABILITY_RATIO = 0.5;
+
+/** Maximum suggestions per run — ranked by average spend, biggest first (D7). */
+export const BUDGET_SUGGEST_MAX = 8;
+
 /**
  * Max entries listed in a chart's accessibility summary (`aria-label`) before
  * it appends "and N more". Keeps the screen-reader summary readable rather than

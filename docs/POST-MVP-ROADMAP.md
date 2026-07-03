@@ -95,6 +95,15 @@ window honoring `?account=`. Reuses the §3 foundation unchanged — prompt + pa
 no new client/orchestrator/Pro-read/rate-policy/schema. **Next up: §6 Smart Budget Suggestions**
 (delivery slot 11). See `docs/features/monthly-review-narrative-spec.md`.
 
+**✅ §6 Smart Budget Suggestions shipped (delivery slot 11)** — the last of the four committed AI
+capabilities. A Pro-only "Suggest budgets" panel on `/budgets` proposes deterministic per-category
+ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period; the model only
+phrases each rationale, numeric-guarded. Read-only (accept goes through `createBudget`), fail-open, and
+softer still (D5 — a phrasing failure degrades to deterministic copy, not nothing). Reuses §3 unchanged;
+the one existing-code touch was extracting the shared numeric-guard core to `src/lib/ai/numeric-guard.ts`.
+No schema change, no migration, no new `RATE_LIMITS` entry. **Next up: the Pro Value Review checkpoint —
+all four AI features (§3–§6) now shipped.** See `docs/features/smart-budget-suggestions-spec.md`.
+
 **Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
 consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
 `ai_category_accepted`/`ai_category_overridden`).
@@ -390,14 +399,33 @@ period; tone/length; how it handles sparse data.
 
 **Effort: M · Value: high for Pro (strengthens the budgeting core).**
 
+> **✅ Shipped (`feature/smart-budget-suggestions`, delivery slot 11).** A Pro-only "Suggest
+> budgets" panel on `/budgets` proposes per-category ceilings from the user's own history, each a
+> pre-filled, editable, one-tap-accept row through the existing `createBudget` — the AI never writes.
+> **Load-bearing decision (D1): amounts are 100% deterministic** — a pure `buildBudgetSuggestionFacts`
+> (`src/lib/budget-suggest.ts`) computes every ceiling (median of months-with-spend over the 3 complete
+> months before the viewed period, rounded up to an adaptive €5/€10/€25 step, clamped to
+> `BUDGET_AMOUNT_MAX`); the model only phrases a one-line rationale, and `validateSuggestionNotes` drops
+> any note whose numbers aren't in the facts. Eligibility floors (≥2 months with spend, median ≥ €10)
+> keep one-off/noise categories out; active-budget and uncategorized spend are excluded; archived slots
+> stay suggestible (revived via `createBudget`'s upsert). Softer fail-open than §5 (D5): a phrasing
+> failure degrades to deterministic fallback copy ("Median of your last 3 months of X spending."), not
+> to nothing, tracked by `ai_phrasing_degraded`. Reuses the §3 foundation unchanged (prompt + parse +
+> facts step + panel); the one existing-code touch was extracting the shared numeric-guard core to
+> `src/lib/ai/numeric-guard.ts` (behavior-preserving — `review.test.ts` passes untouched). **No schema
+> change, no migration, no new `RATE_LIMITS` entry.** Onboarding surface, multi-period plans, suggested
+> `rollover`, and existing-budget tune-ups deferred (spec §12). See
+> `docs/features/smart-budget-suggestions-spec.md`.
+
 Propose per-category budget amounts from spending history — strongest in the empty-budget /
 onboarding state, as one-tap accepts. Reuses the §3 foundation. Independent slice from §5.
 
 **Success metrics:** acceptance rate of suggested amounts; budgets-created lift among users
 shown suggestions; downstream budget-adherence.
 
-**Open decisions:** statistical baseline (trailing-average) with AI only for phrasing/outliers
-vs. fully model-driven; surface (budgets empty state, onboarding step 2, or both).
+**Decisions resolved (spec §6):** statistical baseline (median-with-adaptive-round-up) with AI
+only for phrasing (D1), not model-driven; surface = `/budgets` empty and non-empty alike,
+onboarding deferred (D3 — no history to compute from at onboarding).
 
 ---
 
@@ -790,7 +818,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 8 | **Transaction Tags (16)** | Committed | M | No | **✅ Shipped.** `Tag` + `TransactionTag` join (+ functional CI-unique index); inline create in the drawer, match-any feed filter, `/settings` management; income/expense only; hard delete; export/import deferred. Replaces §12 at a fraction of the cost. |
 | 9 | **Split Transactions (17)** | Committed | M | No | **✅ Shipped.** `TransactionSplit` child (derived split status, no `isSplit` column); one shared `getCategorySpend` two-`groupBy` union rewires budgets/rollover/dashboard/reports (double-count structurally impossible); EXPENSE-only, single-account; JSON `schemaVersion: 2`; import of splits deferred. Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | **✅ Shipped.** First "insight" assistant — Pro `/reports` "Generate summary" card phrasing this-month-vs-last. Deterministic `buildReviewFacts` owns every figure; pure `validateReviewNumbers` guard drops any misquoted line (model phrases, never computes — D2). Reuses §3 foundation + `getCategorySpend`/`getBudgets`; read-only, fail-open; no schema. |
-| 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | Strengthens budgeting; pairs with §7's rollover data. |
+| 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Suggest budgets" panel on `/budgets`; deterministic per-category ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period, model phrases each rationale (numeric-guarded — D1). Read-only (accept via `createBudget`), fail-open, softer D5 degradation. Reuses §3; extracted the shared numeric-guard core to `numeric-guard.ts`. No schema change, no migration, no new rate entry. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | Extends the insights strip; in-app only, **derive-first**; persist only on §0 evidence. Optional consistency insight lives here. |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | Heuristic v1, **no AI dep**; gate on history (§0). |

@@ -8,6 +8,7 @@ import { archiveBudget, unarchiveBudget } from "@/actions/budgets";
 import { BudgetList } from "@/components/budgets/budget-list";
 import { BudgetEmptyState } from "@/components/budgets/budget-empty-state";
 import { BudgetFormDrawer } from "@/components/budgets/budget-form-drawer";
+import { BudgetSuggestions } from "@/components/budgets/budget-suggestions";
 import type { BudgetListRow, BudgetSummary } from "@/types/dashboard";
 import type { CategoryOption } from "@/types/transactions";
 
@@ -16,6 +17,8 @@ interface BudgetsViewProps {
   summary: BudgetSummary;
   availableCategories: CategoryOption[];
   period: { month: number; year: number };
+  /** Pro users get the AI "Suggest budgets" panel above the list/empty state. */
+  isPro: boolean;
 }
 
 interface DrawerState {
@@ -35,6 +38,7 @@ export function BudgetsView({
   summary,
   availableCategories,
   period,
+  isPro,
 }: BudgetsViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -127,6 +131,8 @@ export function BudgetsView({
           <span className="hidden sm:inline">Add budget</span>
         </button>
       </header>
+
+      {isPro && <BudgetSuggestions period={period} />}
 
       {rows.length === 0 ? (
         <BudgetEmptyState period={period} />

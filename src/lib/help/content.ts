@@ -165,6 +165,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         detail:
           "Off by default — each budget resets clean every month. Turn on “Roll over remainder” for a budget and its leftover (or overspend) carries into next month: a €400 budget with €320 spent starts next month at €480, while overspending shrinks it. The carry only flows while the budget stays on in consecutive months.",
       },
+      {
+        term: "Suggest budgets (Pro)",
+        detail:
+          "On Pro, tap “Suggest budgets” to get proposed ceilings computed from your own last three months of spending — one editable row per category that you confirm with Add. The amounts are calculated from your history, not guessed by AI; you can change any amount before accepting, and nothing is created until you do.",
+      },
     ],
   },
   {
