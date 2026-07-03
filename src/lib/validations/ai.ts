@@ -37,3 +37,16 @@ export const monthlyReviewSchema = z.object({
 });
 
 export type MonthlyReviewInput = z.infer<typeof monthlyReviewSchema>;
+
+/**
+ * Input to the `suggestBudgets` AI action (Pro Smart Budget Suggestions). The
+ * target is the period currently viewed on /budgets; bounds mirror
+ * `createBudgetSchema` so a suggestible period is always a creatable one.
+ * Budgets are not account-scoped, so there is no `accountId` (spec §3).
+ */
+export const suggestBudgetsSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2020).max(2100),
+});
+
+export type SuggestBudgetsInput = z.infer<typeof suggestBudgetsSchema>;
