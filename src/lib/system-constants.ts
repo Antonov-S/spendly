@@ -379,6 +379,16 @@ export const IMPORT_MAX_CELL_CHARS = 10_000;
  */
 export const IMPORT_HIGH_SKIP_RATIO = 0.8;
 
+/* ── Security headers / CSP (security-headers-spec) ───────────────────────── */
+
+/**
+ * Max bytes read from a CSP violation report before we stop (abuse bound). The
+ * `/api/csp-report` sink is unauthenticated (browsers post reports without
+ * credentials), so an oversized body is dropped rather than parsed. Reports are
+ * tiny JSON objects; 16 KB is generous headroom.
+ */
+export const CSP_REPORT_MAX_BYTES = 16 * 1024;
+
 /** Responsive breakpoints (px) mirroring the sidebar behavior in the spec. */
 export const BREAKPOINTS = {
   mobile: 768, // < 768: hamburger overlay + bottom nav
