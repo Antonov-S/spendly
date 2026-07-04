@@ -720,6 +720,21 @@ State screen only — never analytics. Shows: hero balance, monthly metric strip
 > `docs/features/dashboard-insights-strip-spec.md` and `docs/ROADMAP.md` §4. (The strip was removed
 > once during the Dashboard UI Mockup phase and re-confirmed for build on 2026-06-20.)
 
+> **✅ Shipped — cash-flow forecast card (`feature/cash-flow-forecast`, POST-MVP §18).** A read-only
+> `ForecastPanel` in the right column (below the Goals widget) projects the balance **30 days** forward
+> from **active recurring templates + pending drafts** — *"you'll dip to €240 around the 28th, before
+> salary."* This **upholds** the "Dashboard is for state" principle rather than breaking it: it is
+> forward-looking *state* ("where am I heading given what I've already scheduled"), not analytics — it
+> infers nothing from history and adds nothing itself. A pure deterministic engine
+> (`buildCashflowForecast`, `src/lib/forecast.ts`) folds signed future occurrences over the horizon
+> into a daily balance series + low point + end balance, anchored on `summary.totalBalance` (the hero
+> number, reused in-process so the card can never drift from it). A load-bearing skip rule prevents a
+> template and its own pending draft from double-counting the head of the series. Dependency-free SVG
+> (dashed neutral line — the "projection, not history" cue — with `danger` styling only where the path
+> crosses below zero); hidden entirely when there's nothing to project. **Zero AI, zero writes, zero
+> schema, no Pro gate; ignores `?account=`** (it extends the all-accounts hero balance). See
+> `docs/features/cash-flow-forecast-spec.md`.
+
 ### Reports
 
 Separate analytics module, always accessible. When there is insufficient data, charts show a helpful empty state with a progress nudge ("Add 15 more transactions to see spending trends") rather than a locked screen. Four charts in MVP:

@@ -198,6 +198,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         detail:
           "When Spendly notices a regular charge — the same merchant at a steady weekly or monthly rhythm — it may suggest turning it into a recurring template. Suggestions never create anything by themselves: you review the pre-filled drawer and save it yourself, or dismiss it.",
       },
+      {
+        term: "Projected balance on the dashboard",
+        detail:
+          "The dashboard forecast card projects your balance 30 days forward using only your active recurring templates and pending drafts — nothing from your spending history. It assumes drafts get confirmed and never adds or changes anything itself. Pause a template or confirm a draft and the projection updates on your next visit.",
+      },
     ],
   },
   {
