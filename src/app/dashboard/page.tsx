@@ -9,6 +9,7 @@ import { TransactionsPanel } from "@/components/dashboard/transactions-panel";
 import { BudgetsPanel } from "@/components/dashboard/budgets-panel";
 import { GoalsWidget } from "@/components/dashboard/goals-widget";
 import { InsightsStrip } from "@/components/dashboard/insights-strip";
+import { ForecastPanel } from "@/components/dashboard/forecast-panel";
 import { DashboardZeroState } from "@/components/dashboard/dashboard-zero-state";
 import {
   getDashboardSummary,
@@ -19,8 +20,10 @@ import {
 import { getGoalsSummary } from "@/lib/db/goals";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getPendingDraftCount } from "@/lib/db/recurring";
+import { getScheduledItems } from "@/lib/db/forecast";
 import { getSidebarUser } from "@/lib/db/profile";
 import { countAtRiskBudgets, buildInsightItems } from "@/lib/insights";
+import { buildCashflowForecast } from "@/lib/forecast";
 
 export default async function DashboardPage() {
   const session = await requireOnboarded();
@@ -31,7 +34,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals, accounts, pendingDraftCount, sidebarUser] =
+  const [summary, balanceTrend, { rows: transactions, count }, { rows: budgets, summary: budgetSummary }, goals, accounts, pendingDraftCount, scheduled, sidebarUser] =
     await Promise.all([
       getDashboardSummary(userId, month, year),
       getBalanceTrend(userId, month, year),
@@ -40,6 +43,7 @@ export default async function DashboardPage() {
       getGoalsSummary(userId),
       getUserAccounts(userId),
       getPendingDraftCount(userId),
+      getScheduledItems(userId),
       getSidebarUser(userId),
     ]);
 
@@ -47,6 +51,14 @@ export default async function DashboardPage() {
     atRiskBudgetCount: countAtRiskBudgets(budgets),
     pendingDraftCount,
     overdueGoalCount: goals.filter((g) => g.overdue).length,
+  });
+
+  // Fold scheduled items over the hero balance in-process (spec D6) so the
+  // projection can never disagree with the number rendered beside it.
+  const forecast = buildCashflowForecast({
+    startBalance: summary.totalBalance,
+    templates: scheduled.templates,
+    drafts: scheduled.drafts,
   });
 
   return (
@@ -74,6 +86,7 @@ export default async function DashboardPage() {
             <div className="flex flex-col gap-2">
               <BudgetsPanel rows={budgets} summary={budgetSummary} />
               <GoalsWidget goals={goals} />
+              <ForecastPanel forecast={forecast} />
             </div>
           </div>
         </>

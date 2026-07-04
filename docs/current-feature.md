@@ -1,16 +1,34 @@
-# Current Feature
+# Current Feature: Cash-Flow Forecast
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Project the balance forward **30 days** from active recurring templates + pending drafts — answer "where is my balance heading given what I've already scheduled?" (*"you'll dip to €240 around the 28th, before salary."*).
+- Pure, deterministic **projection engine** (`src/lib/forecast.ts`): fold pending drafts + future template occurrences over a fixed horizon into a daily balance series, a low point, and an end-of-horizon balance.
+- **`ForecastPanel` card on `/dashboard`** (right column, below `GoalsWidget`): a small dependency-free SVG dashed area/line + low-point + end-of-horizon facts row. Hidden when there's nothing to project.
+- Lean **fetcher** (`src/lib/db/forecast.ts`) reading scheduled items only; the balance anchor is composed in-process from `summary.totalBalance` the page already fetches (no new balance query).
+- One constant — `FORECAST_HORIZON_DAYS = 30`.
+- Vitest coverage for the engine and the fetcher.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- **Zero AI, zero writes, zero schema, zero migration.** Read-only end to end. No `runAiFeature`, no prompt, no `--color-ai`, no Server Action mutation. A write path or OpenAI import means off-spec.
+- **On-thesis:** projects only structures the user consciously created (templates) or is being asked to confirm (drafts). No history-based inference, no learning, no nagging — state-adjacent awareness.
+- **Anchor = `summary.totalBalance`** (the hero number) — reused, not recomputed, so the card can never drift from the hero balance (D6). Accepted imprecision: totalBalance includes future-dated hand-entered rows; consistency with hero wins.
+- **Inputs:** active templates (`isActive`, non-archived account) → `type`, `Number(amount)` magnitude, `cadence`, `nextOccurrence`, `hasPendingDraft`; pending drafts (PENDING, non-archived account) → `suggestedDate`, `Number(suggestedAmount)`, template `type`. No `Decimal` crosses the pure boundary; sign derived from `type` inside the engine.
+- **Skip rule (load-bearing):** a template with a pending draft starts stepping from `advanceNextOccurrence(nextOccurrence, cadence)`, not `nextOccurrence` — because `nextOccurrence` isn't advanced until the draft is confirmed/dismissed, so projecting it would double-count the draft's occurrence. No-draft template and its draft-equivalent must produce identical series (asserted).
+- **Event expansion** in `[today, today + FORECAST_HORIZON_DAYS]` (both inclusive, `today = startOfUtcDay(now)`): drafts → 1 event at `max(startOfUtcDay(suggestedDate), today)`; templates → one event per occurrence via `advanceNextOccurrence`, occurrences before today clamped to day 0 (stepping continues from unclamped date to preserve rhythm), after horizon end stop the loop. DAILY + YEARLY **included** (explicitly scheduled). Loop bounded by construction, no cap constant.
+- **Series fold:** running end-of-day balance from `startBalance`; `points[d] = { date: today+d, balance: round2(...) }`. Day-0 = end of today (anchor + any overdue/today events); `points[0] === startBalance` when nothing due today. `startBalance` never a plotted point.
+- **`ForecastResult`:** `points` (length = horizon+1), `low` (min, earliest day wins tie), `end` (last point), `eventCount` (0 → card hidden). Reuse `advanceNextOccurrence` + `startOfUtcDay` + `round2` — no new date/money math. Module-private helpers (`expandTemplateEvents`, `signedAmount`).
+- **Core assumption:** every scheduled item lands (drafts get confirmed). Stated plainly in card caption.
+- **Decisions:** D1 Dashboard right column below Goals; D2 fixed 30d (param + constant leave 60/90 seam); D3 drafts AND templates w/ skip rule, paused excluded; D4 free / not Pro-gated; D5 all active accounts, ignores `?account=`; D6 fold in-process from `summary.totalBalance`; D7 hide at `eventCount === 0`; D8 dashed neutral line, `danger` only below zero.
+- **UI:** server component (no interactivity). Header `Projected balance` + meta `Next 30 days · assumes scheduled items are confirmed` (horizon from constant). Dependency-free module-private SVG (not `Sparkline` reuse): dashed line + faint area, dot on `points[0]`, hairline zero baseline + `--color-danger` segments below zero (else neutral grey, never success-green), `role="img"` + data-summarizing `aria-label`, decorative shapes `aria-hidden`. Facts row (real DOM): `Lowest: €X · around <date>` (danger when < 0) and `In 30 days: €X` + signed delta.
+- **Freshness:** `/dashboard` is `force-dynamic` and recurring mutations already `revalidatePath("/dashboard")` — no new wiring.
+- **Implementation order:** (1) constant + `forecast.ts` engine + suite; (2) `db/forecast.ts` fetcher + suite; (3) `forecast-panel.tsx`; (4) page wiring (Promise.all 8→9, in-process fold, render slot); (5) docs + tests + build + browser pass on `development` Neon branch.
+- Spec: `docs/features/cash-flow-forecast-spec.md`. Branch: `feature/cash-flow-forecast`. Roadmap §18, Delivery slot 14.
 
 ## History
 

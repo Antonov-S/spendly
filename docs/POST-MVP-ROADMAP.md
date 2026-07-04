@@ -716,6 +716,27 @@ transfers excluded from splitting; whether a split can span accounts (no — sin
 
 **Effort: M · Value: medium–high (forward-looking awareness). Lighter enhancement.**
 
+> **✅ Shipped (`feature/cash-flow-forecast`, Delivery Sequence slot 14).** A read-only
+> `ForecastPanel` card on `/dashboard` (right column, below Goals) projects the balance forward
+> **30 days** from **active recurring templates + pending drafts** — "you'll dip to €240 around the
+> 28th, before salary." A pure deterministic engine (`src/lib/forecast.ts`, `buildCashflowForecast`)
+> folds signed future occurrences over the horizon into a daily end-of-day balance series, a low
+> point, and an end-of-horizon balance; it reuses `advanceNextOccurrence` + `startOfUtcDay` +
+> `round2` (no new date/money math). The **load-bearing skip rule:** a template with an outstanding
+> PENDING draft starts stepping one occurrence past `nextOccurrence` (which isn't advanced until the
+> draft is confirmed/dismissed), so the template and its draft never double-count the head of the
+> series — the no-draft and draft-minted states produce provably identical series. Overdue
+> occurrences clamp to day 0 (stepping continues from the unclamped date to preserve rhythm). The
+> **anchor is `summary.totalBalance`** — the fold happens in-process on the page (the fetcher
+> `getScheduledItems` reads scheduled items only), so the projection can never drift from the hero
+> number. One constant `FORECAST_HORIZON_DAYS = 30`. Dependency-free module-private SVG: dashed
+> neutral line (the "this is a projection, not history" cue) + faint area, `--color-danger` only for
+> the portion below zero, `role="img"` a11y summary, real-DOM facts row (`Lowest` + `In 30 days`
+> with signed delta). Hidden entirely when `eventCount === 0`. **Zero AI, zero writes, zero schema,
+> zero migration, no Pro gate, ignores `?account=`** (extends the all-accounts hero balance).
+> Refreshed for free by the `revalidatePath("/dashboard")` every recurring mutation already fires.
+> See `docs/features/cash-flow-forecast-spec.md`.
+
 Project the balance forward from **active recurring templates + pending drafts** — "you'll dip to
 €240 around the 28th before salary." Forward-looking *awareness*, not optimization or automation:
 it only projects items the user already set up. Reuses recurring data; read-only.
@@ -724,8 +745,10 @@ it only projects items the user already set up. Reuses recurring data; read-only
 horizon) rendered as a small line/area — on the Dashboard (state-adjacent) or Reports. No new
 mutations.
 
-**Open decisions:** surface (Dashboard vs. Reports); horizon (30/60/90 days); include unconfirmed
-drafts or active templates only; Free or Pro.
+**Resolved decisions:** surface = **Dashboard** (right column below Goals — forward-looking state);
+horizon = **fixed 30 days** (`horizonDays` param + constant leave the 60/90 seam open); include
+**pending drafts AND active templates** with the skip rule; **Free** (deterministic, zero COGS,
+core-awareness). See spec §10.
 
 ---
 
@@ -859,7 +882,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
-| 14 | Cash-Flow Forecast (18) | Committed | M | TBD | Forward-looking awareness enhancement; reuses recurring data. |
+| 14 | Cash-Flow Forecast (18) | Committed | M | No | **✅ Shipped.** Read-only `ForecastPanel` on `/dashboard` (right column below Goals) projects the balance 30 days forward from active templates + pending drafts. Pure deterministic `buildCashflowForecast` folds signed occurrences over the horizon (load-bearing skip rule prevents template/draft double-count); anchored on `summary.totalBalance` in-process so it can't drift from the hero number. Dashed neutral SVG, `danger` below zero, hidden at `eventCount === 0`. **Zero AI, zero writes, zero schema, no Pro gate.** Reuses `advanceNextOccurrence`. |
 | 15 | Quick-Add Favorites (19) | Committed | S–M | No | Fast manual-entry enhancement; on-demand capture shortcuts. |
 | — | Multi-Currency (11) | Parked | L | No | Promote only if ≥ ~10–15% of active users signal multi-currency need. |
 | — | Category Hierarchy (12) | Parked (low) | M+ | No | Likely fully replaced by Tags (§16); revisit only if tags prove insufficient *and* nesting is demanded. |
@@ -946,8 +969,10 @@ be fully replaced by Tags (kept parked, not killed).
    breakdown chart, and are they free (recommended) or Pro?
 9. **§17 splits** — split-line child table vs. linked sub-transactions; confirm splits stay
    single-account and exclude transfers.
-10. **§18 forecast / §19 favorites** — free or Pro; forecast surface (Dashboard vs. Reports) and
-    horizon (30/60/90 days).
+10. **§18 forecast / §19 favorites** — ~~forecast: free or Pro; surface (Dashboard vs. Reports) and
+    horizon (30/60/90 days)~~ **Resolved (§18 shipped):** free, Dashboard (right column below Goals),
+    fixed 30-day horizon (60/90 left as a constant-plus-UI seam). **§19 favorites** — free or Pro
+    still open.
 11. **Parked promotion bars** — confirm/adjust the promotion criteria (multi-currency ~10–15%,
     mobile ~30% sessions) against your own targets. (Category Hierarchy is parked at low priority —
     expected to be fully replaced by Tags.)

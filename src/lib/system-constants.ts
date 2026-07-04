@@ -305,6 +305,17 @@ export const SUBSCRIPTION_MIN_AMOUNT = 5;
 /** Max suggestions surfaced per derivation — ranked median-amount desc. */
 export const SUBSCRIPTION_SUGGEST_MAX = 5;
 
+/* ── Cash-flow forecast (cash-flow-forecast spec §4) ── */
+
+/**
+ * Days projected forward from today on the dashboard forecast card. 30 days
+ * covers one full monthly cycle (every MONTHLY template fires exactly once),
+ * which is where the "dip before salary" insight lives. The engine takes
+ * `horizonDays` as a defaulted parameter so a future 60/90 toggle is a
+ * UI-plus-constant change with zero algorithm change.
+ */
+export const FORECAST_HORIZON_DAYS = 30;
+
 /**
  * Max entries listed in a chart's accessibility summary (`aria-label`) before
  * it appends "and N more". Keeps the screen-reader summary readable rather than
