@@ -24,15 +24,28 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { todayDateInputValue } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { RecurringType } from "@/lib/recurring";
+import type { RecurringSuggestion } from "@/lib/recurring-suggest";
 import type { AccountOption, CategoryOption } from "@/types/transactions";
 
 interface TemplateFormDrawerProps {
   open: boolean;
   /** Template id to edit; null = create mode. */
   editId: string | null;
+  /**
+   * A subscription suggestion to seed the create form with (§9.2). Ignored in
+   * edit mode. When present, the create branch pre-fills every field from it
+   * instead of blank defaults; the user still reviews and saves manually.
+   */
+  prefill?: RecurringSuggestion | null;
   accounts: AccountOption[];
   categories: CategoryOption[];
   onClose: () => void;
+  /**
+   * Called (and awaited) on a successful CREATE, before the drawer closes and
+   * refreshes. Lets the parent write the accept-side mute for a suggestion-born
+   * template so the merchant stays suppressed even after a rename (§9.3).
+   */
+  onCreated?: () => void | Promise<void>;
 }
 
 const TYPE_OPTIONS: { value: RecurringType; label: string }[] = [
@@ -43,9 +56,11 @@ const TYPE_OPTIONS: { value: RecurringType; label: string }[] = [
 export function TemplateFormDrawer({
   open,
   editId,
+  prefill,
   accounts,
   categories,
   onClose,
+  onCreated,
 }: TemplateFormDrawerProps) {
   const router = useRouter();
   const isDesktop = useMediaQuery(`(min-width: ${BREAKPOINTS.mobile}px)`);
@@ -86,6 +101,14 @@ export function TemplateFormDrawer({
         setAccountId(res.data.financialAccountId);
         setCategoryId(res.data.categoryId ?? "");
       });
+    } else if (prefill) {
+      setName(prefill.name);
+      setType(prefill.type);
+      setAmount(String(prefill.amount));
+      setCadence(prefill.cadence);
+      setNextOccurrence(prefill.nextOccurrence);
+      setAccountId(prefill.financialAccountId);
+      setCategoryId(prefill.categoryId ?? "");
     } else {
       setName("");
       setType("EXPENSE");
@@ -99,7 +122,7 @@ export function TemplateFormDrawer({
     return () => {
       active = false;
     };
-  }, [open, editId, accounts]);
+  }, [open, editId, prefill, accounts]);
 
   const noAccounts = !isEdit && accounts.length === 0;
   const busy = isPending || loadingEdit;
@@ -127,6 +150,10 @@ export function TemplateFormDrawer({
       }
 
       if (res.success) {
+        // For a suggestion-born create, write the accept-side mute before we
+        // close + refresh so the source suggestion is already suppressed when
+        // the page re-derives (§9.3).
+        if (editId === null) await onCreated?.();
         onClose();
         toast.success(isEdit ? "Template updated" : "Template created");
         router.refresh();

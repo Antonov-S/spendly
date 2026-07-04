@@ -36,6 +36,8 @@ model User {
   recurringTemplates RecurringTemplate[]
   tags               Tag[]
 
+  recurringSuggestionMutes RecurringSuggestionMute[]
+
   @@index([deletedAt])
 }
 
@@ -328,6 +330,24 @@ model RecurringDraft {
   recurringTemplate RecurringTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
 
   @@index([recurringTemplateId, status])
+}
+
+// ─── RecurringSuggestionMute ──────────────────────────
+// "Stop suggesting this merchant as a recurring template." Written by both
+// suggestion outcomes (accept and dismiss); read only by suggestion suppression.
+// merchantKey is the normalized form (normalizeLabelKey). The composite unique
+// doubles as the per-user lookup index (leftmost prefix) — no separate @@index.
+
+model RecurringSuggestionMute {
+  id          String   @id @default(cuid())
+  merchantKey String
+  createdAt   DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchantKey])
 }
 
 // ─── Goal ─────────────────────────────────────────────

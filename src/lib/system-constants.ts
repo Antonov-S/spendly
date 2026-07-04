@@ -266,6 +266,45 @@ export const BUDGET_SUGGEST_VARIABILITY_RATIO = 0.5;
 /** Maximum suggestions per run — ranked by average spend, biggest first (D7). */
 export const BUDGET_SUGGEST_MAX = 8;
 
+/* ── Subscription detection (heuristic v1, subscription-detection spec §4) ──
+ * The only place detection policy lives — the engine never hardcodes a
+ * threshold and also accepts these as an injectable `config`, so recalibrating
+ * on real telemetry is a one-file constants edit with zero algorithm change. */
+
+/** Months of history scanned for recurring-spend patterns. */
+export const SUBSCRIPTION_LOOKBACK_MONTHS = 12;
+
+/** Min occurrences of a merchant before a pattern is considered (≥ 2 intervals). */
+export const SUBSCRIPTION_MIN_OCCURRENCES = 3;
+
+/**
+ * Cadence bands: the median day-gap picks the band; every gap must fit it.
+ * DAILY (habit, not subscription) and YEARLY (needs 2+ years of history) are
+ * deliberately absent in v1.
+ */
+export const SUBSCRIPTION_CADENCE_BANDS = [
+  { cadence: "WEEKLY", minDays: 6, maxDays: 8 },
+  { cadence: "MONTHLY", minDays: 26, maxDays: 35 },
+] as const;
+
+/** Max relative deviation of any amount from the group median. */
+export const SUBSCRIPTION_AMOUNT_TOLERANCE = 0.15;
+
+/**
+ * The series is stale (not suggested) when last-occurrence → now exceeds the
+ * band's maxDays × this factor.
+ */
+export const SUBSCRIPTION_STALE_FACTOR = 1.5;
+
+/**
+ * Min median magnitude (EUR) for a group to be suggestible — filters
+ * micro-purchases that pass the regularity tests but aren't worth a nudge.
+ */
+export const SUBSCRIPTION_MIN_AMOUNT = 5;
+
+/** Max suggestions surfaced per derivation — ranked median-amount desc. */
+export const SUBSCRIPTION_SUGGEST_MAX = 5;
+
 /**
  * Max entries listed in a chart's accessibility summary (`aria-label`) before
  * it appends "and N more". Keeps the screen-reader summary readable rather than
