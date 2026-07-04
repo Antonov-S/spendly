@@ -12,6 +12,7 @@ import {
   getPendingDrafts,
   generatePendingDrafts,
 } from "@/lib/db/recurring";
+import { getRecurringSuggestions } from "@/lib/db/recurring-suggest";
 import { AppShell } from "@/components/layout/app-shell";
 import { RecurringView } from "@/components/recurring/recurring-view";
 
@@ -23,13 +24,19 @@ export default async function RecurringPage() {
   // freshly-created rows.
   await generatePendingDrafts(userId);
 
-  const [templates, drafts, accounts, categories, sidebarUser] = await Promise.all([
-    getTemplates(userId),
-    getPendingDrafts(userId),
-    getUserAccounts(userId),
-    getUserCategories(userId),
-    getSidebarUser(userId),
-  ]);
+  const [templates, drafts, suggestionsResult, accounts, categories, sidebarUser] =
+    await Promise.all([
+      getTemplates(userId),
+      getPendingDrafts(userId),
+      getRecurringSuggestions(userId),
+      getUserAccounts(userId),
+      getUserCategories(userId),
+      getSidebarUser(userId),
+    ]);
+
+  // detectedCount is telemetry-only (emitted inside the fetcher) — the page
+  // only threads the capped, panel-ready suggestions.
+  const suggestions = suggestionsResult.suggestions;
 
   return (
     <AppShell
@@ -37,10 +44,11 @@ export default async function RecurringPage() {
       user={sidebarUser}
     >
       {/* Re-suspend on data change after a router.refresh(). */}
-      <Suspense key={`${templates.length}-${drafts.length}`}>
+      <Suspense key={`${templates.length}-${drafts.length}-${suggestions.length}`}>
         <RecurringView
           templates={templates}
           drafts={drafts}
+          suggestions={suggestions}
           accounts={accounts}
           categories={categories}
         />

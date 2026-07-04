@@ -5,13 +5,17 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { dateInputToUtc } from "@/lib/date";
 import { advanceNextOccurrence } from "@/lib/recurring";
+import { normalizeLabelKey } from "@/lib/text";
+import { track } from "@/lib/analytics/track";
 import { revalidateTransactionViews } from "@/lib/revalidation";
 import { getTemplateForEdit as getTemplateForEditQuery } from "@/lib/db/recurring";
 import {
   createTemplateSchema,
   updateTemplateSchema,
+  muteSuggestionSchema,
   type CreateTemplateInput,
   type UpdateTemplateInput,
+  type MuteSuggestionInput,
 } from "@/lib/validations/recurring";
 import type { TemplateEditable } from "@/lib/db/recurring";
 
@@ -213,6 +217,58 @@ export async function getTemplateForEdit(id: string): Promise<{
   } catch (error) {
     console.error("getTemplateForEdit failed", error);
     return { success: false, error: "Could not load the template." };
+  }
+}
+
+// ─── Suggestion actions ───────────────────────────────
+
+/**
+ * Record "stop suggesting this merchant" (subscription detection §8.2, §9.3).
+ * Shared by both suggestion outcomes: **Dismiss** fires it directly, and
+ * **accept** fires it too (fire-and-forget) so a merchant stays suppressed even
+ * if the user renames the template in the drawer before saving — the mute means
+ * "stop suggesting this merchant," whatever the reason; accepted/dismissed lives
+ * only in telemetry.
+ *
+ * The server re-normalizes the key through `normalizeLabelKey` before writing —
+ * canonical storage is guaranteed server-side, never trusted from the client.
+ * The write is an idempotent upsert on `@@unique([userId, merchantKey])`, so
+ * double-clicks and the accept-then-dismiss race are no-ops. Not rate-limited
+ * (a trivial auth-guarded upsert, matching `loadMoreTransactions`).
+ */
+export async function muteRecurringSuggestion(
+  input: MuteSuggestionInput
+): Promise<MutationResult> {
+  const session = await auth();
+  if (!session?.user?.id) return NOT_AUTHED;
+  const userId = session.user.id;
+
+  const parsed = muteSuggestionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+  const { merchantKey, outcome, cadence } = parsed.data;
+
+  try {
+    const key = normalizeLabelKey(merchantKey);
+    await prisma.recurringSuggestionMute.upsert({
+      where: { userId_merchantKey: { userId, merchantKey: key } },
+      create: { userId, merchantKey: key },
+      update: {},
+    });
+
+    void track(
+      outcome === "accepted"
+        ? "recurring_suggestion_accepted"
+        : "recurring_suggestion_dismissed",
+      { cadence }
+    );
+
+    revalidatePath("/recurring");
+    return { success: true };
+  } catch (error) {
+    console.error("muteRecurringSuggestion failed", error);
+    return { success: false, error: "Could not update suggestions." };
   }
 }
 

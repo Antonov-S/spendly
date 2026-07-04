@@ -8,14 +8,17 @@ import {
   getTemplateForEdit,
   confirmDraft,
   dismissDraft,
+  muteRecurringSuggestion,
 } from "@/actions/recurring";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { track } from "@/lib/analytics/track";
 import { getTemplateForEdit as getTemplateForEditQuery } from "@/lib/db/recurring";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/revalidation", () => ({ revalidateTransactionViews: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/db/recurring", () => ({ getTemplateForEdit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -29,6 +32,7 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
+    recurringSuggestionMute: { upsert: vi.fn() },
     financialAccount: { findFirst: vi.fn() },
     category: { findFirst: vi.fn() },
     transaction: { create: vi.fn() },
@@ -37,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const mockAuth = vi.mocked(auth);
+const mockTrack = vi.mocked(track);
 
 /** Authenticate the session as `id`. */
 function signIn(id = "u1") {
@@ -482,5 +487,114 @@ describe("dismissDraft", () => {
 
     expect(res.success).toBe(false);
     expect(prisma.recurringTemplate.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("muteRecurringSuggestion", () => {
+  it("fails when not signed in", async () => {
+    mockAuth.mockResolvedValue(null as never);
+
+    const res = await muteRecurringSuggestion({
+      merchantKey: "netflix",
+      outcome: "dismissed",
+      cadence: "MONTHLY",
+    });
+
+    expect(res.success).toBe(false);
+    expect(prisma.recurringSuggestionMute.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid input (blank merchantKey)", async () => {
+    signIn("u1");
+
+    const res = await muteRecurringSuggestion({
+      merchantKey: "   ",
+      outcome: "dismissed",
+      cadence: "MONTHLY",
+    });
+
+    expect(res.success).toBe(false);
+    expect(prisma.recurringSuggestionMute.upsert).not.toHaveBeenCalled();
+  });
+
+  it("re-normalizes the raw key before the upsert", async () => {
+    signIn("u1");
+    vi.mocked(prisma.recurringSuggestionMute.upsert).mockResolvedValue(
+      {} as never
+    );
+
+    const res = await muteRecurringSuggestion({
+      merchantKey: "  NETFLIX  ",
+      outcome: "dismissed",
+      cadence: "MONTHLY",
+    });
+
+    expect(res.success).toBe(true);
+    const arg = vi.mocked(prisma.recurringSuggestionMute.upsert).mock.calls[0][0];
+    // Server-side normalization: canonical lower/trimmed key is stored + queried.
+    expect(arg.where).toEqual({
+      userId_merchantKey: { userId: "u1", merchantKey: "netflix" },
+    });
+    expect(arg.create).toEqual({ userId: "u1", merchantKey: "netflix" });
+    expect(arg.update).toEqual({});
+  });
+
+  it("is idempotent across a double-call (upsert absorbs the second)", async () => {
+    signIn("u1");
+    vi.mocked(prisma.recurringSuggestionMute.upsert).mockResolvedValue(
+      {} as never
+    );
+
+    const input = {
+      merchantKey: "netflix",
+      outcome: "dismissed" as const,
+      cadence: "MONTHLY" as const,
+    };
+    await muteRecurringSuggestion(input);
+    await muteRecurringSuggestion(input);
+
+    // Both calls issue the same upsert — the unique constraint makes it a no-op.
+    expect(prisma.recurringSuggestionMute.upsert).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(prisma.recurringSuggestionMute.upsert).mock.calls) {
+      expect(call[0].where).toEqual({
+        userId_merchantKey: { userId: "u1", merchantKey: "netflix" },
+      });
+    }
+  });
+
+  it("emits exactly one telemetry event with the matching outcome name", async () => {
+    signIn("u1");
+    vi.mocked(prisma.recurringSuggestionMute.upsert).mockResolvedValue(
+      {} as never
+    );
+
+    await muteRecurringSuggestion({
+      merchantKey: "spotify",
+      outcome: "accepted",
+      cadence: "WEEKLY",
+    });
+
+    expect(mockTrack).toHaveBeenCalledTimes(1);
+    expect(mockTrack).toHaveBeenCalledWith("recurring_suggestion_accepted", {
+      cadence: "WEEKLY",
+    });
+  });
+
+  it("emits the dismissed event name for a dismiss outcome", async () => {
+    signIn("u1");
+    vi.mocked(prisma.recurringSuggestionMute.upsert).mockResolvedValue(
+      {} as never
+    );
+
+    await muteRecurringSuggestion({
+      merchantKey: "gym",
+      outcome: "dismissed",
+      cadence: "MONTHLY",
+    });
+
+    expect(mockTrack).toHaveBeenCalledTimes(1);
+    expect(mockTrack).toHaveBeenCalledWith("recurring_suggestion_dismissed", {
+      cadence: "MONTHLY",
+    });
   });
 });

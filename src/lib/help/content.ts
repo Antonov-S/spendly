@@ -193,6 +193,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         detail:
           "Templates can be paused and resumed, and confirmed drafts carry the template's name onto the transaction.",
       },
+      {
+        term: "Suggested templates",
+        detail:
+          "When Spendly notices a regular charge — the same merchant at a steady weekly or monthly rhythm — it may suggest turning it into a recurring template. Suggestions never create anything by themselves: you review the pre-filled drawer and save it yourself, or dismiss it.",
+      },
     ],
   },
   {

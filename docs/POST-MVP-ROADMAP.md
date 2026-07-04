@@ -557,9 +557,29 @@ risk is nagging, and nagging is off-brand for a "clarity, not optimization" prod
 
 ---
 
-## 10. Subscription Detection — heuristic first
+## 10. Subscription Detection — heuristic first — ✅ Shipped (v1)
 
 **Effort: M (heuristic v1) · Value: medium, grows with history.**
+
+> **✅ Shipped — heuristic v1 (`feature/subscription-detection`, Delivery Sequence slot 13).** A
+> **"Suggested templates" panel on `/recurring`** lists regular charges a pure deterministic engine
+> (`src/lib/recurring-suggest.ts`) noticed — grouping candidate rows by
+> `(normalizeLabelKey(merchant), type)` and applying a strict six-rule gate (≥3 occurrences, a
+> WEEKLY 6–8d / MONTHLY 26–35d cadence band that *every* interval fits, amounts regular within ±15%
+> of the median, series still alive, median ≥ €5). Each row offers **Create template** (pre-fills
+> the existing `TemplateFormDrawer`, unsaved — `createTemplate` stays the sole writer) and
+> **Dismiss**. **Zero AI coupling** — no `runAiFeature`, no prompt, no `--color-ai`, no Pro gate, no
+> rate limit, no account scoping. Derivation is lazy on page load (joins the `/recurring`
+> `Promise.all`, one bounded 12-month query), cron-free like `generatePendingDrafts`. The one schema
+> change is the additive `RecurringSuggestionMute` model (`@@unique([userId, merchantKey])`) so a
+> dismissed — or accepted — merchant stays suppressed; `muteRecurringSuggestion` is an idempotent
+> upsert shared by both outcomes (accept also mutes, covering the drawer-rename edge). All thresholds
+> are `SUBSCRIPTION_*` constants, also injectable into the engine as a `config` for tuning without an
+> algorithm change. The `normalizeLabelKey` normalizer was extracted behavior-preserving from the
+> import resolver (`src/lib/text.ts`; import suites pass unmodified). Telemetry (`recurring_suggested`
+> / `recurring_suggestion_accepted` / `recurring_suggestion_dismissed`) rides the no-op `track()`
+> shim, counts/enums only. **v2 (AI merchant normalization) remains deferred + evidence-gated.** See
+> `docs/features/subscription-detection-spec.md`.
 
 Spot recurring spend and **suggest** "make this a recurring template?" The `merchant` field was
 added as future-proofing for exactly this, so the model is ready.
@@ -838,7 +858,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Suggest budgets" panel on `/budgets`; deterministic per-category ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period, model phrases each rationale (numeric-guarded — D1). Read-only (accept via `createBudget`), fail-open, softer D5 degradation. Reuses §3; extracted the shared numeric-guard core to `numeric-guard.ts`. No schema change, no migration, no new rate entry. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
-| 13 | Subscription Detection — heuristic (10) | Committed | M | No | Heuristic v1, **no AI dep**; gate on history (§0). |
+| 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
 | 14 | Cash-Flow Forecast (18) | Committed | M | TBD | Forward-looking awareness enhancement; reuses recurring data. |
 | 15 | Quick-Add Favorites (19) | Committed | S–M | No | Fast manual-entry enhancement; on-demand capture shortcuts. |
 | — | Multi-Currency (11) | Parked | L | No | Promote only if ≥ ~10–15% of active users signal multi-currency need. |

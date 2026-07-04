@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RECURRING_AMOUNT_MAX } from "@/lib/constants";
+import { MERCHANT_MAX } from "@/lib/system-constants";
 
 /**
  * Validation for the recurring template write actions. The user enters a
@@ -42,3 +43,18 @@ export const updateTemplateSchema = z.object({
 });
 
 export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
+
+/**
+ * Record "stop suggesting this merchant as a recurring template" (subscription
+ * detection §8.2). Shared by the accept and dismiss paths. The client sends the
+ * normalized `merchantKey`, but the server re-normalizes before writing —
+ * canonical storage is never trusted from the client. `outcome`/`cadence` are
+ * telemetry-only enums; `cadence` is never stored.
+ */
+export const muteSuggestionSchema = z.object({
+  merchantKey: z.string().trim().min(1, "Missing merchant").max(MERCHANT_MAX),
+  outcome: z.enum(["accepted", "dismissed"]),
+  cadence: z.enum(["WEEKLY", "MONTHLY"]),
+});
+
+export type MuteSuggestionInput = z.infer<typeof muteSuggestionSchema>;

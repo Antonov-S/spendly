@@ -1,4 +1,5 @@
 import { CATEGORY_NAME_MAX } from "@/lib/system-constants";
+import { normalizeLabelKey } from "@/lib/text";
 import type { CategoryResolution } from "@/types/import";
 
 /**
@@ -15,11 +16,7 @@ import type { CategoryResolution } from "@/types/import";
  * and an NFC/NFD-divergent `"café"` all resolve to one category.
  */
 export function normalizeCatKey(name: string): string {
-  return name
-    .trim()
-    .replace(/\s+/g, " ")
-    .normalize("NFC")
-    .toLowerCase();
+  return normalizeLabelKey(name);
 }
 
 /** Build `normalizeCatKey(name) → categoryId` once from the visible categories. */

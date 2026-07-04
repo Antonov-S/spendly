@@ -680,6 +680,8 @@ Templates generate `RecurringDraft` entries on schedule. Drafts require explicit
 
 Confirming a draft stamps the template's **`name` onto the resulting `Transaction.merchant`** (a `Transaction` has no separate description column — its displayed label comes from `merchant`). This keeps draft-born entries identifiable as "Netflix"/"Rent" across the transactions feed and the dashboard rather than falling back to the category name or a bare "Transaction" label.
 
+> **✅ Shipped — Subscription detection (heuristic v1) (`feature/subscription-detection`, POST-MVP §10).** A **"Suggested templates" panel** on `/recurring` reads the `merchant` history structurally (the payoff for stamping `merchant` on confirmed drafts and preserving it on import) and **suggests** "make this a recurring template?" for regular charges. A pure deterministic engine (`src/lib/recurring-suggest.ts`) groups candidate rows by normalized merchant + type and applies a strict six-rule gate (≥3 occurrences, a WEEKLY 6–8d / MONTHLY 26–35d cadence band every interval fits, amounts regular within ±15% of the median, series still alive, median ≥ €5), ranked by median amount and capped. Each row **pre-fills the existing template drawer, unsaved** — `createTemplate` stays the sole writer; nothing is auto-created, and the confirm moment is kept twice (accept the template, then confirm each draft). Derived lazily on page load (cron-free, like draft generation). Dismiss — and accept — persist via the additive `RecurringSuggestionMute` model so a merchant stays suppressed. **No AI, no Pro gate, no rate limit, no account scoping.** WEEKLY/MONTHLY only (DAILY is habit noise, YEARLY needs 2+ years of history). See `docs/features/subscription-detection-spec.md`.
+
 ### Goals
 
 Virtual progress tracking. Progress is updated via an **"Add contribution"** action — a drawer with amount, date, and optional note. Each action creates a `GoalContribution` record; `currentAmount` on the goal is kept in sync as a denormalized sum for fast reads. Negative contributions (withdrawals) are supported. Goals do not affect account balances or budgets. Goals with a `targetDate` in the past and progress below 100% surface as overdue on the Dashboard.
@@ -1072,7 +1074,7 @@ Fintrack handles personal financial data. Minimum security requirements before s
   confirm — never written by the parse — has shipped (`feature/nl-quick-capture`,
   `docs/features/nl-quick-capture-spec.md`); on-thesis (suggest-and-confirm). Multi-transaction input
   and a dedicated quick-add bar outside the drawer remain out of scope._
-- Subscription detection via recurring-spend clustering
+- ~~Subscription detection via recurring-spend clustering~~ — _graduated in: heuristic v1 shipped (`feature/subscription-detection`, POST-MVP §10). A deterministic engine surfaces **user-confirmed** "make this a recurring template?" suggestions on `/recurring` (pre-fill the drawer; `createTemplate` stays the sole writer) — on-thesis suggest-and-confirm. Silent auto-creation, and the optional v2 AI merchant-normalization assist, remain out of scope._
 - Bank account synchronization via Open Banking APIs
 - Linked savings accounts for Goals (real money holding)
 - Cross-currency aggregation and base reporting currency
