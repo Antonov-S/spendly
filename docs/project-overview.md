@@ -1074,6 +1074,17 @@ Fintrack handles personal financial data. Minimum security requirements before s
 > `docs/features/pre-launch-polish-spec.md`). Also landed in §9: an app-level `error.tsx` boundary, a
 > styled `not-found.tsx`, and page-title metadata (`%s — Spendly`) across all app pages.
 
+> **✅ Shipped — security response headers (Stage A) (`feature/security-headers`, 2026-07-03 review §3).**
+> `next.config.ts` now emits app-wide browser hardening on every response: **enforced** baseline headers
+> (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+> `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `X-DNS-Prefetch-Control: off`) plus a
+> **`Content-Security-Policy-Report-Only`** policy backed by a log-only `POST /api/csp-report` sink. Shipping
+> Report-Only first lets the policy be tuned against real traffic before it blocks; **Stage B** flips the header
+> name to enforce (`frame-ancestors 'none'` then supersedes `X-Frame-Options`) after a clean real-Chrome window
+> (Google OAuth incl. the no-JS form-POST path + Stripe round-trip) — the one non-trivial allowance is
+> `form-action 'self' https://accounts.google.com` for the OAuth redirect (Stripe needs none — no client
+> Stripe.js, no iframes). HSTS stays Vercel-edge-provided. See `docs/fixes/security-headers-spec.md`.
+
 ---
 
 ## Out of Scope (Post-MVP)
