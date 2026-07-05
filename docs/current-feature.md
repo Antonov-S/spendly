@@ -1,12 +1,44 @@
-# Current Feature
+# Current Feature: Quick-Add Favorites
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Add user-owned quick-add favorites for common INCOME/EXPENSE captures, with no Pro gate and no AI dependency.
+- Keep `createTransaction` as the only transaction writer: tapping a favorite pre-fills an unsaved drawer draft only.
+- Support saving a favorite from the transaction drawer, using an optional amount for prompt-on-use shortcuts.
+- Add `/settings` management for existing favorites: deterministic name-ascending list, rename-only edit, delete with confirmation, and archived-account degradation indicator.
+- Enforce ownership, visible category, active account, per-user cap, and case-insensitive name uniqueness server-side.
+- Cover the pure prefill contract, validation, DB fetchers, and Server Actions with Vitest; run `npm run test:run` and `npm run build` before completion.
+
 ## Notes
+
+- Spec: `docs/features/quick-add-favorites-spec.md`; branch for implementation: `feature/quick-add-favorites`.
+- Architecture: reads stay in `src/lib/db/*`, mutations stay in `"use server"` actions, and UI calls Server Actions directly. No API route is needed.
+- Data model: additive `Favorite` model with nullable `amount`, nullable `categoryId`, nullable `financialAccountId`, `TransactionType` constrained by validation to `INCOME | EXPENSE`, `onDelete: SetNull` for category/account, `@@unique([name, userId])`, and a functional case-insensitive `(lower(name), userId)` unique index in a second migration.
+- Existing schema back-relations are needed on `User`, `Category`, and `FinancialAccount`; no existing persisted column changes are expected beyond those Prisma relation fields.
+- Constants: add `FAVORITE_NAME_MAX = 32` and `FAVORITE_MAX_COUNT = 12` to `src/lib/system-constants.ts`.
+- New modules likely needed: `src/types/favorites.ts`, `src/lib/validations/favorite.ts`, `src/lib/favorites.ts`, `src/lib/db/favorites.ts`, `src/actions/favorites.ts`, and `src/components/favorites/manage-favorites.tsx`.
+- Existing modules likely touched: `prisma/schema.prisma`, migrations under `prisma/migrations`, `src/actions/transactions.ts` (`getDrawerFormData` includes favorites), `src/types/transactions.ts` (`DrawerFormData`), `src/components/transactions/transaction-drawer.tsx`, `src/app/settings/page.tsx`, `src/components/categories/confirm-delete-dialog.tsx`, and possibly `src/lib/revalidation.ts` if a `revalidateFavoriteViews` helper is preferred over direct `/settings` revalidation.
+- Reuse existing patterns from tags for user-owned small-store CRUD and case-insensitive dedup, transactions for category/account validation, and the NL quick-capture drawer behavior for wholesale prefill semantics.
+- Revalidation decision from spec: favorite mutations revalidate `/settings` only; the drawer fetches favorites on each open and locally appends a newly created favorite after save.
+- Test surface: `test/lib/favorites.test.ts`, `test/lib/validations/favorite.test.ts`, `test/lib/db/favorites.test.ts`, and `test/actions/favorites.test.ts`. Component tests remain out of scope by project standards.
+- Docs on completion: `docs/POST-MVP-ROADMAP.md`, `docs/project-overview.md`, `/help` content, and this file's history.
+- Open questions: none blocking. Minor note: the spec's link text points to `./entity-crud-architecture.md`, while the actual file is `docs/entity-crud-architecture.md`; use the actual repo path.
+
+## Implementation Plan
+
+1. Create `feature/quick-add-favorites`; read the relevant Next.js 16 docs before touching app/page code.
+2. Add Prisma `Favorite` model and required relation fields, generate/apply `add_favorites`, then add the functional case-insensitive unique index migration modeled on `tag_name_ci_unique`; verify migration status on the development branch.
+3. Add constants, `FavoriteOption`/`ManageableFavorite` types, favorite validation schemas, and tests for bounds, nullish amount, text caps, and TRANSFER rejection.
+4. Add pure `buildFavoritePrefill` with tests for wholesale prefill, stale category/account degradation, prompt-on-use amount focus, today date injection, null text normalization, and determinism.
+5. Add `getUserFavorites` and `getManageableFavorites` with shared ordering, Decimal-to-number mapping, joined category/account labels, and DB fetcher tests.
+6. Add `createFavorite`, `updateFavorite`, and `deleteFavorite` actions with auth, validation, cap enforcement, case-insensitive dedup, ownership checks, friendly unique-violation mapping, `/settings` revalidation, telemetry, and action tests.
+7. Wire the drawer: include favorites in `getDrawerFormData`, render the create-mode strip/save affordance, apply `buildFavoritePrefill`, reset split/AI/parse session state on favorite tap, append newly created favorites locally, and keep transfers excluded.
+8. Wire `/settings`: fetch manageable favorites, render the management card after Tags, support rename/delete, show archived-account fallback chip, and add category-delete copy for favorite category fallback.
+9. Update shipping docs, then run `npm run test:run`, `npm run build`, and a browser pass covering save, tap-prefill, null amount focus, archived account fallback, rename/delete, cap behavior, and deleted-category fallback.
 
 ## History
 

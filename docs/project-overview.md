@@ -215,6 +215,7 @@ model User {
   goals              Goal[]
   recurringTemplates RecurringTemplate[]
   tags               Tag[]
+  favorites          Favorite[]
 }
 
 // ─── NextAuth Models ──────────────────────────────────
@@ -307,6 +308,7 @@ model FinancialAccount {
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  favorites          Favorite[]
 
   @@index([userId])
 }
@@ -329,6 +331,7 @@ model Category {
   budgets            Budget[]
   recurringTemplates RecurringTemplate[]
   splits             TransactionSplit[]
+  favorites          Favorite[]
 
   @@unique([name, userId])
   @@index([userId])
@@ -374,6 +377,32 @@ model TransactionTag {
 // ─── Transaction ──────────────────────────────────────
 // Transfers create two records sharing the same transferPairId.
 // Both legs have isTransferLeg = true to prevent accidental recategorization.
+
+// User-owned on-demand capture shortcut. Pre-fills the transaction drawer as
+// an unsaved draft; createTransaction remains the sole ledger writer.
+// INCOME/EXPENSE only in validation; null amount = prompt on use.
+
+model Favorite {
+  id        String          @id @default(cuid())
+  name      String
+  type      TransactionType
+  amount    Decimal?        @db.Decimal(12, 2)
+  merchant  String?
+  note      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  userId             String
+  categoryId         String?
+  financialAccountId String?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  financialAccount FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([name, userId])
+  @@index([userId])
+}
 
 model Transaction {
   id                  String          @id @default(cuid())
@@ -659,6 +688,16 @@ Soft delete: deleted transactions receive `deletedAt` timestamp and disappear fr
 > `splits` array (CSV keeps a split as one `Split`-labelled row); **import of splits is deferred** (a JSON
 > round-trip flattens a split to Uncategorized in v1 — the top post-release follow-up). See
 > `docs/features/split-transactions-spec.md`.
+
+> **✅ Shipped — Quick-add favorites (`feature/quick-add-favorites`, POST-MVP §19).** Users can save
+> common income/expense captures from the create-mode drawer as **Favorites** (type, optional amount,
+> optional category/account, merchant, note). Favorites render as a neutral chip grid in the drawer and
+> **pre-fill an unsaved draft only**; the user still reviews and clicks Save, and `createTransaction`
+> remains the sole ledger writer. A null favorite amount clears and focuses the amount field
+> (prompt-on-use); stale/deleted categories fall back to Uncategorized; archived stored accounts fall
+> back to the current default and are flagged on `/settings`, where favorites are renamed or deleted.
+> Free, deterministic, no AI, no Pro gate, no transfer favorites in v1. See
+> `docs/features/quick-add-favorites-spec.md`.
 
 ### Financial Accounts
 

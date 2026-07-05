@@ -6,6 +6,7 @@ import { getTransactions } from "@/lib/db/transactions";
 import { getUserAccounts } from "@/lib/db/accounts";
 import { getUserCategories } from "@/lib/db/categories";
 import { getUserTags } from "@/lib/db/tags";
+import { getUserFavorites } from "@/lib/db/favorites";
 import { getAiProfile } from "@/lib/db/ai";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
 import { round2 } from "@/lib/money";
@@ -110,13 +111,17 @@ export async function getDrawerFormData(): Promise<{
   if (!session?.user?.id) return { success: false, error: NOT_AUTHED.error };
 
   try {
-    const [accounts, categories, tags, { isPro }] = await Promise.all([
+    const [accounts, categories, tags, favorites, { isPro }] = await Promise.all([
       getUserAccounts(session.user.id),
       getUserCategories(session.user.id),
       getUserTags(session.user.id),
+      getUserFavorites(session.user.id),
       getAiProfile(session.user.id),
     ]);
-    return { success: true, data: { accounts, categories, tags, isPro } };
+    return {
+      success: true,
+      data: { accounts, categories, tags, favorites, isPro },
+    };
   } catch (error) {
     console.error("getDrawerFormData failed", error);
     return { success: false, error: "Could not load the form." };

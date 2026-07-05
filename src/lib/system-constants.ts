@@ -169,6 +169,12 @@ export const CATEGORY_NAME_MAX = 50;
  */
 export const TAG_NAME_MAX = 32;
 
+/** Max length of a favorite's chip label. */
+export const FAVORITE_NAME_MAX = 32;
+
+/** Per-user cap: the drawer strip must stay a glanceable row. */
+export const FAVORITE_MAX_COUNT = 12;
+
 /**
  * Max tags assignable to a single transaction. A write guardrail against
  * unbounded join rows — enforced both client-side (the picker disables "Add" at

@@ -4,7 +4,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, SplitSquareHorizontal } from "lucide-react";
+import {
+  Check,
+  Sparkles,
+  SplitSquareHorizontal,
+  Star,
+  X,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +30,7 @@ import {
   updateTransfer,
   type MutationResult,
 } from "@/actions/transactions";
+import { createFavorite, trackFavoriteUsed } from "@/actions/favorites";
 import { suggestCategory } from "@/actions/ai/suggest-category";
 import { trackCategoryOutcome } from "@/actions/ai/track-outcome";
 import { parseTransaction } from "@/actions/ai/parse-transaction";
@@ -35,10 +42,12 @@ import { CategoryPickerField } from "@/components/categories/category-picker-fie
 import { TagPickerField } from "@/components/tags/tag-picker-field";
 import { SplitEditor } from "@/components/transactions/split-editor";
 import { TRANSACTION_TYPE_OPTIONS } from "@/lib/constants";
-import { BREAKPOINTS } from "@/lib/system-constants";
+import { BREAKPOINTS, FAVORITE_MAX_COUNT } from "@/lib/system-constants";
 import { isSplitBalanced, type SplitDraft } from "@/lib/split";
 import { todayDateInputValue } from "@/lib/date";
 import { getDefaultActiveAccount } from "@/lib/account";
+import { formatCurrencyCents } from "@/lib/format";
+import { buildFavoritePrefill } from "@/lib/favorites";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import type { DrawerFormData, TransactionTypeValue } from "@/types/transactions";
@@ -60,6 +69,7 @@ export function TransactionDrawer({
   const scopedAccountId = searchParams.get("account");
   const isDesktop = useMediaQuery(`(min-width: ${BREAKPOINTS.mobile}px)`);
   const [isPending, startTransition] = useTransition();
+  const [isSavingFavorite, startSavingFavorite] = useTransition();
 
   const [formData, setFormData] = useState<DrawerFormData | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
@@ -80,6 +90,10 @@ export function TransactionDrawer({
   const [merchant, setMerchant] = useState("");
   const [note, setNote] = useState("");
   const [transferPairId, setTransferPairId] = useState<string | null>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const [favoriteFormOpen, setFavoriteFormOpen] = useState(false);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
 
   // AI category suggestion (Pro). `suggestedCategoryId` is retained so Save can
   // tell accept from override for telemetry; reset whenever the drawer reopens.
@@ -150,6 +164,9 @@ export function TransactionDrawer({
     // Clear split mode; the edit branch re-hydrates it below when applicable.
     setIsSplit(false);
     setSplits([]);
+    setFavoriteFormOpen(false);
+    setFavoriteName("");
+    setFavoriteError(null);
 
     getDrawerFormData().then((res) => {
       if (active && res.success && res.data) setFormData(res.data);
@@ -230,8 +247,16 @@ export function TransactionDrawer({
   const accounts = formData?.accounts ?? [];
   const categories = formData?.categories ?? [];
   const tags = formData?.tags ?? [];
+  const favorites = formData?.favorites ?? [];
   const noAccounts = formData !== null && accounts.length === 0;
   const busy = isPending || loadingEdit;
+  const canSaveCurrentFavorite =
+    !isEdit &&
+    !isTransfer &&
+    (amount.trim().length > 0 ||
+      merchant.trim().length > 0 ||
+      categoryId.length > 0);
+  const favoriteLimitReached = favorites.length >= FAVORITE_MAX_COUNT;
 
   function handleSuggest() {
     if (!hasSuggestInput) return; // nothing to categorize
@@ -356,6 +381,93 @@ export function TransactionDrawer({
       ]);
       setIsSplit(true);
     }
+  }
+
+  function clearDraftHints() {
+    setSuggestedCategoryId(null);
+    setSuggestionPromptVersion(null);
+    setSuggestionConfidence(null);
+    setSuggestedMerchant(null);
+    setSuggestNote(null);
+    setQuickAddText("");
+    setParseNote(null);
+    setParseConfidence(null);
+    setParsePromptVersion(null);
+    setDraftSnapshot(null);
+  }
+
+  function handleFavoriteTap(favorite: DrawerFormData["favorites"][number]) {
+    const prefill = buildFavoritePrefill(
+      favorite,
+      {
+        categoryIds: new Set(categories.map((c) => c.id)),
+        accountIds: new Set(accounts.map((a) => a.id)),
+      },
+      todayDateInputValue()
+    );
+
+    handleTypeChange(prefill.type);
+    setAmount(prefill.amount);
+    setDate(prefill.date);
+    setCategoryId(prefill.categoryId);
+    if (prefill.accountId !== null) setAccountId(prefill.accountId);
+    setMerchant(prefill.merchant);
+    setNote(prefill.note);
+    setIsSplit(false);
+    setSplits([]);
+    clearDraftHints();
+    setFavoriteFormOpen(false);
+    setFavoriteError(null);
+    void trackFavoriteUsed({ hasAmount: favorite.amount !== null });
+
+    if (prefill.focusAmount) {
+      requestAnimationFrame(() => amountInputRef.current?.focus());
+    }
+  }
+
+  function openFavoriteForm() {
+    const categoryName = categories.find((c) => c.id === categoryId)?.name;
+    setFavoriteName(merchant.trim() || categoryName || "");
+    setFavoriteError(null);
+    setFavoriteFormOpen(true);
+  }
+
+  function appendFavorite(favorite: DrawerFormData["favorites"][number]) {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            favorites: [...prev.favorites, favorite].sort((a, b) =>
+              a.name.localeCompare(b.name)
+            ),
+          }
+        : prev
+    );
+  }
+
+  function handleSaveFavorite() {
+    if (isTransfer) return;
+    setFavoriteError(null);
+    startSavingFavorite(async () => {
+      const res = await createFavorite({
+        name: favoriteName,
+        type: type === "INCOME" ? "INCOME" : "EXPENSE",
+        amount: amount.trim().length > 0 ? Number(amount) : null,
+        categoryId: isSplit ? null : categoryId || null,
+        financialAccountId: accountId || null,
+        merchant: merchant.trim() || null,
+        note: note.trim() || null,
+      });
+
+      if (res.success) {
+        appendFavorite(res.data);
+        setFavoriteFormOpen(false);
+        setFavoriteName("");
+        toast.success("Favorite saved");
+      } else {
+        setFavoriteError(res.error);
+      }
+    });
   }
 
   const splitReady = !isSplit || isSplitBalanced(Number(amount), splits);
@@ -521,6 +633,106 @@ export function TransactionDrawer({
             </div>
           )}
 
+          {!isEdit &&
+            (favorites.length > 0 ||
+              canSaveCurrentFavorite ||
+              favoriteLimitReached) && (
+              <div className="mb-4 space-y-2">
+                {canSaveCurrentFavorite &&
+                  !favoriteLimitReached &&
+                  !favoriteFormOpen && (
+                    <button
+                      type="button"
+                      onClick={openFavoriteForm}
+                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                    >
+                      <Star className="size-3.5" />
+                      Save as favorite
+                    </button>
+                  )}
+                {/* Grid, not a scroll row: horizontal scrolling on a touch
+                    sheet turns scroll attempts into accidental chip taps (and
+                    a chip tap overwrites the whole form). Two lines per cell —
+                    name above, amount below — so the name always gets the full
+                    cell width and never truncates against the amount. Fixed 2
+                    columns: the drawer is 420px even on desktop, and a third
+                    column can't fit name + amount readably. */}
+                {favorites.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {favorites.map((favorite) => (
+                      <button
+                        key={favorite.id}
+                        type="button"
+                        onClick={() => handleFavoriteTap(favorite)}
+                        aria-label={`Use ${favorite.name} favorite`}
+                        className="flex min-w-0 flex-col items-start gap-0.5 rounded-md border border-line bg-surface-2 px-2.5 py-2 text-left transition-colors hover:border-ink-3"
+                      >
+                        <span className="flex w-full min-w-0 items-center gap-1.5 text-[12px] font-medium text-ink">
+                          <Star className="size-3.5 shrink-0 text-ink-3" />
+                          <span className="truncate">{favorite.name}</span>
+                        </span>
+                        {favorite.amount !== null && (
+                          <span className="pl-5 text-[11px] text-ink-3">
+                            {formatCurrencyCents(favorite.amount)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {canSaveCurrentFavorite && favoriteLimitReached && (
+                  <p className="text-[11px] text-ink-3">
+                    Remove one in Settings to save another favorite.
+                  </p>
+                )}
+                {favoriteFormOpen && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={favoriteName}
+                      onChange={(e) => setFavoriteName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSaveFavorite();
+                        }
+                        if (e.key === "Escape") {
+                          setFavoriteFormOpen(false);
+                          setFavoriteError(null);
+                        }
+                      }}
+                      placeholder="Favorite name"
+                      aria-label="Favorite name"
+                      className="min-w-0 flex-1 rounded-lg border border-line bg-app px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-3"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveFavorite}
+                      disabled={isSavingFavorite}
+                      aria-label="Save favorite"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-success text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                    >
+                      <Check size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFavoriteFormOpen(false);
+                        setFavoriteError(null);
+                      }}
+                      aria-label="Cancel favorite"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
+                {favoriteError && (
+                  <p className="text-[11px] text-danger">{favoriteError}</p>
+                )}
+              </div>
+            )}
+
           {/* Type toggle */}
           <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-app p-1">
             {TRANSACTION_TYPE_OPTIONS.map((option) => (
@@ -546,6 +758,7 @@ export function TransactionDrawer({
             <div className="flex items-center rounded-lg border border-line bg-app px-3">
               <span className="text-[22px] font-medium text-ink-3">€</span>
               <input
+                ref={amountInputRef}
                 type="text"
                 inputMode="decimal"
                 value={amount}

@@ -143,6 +143,11 @@ export const HELP_SECTIONS: HelpSection[] = [
           "Pick the type and enter the amount — Spendly handles the sign. Expenses subtract, income adds.",
       },
       {
+        term: "Favorites",
+        detail:
+          "Save common income or expense entries from the transaction drawer. A favorite pre-fills the drawer for you to review and save; it never creates a transaction by itself, and you manage saved favorites in Settings.",
+      },
+      {
         term: "Split across categories",
         detail:
           "An expense can be split across several categories — a €80 shop as €55 Groceries + €25 Household. It stays one transaction (your balance is unchanged), but each budget and report counts only its share. Turn on Split on the expense, add the lines, and make them add up to the total.",
