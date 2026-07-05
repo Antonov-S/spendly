@@ -36,6 +36,7 @@ model User {
   goals              Goal[]
   recurringTemplates RecurringTemplate[]
   tags               Tag[]
+  favorites          Favorite[]
 
   recurringSuggestionMutes RecurringSuggestionMute[]
 
@@ -132,6 +133,7 @@ model FinancialAccount {
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  favorites          Favorite[]
 
   @@index([userId])
 }
@@ -154,6 +156,7 @@ model Category {
   budgets            Budget[]
   recurringTemplates RecurringTemplate[]
   splits             TransactionSplit[]
+  favorites          Favorite[]
 
   @@unique([name, userId])
   @@index([userId])
@@ -242,6 +245,33 @@ model TransactionTag {
 // categories for budget + Reports aggregation. Split amounts are POSITIVE
 // magnitudes that sum to abs(parent.amount). EXPENSE parents only (v1).
 // Split status is DERIVED (splits.length > 0) — there is no isSplit column.
+
+// A saved capture shortcut: pre-fills the transaction drawer as an unsaved
+// draft. NEVER creates transactions itself; createTransaction is the sole
+// writer. INCOME/EXPENSE only (TRANSFER is rejected in validation). Every field
+// except name/type is optional: a null amount means "prompt on use".
+
+model Favorite {
+  id        String          @id @default(cuid())
+  name      String
+  type      TransactionType
+  amount    Decimal?        @db.Decimal(12, 2)
+  merchant  String?
+  note      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  userId             String
+  categoryId         String?
+  financialAccountId String?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  financialAccount FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([name, userId])
+  @@index([userId])
+}
 
 model TransactionSplit {
   id        String   @id @default(cuid())

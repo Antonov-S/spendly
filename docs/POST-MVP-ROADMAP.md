@@ -756,6 +756,18 @@ core-awareness). See spec §10.
 
 **Effort: S–M · Value: medium (fast manual entry). Lighter enhancement.**
 
+> **✅ Shipped (`feature/quick-add-favorites`, Delivery Sequence slot 15).** A new user-owned
+> `Favorite` model stores on-demand INCOME/EXPENSE capture shortcuts (type, optional amount,
+> optional category/account, merchant, note). Favorites are saved from the create-mode
+> transaction drawer, managed on `/settings` (rename/delete only), and shown as a neutral
+> two-column chip grid in the drawer. Tapping one **pre-fills an unsaved draft** via `buildFavoritePrefill`;
+> `createTransaction` remains the sole ledger writer. Null amount = prompt-on-use (clears and
+> focuses the amount field); stale/deleted category falls back to Uncategorized; archived stored
+> accounts fall back to the current default and are flagged in settings. Case-insensitive
+> per-user names are protected by a functional `(lower(name), userId)` unique index. **Free,
+> no AI, no Pro gate, no transfer/split/tag favorites in v1.** See
+> `docs/features/quick-add-favorites-spec.md`.
+
 Saved one-tap common transactions — "Coffee €3.50 / Dining" — that pre-fill the drawer as an
 **unsaved draft**. Distinct from recurring templates (which are *scheduled*); these are *on-demand*
 shortcuts serving the 5-second-capture goal.
@@ -764,8 +776,9 @@ shortcuts serving the 5-second-capture goal.
 `account`, `merchant`); a favorites strip/menu in the drawer or quick-add that pre-fills (never
 silently writes — the user still confirms). Reuses `createTransaction`.
 
-**Open decisions:** pre-fill draft vs. one-tap create (recommend pre-fill — keeps the confirm
-moment); where surfaced; fixed amount vs. prompt-on-use.
+**Resolved decisions:** free, not Pro-gated; pre-fill draft, never one-tap create; surfaced in
+the create-mode drawer with management on `/settings`; fixed amount when set and prompt-on-use
+when null; name-ascending order in v1.
 
 ---
 
@@ -883,7 +896,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
 | 14 | Cash-Flow Forecast (18) | Committed | M | No | **✅ Shipped.** Read-only `ForecastPanel` on `/dashboard` (right column below Goals) projects the balance 30 days forward from active templates + pending drafts. Pure deterministic `buildCashflowForecast` folds signed occurrences over the horizon (load-bearing skip rule prevents template/draft double-count); anchored on `summary.totalBalance` in-process so it can't drift from the hero number. Dashed neutral SVG, `danger` below zero, hidden at `eventCount === 0`. **Zero AI, zero writes, zero schema, no Pro gate.** Reuses `advanceNextOccurrence`. |
-| 15 | Quick-Add Favorites (19) | Committed | S–M | No | Fast manual-entry enhancement; on-demand capture shortcuts. |
+| 15 | Quick-Add Favorites (19) | Committed | S–M | No | **✅ Shipped.** User-owned on-demand drawer shortcuts (`Favorite` + functional CI-unique index); save from create-mode drawer, manage rename/delete on `/settings`; tap pre-fills an unsaved draft only (`createTransaction` sole writer). Free, no AI, no Pro gate. |
 | — | Multi-Currency (11) | Parked | L | No | Promote only if ≥ ~10–15% of active users signal multi-currency need. |
 | — | Category Hierarchy (12) | Parked (low) | M+ | No | Likely fully replaced by Tags (§16); revisit only if tags prove insufficient *and* nesting is demanded. |
 | — | Later-stage AI assistants (13) | Parked | M–L | Yes | Promote only on an "expand AI" verdict at the Pro Value Review. |
@@ -971,8 +984,8 @@ be fully replaced by Tags (kept parked, not killed).
    single-account and exclude transfers.
 10. **§18 forecast / §19 favorites** — ~~forecast: free or Pro; surface (Dashboard vs. Reports) and
     horizon (30/60/90 days)~~ **Resolved (§18 shipped):** free, Dashboard (right column below Goals),
-    fixed 30-day horizon (60/90 left as a constant-plus-UI seam). **§19 favorites** — free or Pro
-    still open.
+    fixed 30-day horizon (60/90 left as a constant-plus-UI seam). ~~§19 favorites — free or Pro~~
+    **Resolved (§19 shipped):** free, deterministic, no Pro gate.
 11. **Parked promotion bars** — confirm/adjust the promotion criteria (multi-currency ~10–15%,
     mobile ~30% sessions) against your own targets. (Category Hierarchy is parked at low priority —
     expected to be fully replaced by Tags.)

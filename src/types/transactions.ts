@@ -1,4 +1,5 @@
 import type { TagOption } from "@/types/tags";
+import type { FavoriteOption } from "@/types/favorites";
 
 /** The three transaction kinds, as stored on `Transaction.type`. */
 export type TransactionTypeValue = "INCOME" | "EXPENSE" | "TRANSFER";
@@ -180,6 +181,8 @@ export interface DrawerFormData {
   categories: CategoryOption[];
   /** The user's tags for the multi-select tag picker (income/expense only). */
   tags: TagOption[];
+  /** The user's saved create-mode shortcuts. */
+  favorites: FavoriteOption[];
   /** Drives the Pro-only "Suggest" (AI categorization) affordance. */
   isPro: boolean;
 }

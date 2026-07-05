@@ -80,7 +80,8 @@ export function ConfirmDeleteCategoryDialog({
         <span className="font-medium text-ink">{name ?? "this category"}</span>.
         {uncategorizedNote}
         {deletedNote} Any split lines using this category become uncategorized
-        too. This cannot be undone.
+        too. Favorites using this category fall back to Uncategorized. This
+        cannot be undone.
       </p>
 
       <div className="mt-5 flex gap-2">
