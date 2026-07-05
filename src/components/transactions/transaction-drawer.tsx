@@ -59,6 +59,10 @@ interface TransactionDrawerProps {
   onClose: () => void;
 }
 
+// How long a tapped favorite chip shows its pressed/applied style before settling
+// back. One-consumer UI timing, kept local (not policy) per the fix spec.
+const FAVORITE_FLASH_MS = 600;
+
 export function TransactionDrawer({
   open,
   editId,
@@ -94,6 +98,13 @@ export function TransactionDrawer({
   const [favoriteFormOpen, setFavoriteFormOpen] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  // Transient acknowledgement of the last-tapped favorite chip: the chip shows a
+  // neutral pressed style for FAVORITE_FLASH_MS, and an aria-live line announces
+  // it (feedback is visible where the finger is, not just in distant fields).
+  const [appliedFavoriteId, setAppliedFavoriteId] = useState<string | null>(
+    null
+  );
+  const favoriteFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // AI category suggestion (Pro). `suggestedCategoryId` is retained so Save can
   // tell accept from override for telemetry; reset whenever the drawer reopens.
@@ -167,6 +178,8 @@ export function TransactionDrawer({
     setFavoriteFormOpen(false);
     setFavoriteName("");
     setFavoriteError(null);
+    // A flash from a prior session must not carry into a fresh drawer open.
+    setAppliedFavoriteId(null);
 
     getDrawerFormData().then((res) => {
       if (active && res.success && res.data) setFormData(res.data);
@@ -227,6 +240,10 @@ export function TransactionDrawer({
       // Invalidate any in-flight suggestion/parse: this drawer session is ending.
       suggestRunRef.current += 1;
       parseRunRef.current += 1;
+      // Clear a pending favorite-flash timeout so it never survives into a fresh
+      // drawer session. React runs this cleanup on unmount too, so "tap chip →
+      // click a sidebar link" (drawer remounts per navigation) is covered here.
+      if (favoriteFlashRef.current) clearTimeout(favoriteFlashRef.current);
     };
   }, [open, editId]);
 
@@ -419,6 +436,15 @@ export function TransactionDrawer({
     setFavoriteFormOpen(false);
     setFavoriteError(null);
     void trackFavoriteUsed({ hasAmount: favorite.amount !== null });
+
+    // Flash the tapped chip. Clear any pending timeout first so rapid repeated
+    // taps restart the window rather than an older timeout clearing it early.
+    if (favoriteFlashRef.current) clearTimeout(favoriteFlashRef.current);
+    setAppliedFavoriteId(favorite.id);
+    favoriteFlashRef.current = setTimeout(() => {
+      setAppliedFavoriteId(null);
+      favoriteFlashRef.current = null;
+    }, FAVORITE_FLASH_MS);
 
     if (prefill.focusAmount) {
       requestAnimationFrame(() => amountInputRef.current?.focus());
@@ -659,13 +685,25 @@ export function TransactionDrawer({
                     column can't fit name + amount readably. */}
                 {favorites.length > 0 && (
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Polite SR announcement of the applied favorite — the tap
+                        mutates distant fields silently, invisible to AT otherwise. */}
+                    <span className="sr-only" role="status" aria-live="polite">
+                      {appliedFavoriteId
+                        ? `${favorites.find((f) => f.id === appliedFavoriteId)?.name ?? ""} applied`
+                        : ""}
+                    </span>
                     {favorites.map((favorite) => (
                       <button
                         key={favorite.id}
                         type="button"
                         onClick={() => handleFavoriteTap(favorite)}
                         aria-label={`Use ${favorite.name} favorite`}
-                        className="flex min-w-0 flex-col items-start gap-0.5 rounded-md border border-line bg-surface-2 px-2.5 py-2 text-left transition-colors hover:border-ink-3"
+                        className={cn(
+                          "flex min-w-0 flex-col items-start gap-0.5 rounded-md border px-2.5 py-2 text-left transition-colors",
+                          appliedFavoriteId === favorite.id
+                            ? "border-ink-3 bg-ink/10"
+                            : "border-line bg-surface-2 hover:border-ink-3"
+                        )}
                       >
                         <span className="flex w-full min-w-0 items-center gap-1.5 text-[12px] font-medium text-ink">
                           <Star className="size-3.5 shrink-0 text-ink-3" />

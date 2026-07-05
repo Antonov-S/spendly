@@ -1,20 +1,51 @@
-# Current Feature
+# Current Feature: Favorite Chip Tap Feedback
 
 ## Status
 
-No active feature.
+In Progress
 
 ## Goals
 
-<!-- Add goals for the active feature here. -->
+- Give a tapped favorite chip a **local, transient acknowledgement** in the transaction drawer, visible where the finger already is — no toast, no motion beyond a short style transition, no new color semantics.
+- Track `appliedFavoriteId` in drawer state; `handleFavoriteTap` sets it and a ~600 ms timeout (stored in a ref) clears it. On each tap, clear any pending timeout before scheduling the new one so rapid taps **restart** the flash window.
+- While active, the tapped chip swaps to the app's existing **neutral pressed style** (`border-ink-3 bg-ink/10` — same pair the split toggle uses), then transitions back via the `transition-colors` already on the chip. Deliberately **not** success-green (a prefill is not a save).
+- Clear the timeout in the existing `useEffect([open, editId])` cleanup (the one invalidating `suggestRunRef`/`parseRunRef`) so a flash never survives into a fresh drawer session and unmount is covered for free.
+- Add a visually-hidden `aria-live="polite"` line in the favorites block announcing `"{name} applied"` when `appliedFavoriteId` sets — one live region, text derived from state.
 
 ## Notes
 
-<!-- Add implementation notes, open questions, and relevant file references here. -->
+- Spec: `docs/fixes/favorite-chip-tap-feedback-spec.md`. Context: `docs/features/quick-add-favorites-spec.md` §8.1.
+- **Deferred polish — not blocking, not urgent.** Parked during the `feature/quick-add-favorites` build QA (2026-07-05). No functional bug exists; this is a feedback-visibility refinement to a working flow.
+- Branch (when picked up): `fix/favorite-chip-tap-feedback`.
+- Target file: `src/components/transactions/transaction-drawer.tsx` (`handleFavoriteTap`, favorites grid).
+- Duration constant (~600 ms) lives in `src/lib/constants.ts` if extracted at all; a single local `const` inside the component is acceptable for a one-consumer animation timing.
+- **Why not CSS-only:** `:active` lasts only while the pointer is down (too brief); a keyframe re-triggered by re-render needs a keyed remount hack that is more code than the transient state. Timeout approach is ~10 lines, testable by inspection.
+
+### Explicitly rejected (do not build)
+
+- Hiding "Save as favorite" when the form exactly matches an existing favorite — seven-field compare on every keystroke; the case-insensitive duplicate-name error from `createFavorite` **is** the design.
+- A toast on chip tap — toasts are the app's mutation acknowledgements; a prefill is not a mutation and would dilute the undo-snackbar signal.
+- Scrolling the sheet to the amount field on tap — fights the user's scroll; `focusAmount` already handles the prompt-on-use case.
+
+### Testing
+
+- **Unit (Vitest):** None — change is component-internal timing/state, components are out of Vitest scope. `buildFavoritePrefill` + actions untouched; existing suites must stay green (`npm run test:run`).
+- **Build / lint:** `npm run build` and `npm run lint` must pass.
+- **Manual:** (1) tap chip → visible flash settles back within ~1 s, fields prefill; (2) tap then reopen drawer → no flashed chip (timeout cleared on reset); (3) mobile 375 px → flash visible without scrolling; (4) screen reader → announces "«name» applied"; (5) rapid double-tap → no error, prefill idempotent, flash restarts.
 
 ## Implementation Plan
 
-<!-- Add the active implementation plan here. -->
+All changes in `src/components/transactions/transaction-drawer.tsx` (single file):
+
+1. Module-level `FAVORITE_FLASH_MS = 600` (one-consumer UI timing, kept local).
+2. New state `appliedFavoriteId: string | null` + `favoriteFlashRef` (setTimeout handle).
+3. `handleFavoriteTap`: after applying the prefill, clear any pending timeout, set `appliedFavoriteId`, schedule a fresh `FAVORITE_FLASH_MS` timeout to clear it → rapid taps **restart** the window.
+4. Effect body reset block: `setAppliedFavoriteId(null)` so a prior-session flash never carries in.
+5. Effect cleanup (`[open, editId]`): `clearTimeout(favoriteFlashRef.current)` — covers close/reopen **and** unmount.
+6. Chip `className` → `cn(...)` with pressed style `border-ink-3 bg-ink/10` when `appliedFavoriteId === favorite.id`, else the existing `border-line bg-surface-2 hover:border-ink-3`; `transition-colors` retained.
+7. Visually-hidden `role="status" aria-live="polite"` span in the favorites grid announcing `"{name} applied"` (derived from state; `sr-only` is `position:absolute` so it takes no grid track).
+
+**Gates:** `npm run test:run` 1028 pass · `npm run build` clean · `npm run lint` 0 errors (16 pre-existing React Compiler advisory warnings only). No Vitest added (component-internal timing/state, out of scope). Manual browser pass left for user.
 
 ## History
 

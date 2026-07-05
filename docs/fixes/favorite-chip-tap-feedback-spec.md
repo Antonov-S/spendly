@@ -39,9 +39,18 @@ mutation toasts), no motion beyond a short style transition, no new color semant
 ### Proposed fix
 
 1. **Transient pressed/applied state on the chip.** Track `appliedFavoriteId` in drawer
-   state; `handleFavoriteTap` sets it and a ~600 ms timeout clears it (timeout stored in a
-   ref; cleared on drawer close/reopen alongside the existing session resets so a flash never
-   survives into a fresh drawer session). While active, the tapped chip swaps to the app's
+   state; `handleFavoriteTap` sets it and a ~600 ms timeout clears it. On every tap, **clear
+   any pending timeout in the ref before scheduling the new one**, so rapid repeated taps
+   restart the 600 ms window instead of an older timeout clearing the state early (this is
+   what makes manual test 5's "flash restarts" hold). The timeout is stored
+   in a ref and **cleared in the existing `useEffect([open, editId])` cleanup** — the one
+   that already invalidates `suggestRunRef`/`parseRunRef` — so a flash never survives into a
+   fresh drawer session. Placing it there (not imperatively in the handler or effect body)
+   also covers **component unmount** for free, since React runs the same cleanup on unmount:
+   the drawer remounts with `AppShell` per navigation, so "tap chip → immediately click a
+   sidebar link" can unmount it mid-flash. (React 18+ makes setState-after-unmount a silent
+   no-op, so this is hygiene, not a bug fix — but it must not be lost to an alternative
+   implementation.) While active, the tapped chip swaps to the app's
    existing **neutral pressed style** — `border-ink-3 bg-ink/10`, the same pair the split
    toggle uses for its active state — then transitions back via the `transition-colors`
    already on the chip. Deliberately **not** a success-green flash: green is semantically
