@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     where: { email },
     data: {
       password: hashedPassword,
+      sessionEpoch: { increment: 1 },
       // A clicked reset link proves ownership — double it as verification.
       emailVerified: new Date(),
     },

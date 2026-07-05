@@ -12,7 +12,7 @@ export default {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user
+      const isLoggedIn = !!auth?.user?.id
       const { pathname } = nextUrl
       const isAuthPage = pathname === "/sign-in" || pathname === "/register"
       const isProtected =

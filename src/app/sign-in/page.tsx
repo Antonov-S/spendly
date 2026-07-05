@@ -11,6 +11,7 @@ interface SignInPageProps {
     registered?: string;
     verified?: string;
     deleted?: string;
+    passwordChanged?: string;
     error?: string;
   }>;
 }
@@ -18,7 +19,8 @@ interface SignInPageProps {
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   await redirectIfAuthenticated();
 
-  const { registered, verified, deleted, error } = await searchParams;
+  const { registered, verified, deleted, passwordChanged, error } =
+    await searchParams;
 
   return (
     <AuthCard
@@ -37,6 +39,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         justRegistered={registered === "1"}
         justVerified={verified === "1"}
         justDeleted={deleted === "1"}
+        justChangedPassword={passwordChanged === "1"}
         emailVerificationEnabled={EMAIL_VERIFICATION_ENABLED}
         oauthError={
           error === "OAuthAccountNotLinked" ? "OAuthAccountNotLinked" : undefined

@@ -79,7 +79,8 @@ export async function changePassword(
     return { error: result.error };
   }
 
-  return { success: true };
+  await signOut({ redirectTo: "/sign-in?passwordChanged=1" });
+  return {};
 }
 
 /** Result returned to the delete-account form's `useActionState` hook. */

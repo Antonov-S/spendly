@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { updateProfile } from "@/actions/profile";
-import { auth } from "@/auth";
+import { changePassword, updateProfile } from "@/actions/profile";
+import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { PROFILE_NAME_MAX } from "@/lib/system-constants";
+import { changeUserPassword } from "@/lib/auth/change-password";
 
 vi.mock("@/auth", () => ({ auth: vi.fn(), signOut: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -19,6 +20,8 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const mockAuth = vi.mocked(auth);
+const mockSignOut = vi.mocked(signOut);
+const mockChangeUserPassword = vi.mocked(changeUserPassword);
 const userUpdate = vi.mocked(prisma.user.update);
 
 function signIn(id = "u1") {
@@ -96,5 +99,55 @@ describe("updateProfile", () => {
     expect(result.error).toBeTruthy();
     expect(result.success).toBeUndefined();
     expect(userUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("changePassword", () => {
+  function passwordForm() {
+    const fd = new FormData();
+    fd.set("currentPassword", "old-password");
+    fd.set("newPassword", "new-password-123");
+    fd.set("confirmPassword", "new-password-123");
+    return fd;
+  }
+
+  it("rejects an unauthenticated request", async () => {
+    mockAuth.mockResolvedValue(null as never);
+
+    const result = await changePassword({}, passwordForm());
+
+    expect(result.error).toBeTruthy();
+    expect(mockChangeUserPassword).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("returns the password-change error and does not sign out on failure", async () => {
+    signIn("u1");
+    mockChangeUserPassword.mockResolvedValue({
+      success: false,
+      error: "Your current password is incorrect",
+      code: "WRONG_PASSWORD",
+    });
+
+    const result = await changePassword({}, passwordForm());
+
+    expect(result).toEqual({ error: "Your current password is incorrect" });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("signs out to the password-changed banner on success", async () => {
+    signIn("u1");
+    mockChangeUserPassword.mockResolvedValue({ success: true });
+
+    await changePassword({}, passwordForm());
+
+    expect(mockChangeUserPassword).toHaveBeenCalledWith("u1", {
+      currentPassword: "old-password",
+      newPassword: "new-password-123",
+      confirmPassword: "new-password-123",
+    });
+    expect(mockSignOut).toHaveBeenCalledWith({
+      redirectTo: "/sign-in?passwordChanged=1",
+    });
   });
 });

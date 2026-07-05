@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import { verifyCredentials } from "@/lib/auth/credentials"
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit"
+import { isTokenRevoked } from "@/lib/auth/session-epoch"
 import authConfig from "./auth.config"
 
 /**
@@ -57,6 +58,29 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         select: { deletedAt: true },
       })
       return !existing?.deletedAt
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        const id = user.id ?? token.sub
+        const row = id
+          ? await prisma.user.findUnique({
+              where: { id },
+              select: { sessionEpoch: true },
+            })
+          : null
+        token.epoch = row?.sessionEpoch ?? 0
+        return token
+      }
+
+      if (!token.sub) return token
+
+      const row = await prisma.user.findUnique({
+        where: { id: token.sub },
+        select: { sessionEpoch: true, deletedAt: true },
+      })
+      if (isTokenRevoked(token.epoch, row)) return null
+
+      return token
     },
     session({ session, token }) {
       if (token.sub) {

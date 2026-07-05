@@ -89,7 +89,10 @@ describe("changeUserPassword", () => {
     expect(hash).toHaveBeenCalledWith("new-password-123", expect.any(Number));
     expect(update).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { password: "hashed-new" },
+      data: {
+        password: "hashed-new",
+        sessionEpoch: { increment: 1 },
+      },
     });
   });
 });

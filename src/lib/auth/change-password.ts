@@ -57,7 +57,10 @@ export async function changeUserPassword(
   const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
   await prisma.user.update({
     where: { id: userId },
-    data: { password: hashedPassword },
+    data: {
+      password: hashedPassword,
+      sessionEpoch: { increment: 1 },
+    },
   });
 
   return { success: true };

@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -12,6 +13,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".codex/**",
     // Prisma generated client
     "src/generated/**",
   ]),
@@ -75,6 +77,9 @@ const eslintConfig = defineConfig([
     // Downgraded error→warn in pre-launch-polish (ROADMAP §9) so the lint gate
     // is green without refactoring core drawers right before launch; the
     // component refactor is tracked as a post-launch fast-follow.
+    plugins: {
+      "react-hooks": reactHooks,
+    },
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
