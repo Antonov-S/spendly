@@ -48,7 +48,10 @@ describe("softDeleteAccount", () => {
     expect(mockGetStripe).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { deletedAt: expect.any(Date) },
+      data: {
+        deletedAt: expect.any(Date),
+        sessionEpoch: { increment: 1 },
+      },
     });
   });
 

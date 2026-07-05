@@ -16,6 +16,8 @@ interface SignInFormProps {
   justVerified?: boolean;
   /** Shown after an account deletion (`?deleted=1`). */
   justDeleted?: boolean;
+  /** Shown after a successful password change (`?passwordChanged=1`). */
+  justChangedPassword?: boolean;
   /** When true, surface the resend-verification link after a failed sign-in. */
   emailVerificationEnabled?: boolean;
   /** Set when NextAuth redirects with `?error=OAuthAccountNotLinked`. */
@@ -26,6 +28,7 @@ export function SignInForm({
   justRegistered,
   justVerified,
   justDeleted,
+  justChangedPassword,
   emailVerificationEnabled,
   oauthError,
 }: SignInFormProps) {
@@ -52,6 +55,11 @@ export function SignInForm({
       {justVerified && (
         <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
           Email verified. Sign in to continue.
+        </p>
+      )}
+      {justChangedPassword && (
+        <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[12px] text-success">
+          Password changed. Please sign in with your new password.
         </p>
       )}
       {justRegistered && (

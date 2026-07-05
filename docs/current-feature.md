@@ -1,16 +1,29 @@
-# Current Feature
+# Current Feature: JWT Session Revocation
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Add a monotonic `User.sessionEpoch` revocation signal for JWT sessions.
+- Stamp the epoch into JWTs at sign-in and reject tokens when the server-side epoch changes, the user is soft-deleted, or the user row is gone.
+- Bump the epoch on password change, password reset, and account soft-delete.
+- Make signed-in checks consistently require `session.user.id` to avoid redirect loops.
+- Explicitly sign the current user out after password change and show a sign-in success banner.
+- Cover the revocation helper, epoch-bumping mutations, guard predicates, and password-change sign-out behavior with Vitest tests.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- Spec: `docs/fixes/jwt-session-revocation-spec.md`.
+- Current sessions use `session: { strategy: "jwt" }` in `src/auth.ts`; no server-side revocation exists today.
+- Additive Prisma migration required: `add_user_session_epoch`, applied only through `prisma migrate dev` on the development Neon branch.
+- New helper planned at `src/lib/auth/session-epoch.ts`: missing token epoch counts as `0`, missing/deleted user row revokes, and any epoch mismatch revokes.
+- `jwt` callback belongs in `src/auth.ts` (Node runtime), not `auth.config.ts`; `auth.config.ts` remains edge-safe.
+- Password change should call `signOut({ redirectTo: "/sign-in?passwordChanged=1" })` after successful hash rotation instead of returning an in-place success state.
+- Existing tests cover auth utilities/actions; reset-password route coverage appears absent and should be added for the epoch bump.
+- Lint gate required registering the already-configured `react-hooks` flat-config plugin, adding the missing dev dependency, and ignoring `.codex/**` tooling/cache files so app lint does not scan agent assets.
+- No open product questions found during load; implementation should follow the spec as written.
 
 ## History
 

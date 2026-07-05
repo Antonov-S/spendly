@@ -84,6 +84,13 @@ describe("redirectIfAuthenticated", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  it("does nothing when the session has a user object but no user id", async () => {
+    mockAuth.mockResolvedValue({ user: {}, expires: "" } as never);
+
+    await expect(redirectIfAuthenticated()).resolves.toBeUndefined();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
   it("honors a custom redirect target", async () => {
     mockAuth.mockResolvedValue(session as never);
 

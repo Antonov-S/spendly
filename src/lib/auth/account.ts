@@ -40,7 +40,10 @@ export async function softDeleteAccount(
 
     await prisma.user.update({
       where: { id: userId },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+        sessionEpoch: { increment: 1 },
+      },
     });
   }
 
