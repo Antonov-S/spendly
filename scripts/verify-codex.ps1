@@ -92,16 +92,18 @@ if (Test-Path $configOut) {
     else { Pass "config.toml contains no inline ctx7sk- secret" }
 } else { Fail ".codex/config.toml missing (run: npm run codex:sync)" }
 
-# 5. .codex/prompts holds the three feature-*.md, byte-identical to shared-prompts -
-$promptsDir = Join-Path $repo ".codex\prompts"
-$sharedDir  = Join-Path $repo "shared-prompts"
-foreach ($name in @("feature-load.md", "feature-start.md", "feature-complete.md")) {
-    $a = Join-Path $sharedDir $name
-    $b = Join-Path $promptsDir $name
+# 5. .codex/skills/<name>/SKILL.md, byte-identical to shared-skills sources -------
+#    (0.142.5 discovers custom commands as SKILL.md skills, invoked as $<name>;
+#     the older flat .codex/prompts/*.md loader was dropped.)
+$skillsDir = Join-Path $repo ".codex\skills"
+$sharedDir = Join-Path $repo "shared-skills"
+foreach ($name in @("feature-load", "feature-start", "feature-complete")) {
+    $a = Join-Path $sharedDir "$name\SKILL.md"
+    $b = Join-Path $skillsDir "$name\SKILL.md"
     if ((Test-Path $a) -and (Test-Path $b)) {
-        if ((Get-FileHash $a).Hash -eq (Get-FileHash $b).Hash) { Pass "prompt synced (identical): $name" }
-        else { Fail "prompt differs from source: $name (run: npm run codex:sync)" }
-    } else { Fail "prompt missing: $name" }
+        if ((Get-FileHash $a).Hash -eq (Get-FileHash $b).Hash) { Pass "skill synced (identical): $name" }
+        else { Fail "skill differs from source: $name (run: npm run codex:sync)" }
+    } else { Fail "skill missing: $name (run: npm run codex:sync)" }
 }
 
 # 6. Pin + containment ------------------------------------------------------------

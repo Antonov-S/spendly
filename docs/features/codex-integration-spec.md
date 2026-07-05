@@ -30,6 +30,31 @@ _Status: proposal • Platform: Windows 10 + PowerShell • Last updated: 2026-0
 > script single-sourcing the AGENTS.md preamble and `config.toml` (Step 6b); an automated
 > `verify:codex` smoke test (Step 7); §12 recovery is now template-driven, not manual.
 
+> **2026-07-05 revision — flat prompts dropped on the pin; workflow ships as skills.**
+> Verified live against the pinned build (`codex-cli 0.142.5`): the flat
+> `$CODEX_HOME/prompts/*.md` custom-command loader **no longer exists** — every `prompts`
+> string in the binary is an MCP protocol method or a skill sample, and there is no `prompts`
+> subcommand. The custom-command mechanism is now **skills** (`SKILL.md`), which Codex itself
+> confirms by populating `.codex/skills/.system/` with its built-in skills. So the three
+> workflow commands were **converted from flat prompts to skills** (Step 4b taken, not the
+> Step-4 baseline):
+> - Tracked source moved `shared-prompts/*.md` → **`shared-skills/<name>/SKILL.md`** (YAML
+>   frontmatter `name` + `description` + `metadata.short-description`; the only allowed
+>   frontmatter keys are `name`/`description`/`license`/`allowed-tools`/`metadata`, and
+>   `description` may not contain `<`/`>` — Codex's own `quick_validate.py` enforces this,
+>   so **`argument-hint` is not allowed** and the hint was folded into `description`).
+> - `scripts/sync-codex.ps1` now copies `shared-skills/<name>/SKILL.md` →
+>   `.codex/skills/<name>/`; `scripts/verify-codex.ps1` checks those instead of
+>   `.codex/prompts/`. The dead `.codex/prompts/` was removed.
+> - **Invocation changed from `/feature-load` to `$feature-load`** — skills are triggered by
+>   `$<skill-name>` followed by the spec reference as free text (there is no `$ARGUMENTS`
+>   token substitution; the model reads the argument from the invocation line). Confirmed:
+>   `codex exec -s read-only "list your feature-* skills"` returns
+>   `feature-complete, feature-load, feature-start`.
+> `shared-prompts/` is retained but **legacy** (superseded by `shared-skills/`); the §4 /
+> §4b / §13 prose below still describes the flat-prompt baseline and should be read through
+> this note.
+
 ---
 
 ## 1. Goal

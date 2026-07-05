@@ -1,24 +1,25 @@
-# feature-complete
-
-Tracked source for the Codex `/feature-complete` prompt. Copy or symlink into
-`.codex/prompts/feature-complete.md` (see `docs/features/codex-integration-spec.md` Step 4).
-Step 3 of: **feature-load → feature-start → feature-complete**.
-
 ---
+name: feature-complete
+description: Step 3 of the Spendly feature workflow. Review the implementation against the original spec (per-requirement scorecard), check edge cases and conventions, run the gates (test:run/build/lint), then, only after the user approves, do the gated commit/merge/reset. Run last. Invoke as $feature-complete followed by the same spec reference used for feature-load and feature-start.
+metadata:
+  short-description: Review vs spec + gated wrap-up
+---
+
+<!-- Tracked source: shared-skills/feature-complete/SKILL.md — synced into .codex/skills/ by scripts/sync-codex.ps1. Edit here, not in .codex/. -->
 
 You are doing the final review and wrap-up after the feature is implemented.
 
-**Input (`$ARGUMENTS`):** the spec reference (filename, path, or inline description) — the
-same one used for `/feature-load` / `/feature-start`. Read it again as the source of truth.
+**Input:** the spec reference given in your invocation (the text after `$feature-complete`) —
+the same one used for `$feature-load` / `$feature-start`. Read it again as the source of truth.
 
 ## Part A — Review (always)
 
 1. **Verify against the original specification.** Walk every goal / acceptance criterion in
-   `$ARGUMENTS` (the original spec) and `docs/current-feature.md`, and confirm each is
-   actually met by the code. Produce an explicit per-item status — **done**,
-   **incomplete**, **intentionally deferred**, or **omitted** — and for anything not
-   "done", state why (cross-check the deviation notes `/feature-start` recorded in
-   `## Notes`). Nothing in the spec should be silently dropped.
+   the original spec and `docs/current-feature.md`, and confirm each is actually met by the
+   code. Produce an explicit per-item status — **done**, **incomplete**, **intentionally
+   deferred**, or **omitted** — and for anything not "done", state why (cross-check the
+   deviation notes `$feature-start` recorded in `## Notes`). Nothing in the spec should be
+   silently dropped.
 2. **Edge cases.** Check the boundaries the spec implies (empty/zero, archived/soft-deleted,
    ownership/`userId` scoping, currency = EUR, mixed/transfer rows, rate limits, fail-open
    paths) and confirm they're handled.
@@ -55,4 +56,4 @@ reason), or **unresolved** (incomplete/omitted/needs follow-up) — plus the gat
 requirement is missing from the checklist. Part B (commit/merge/reset) runs only after the
 user approves.
 
-**Lifecycle:** step 3 of 3 (`/feature-load` → `/feature-start` → **`/feature-complete`**).
+**Lifecycle:** step 3 of 3 (`$feature-load` → `$feature-start` → **`$feature-complete`**).

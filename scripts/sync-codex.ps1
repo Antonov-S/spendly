@@ -10,10 +10,12 @@
     2. Copy codex-setup/config.template.toml -> .codex/config.toml when missing
        (-Force to overwrite; the template is secret-free - context7 key is read
        from $CONTEXT7_API_KEY at runtime).
-    3. Copy shared-prompts/*.md -> .codex/prompts/ (always, keeps them current).
+    3. Copy shared-skills/<name>/SKILL.md -> .codex/skills/<name>/ (always, keeps
+       them current). Codex 0.142.5 discovers custom commands as SKILL.md skills
+       (invoked as $<name>), NOT the older flat $CODEX_HOME/prompts/*.md files.
 
   Never hand-edit .codex/config.toml or the AGENTS.md preamble - edit the tracked
-  source (codex-setup/, shared-prompts/) and re-run this script.
+  source (codex-setup/, shared-skills/) and re-run this script.
 #>
 [CmdletBinding()]
 param([switch]$Force)
@@ -25,9 +27,9 @@ $agentsPath   = Join-Path $repo "AGENTS.md"
 $preamblePath = Join-Path $repo "codex-setup\agents-preamble.md"
 $configTmpl   = Join-Path $repo "codex-setup\config.template.toml"
 $codexHome    = Join-Path $repo ".codex"
-$promptsDir   = Join-Path $codexHome "prompts"
+$skillsDir    = Join-Path $codexHome "skills"
 $configOut    = Join-Path $codexHome "config.toml"
-$sharedPromptsDir = Join-Path $repo "shared-prompts"
+$sharedSkillsDir = Join-Path $repo "shared-skills"
 
 $BEGIN = "<!-- BEGIN:spendly-codex -->"
 $END   = "<!-- END:spendly-codex -->"
@@ -68,13 +70,17 @@ if ((Test-Path $configOut) -and -not $Force) {
     Write-Host "config.toml: written from template."
 }
 
-# -- 3. .codex/prompts/ -------------------------------------------------------
-if (-not (Test-Path $promptsDir)) { New-Item -ItemType Directory $promptsDir | Out-Null }
+# -- 3. .codex/skills/<name>/SKILL.md -----------------------------------------
+if (-not (Test-Path $skillsDir)) { New-Item -ItemType Directory $skillsDir | Out-Null }
 $copied = 0
-Get-ChildItem (Join-Path $sharedPromptsDir "*.md") | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path $promptsDir $_.Name) -Force
+Get-ChildItem $sharedSkillsDir -Directory | ForEach-Object {
+    $src = Join-Path $_.FullName "SKILL.md"
+    if (-not (Test-Path $src)) { return }
+    $dest = Join-Path $skillsDir $_.Name
+    if (-not (Test-Path $dest)) { New-Item -ItemType Directory $dest | Out-Null }
+    Copy-Item $src (Join-Path $dest "SKILL.md") -Force
     $copied++
 }
-Write-Host "prompts: $copied file(s) synced to .codex/prompts/."
+Write-Host "skills: $copied skill(s) synced to .codex/skills/."
 
 Write-Host "codex:sync complete."
