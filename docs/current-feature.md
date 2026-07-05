@@ -1,16 +1,30 @@
-# Current Feature
+# Current Feature: Codex Integration
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Let either agent (Claude Code or Codex CLI) work in this repo with **one** shared set of project rules and **no global Codex footprint** — everything lives in-tree and gitignored.
+- **Containment (two levers):** `CODEX_HOME` pinned to `.\.codex` via a `codex.ps1` launcher, and `@openai/codex@0.142.5` installed as a **local devDependency** (never `npm i -g`). A session writes **zero** files to `~/.codex`.
+- **Step 0 — gitignore:** add `AGENTS.override.md` + `.agents/` to the AI-tooling block (`.codex/`, `AGENTS.md`, `.mcp.json` already present). No `AGENTS.override.md` may exist anywhere in the repo.
+- **Step 2 — instructions:** append a Spendly Codex preamble to `AGENTS.md` **outside** the `nextjs-agent-rules` markers (between `spendly-codex` markers), with the Neon guardrails **inlined** (project `lucky-hat-53091250`, branch `development`/`br-hidden-bonus-aqksw1pa` only, never production `br-falling-haze-aqyvxnbq`, migrations-not-`db push`, test+build before commit, no agent attribution). No symlink.
+- **Step 3 — MCP:** `.codex/config.toml` mirrors `.mcp.json` in Codex HTTP `[mcp_servers]` syntax (neon HTTP/OAuth, context7 HTTP key via `env_http_headers` reading `$CONTEXT7_API_KEY`, playwright stdio). `env` block forbidden for HTTP.
+- **Step 4 — prompts:** copy the three tracked `shared-prompts/feature-*.md` into `.codex/prompts/` so `/feature-load` → `/feature-start` → `/feature-complete` are discoverable and expand with the spec as `$ARGUMENTS`.
+- **Step 6 — sandbox/approval:** `approval_policy = "on-request"`, `sandbox_mode = "workspace-write"`, `network_access = true`.
+- **Step 6b — anti-drift:** tracked secret-free `codex-setup/agents-preamble.md` + `codex-setup/config.template.toml`; `scripts/sync-codex.ps1` (idempotent: re-apply preamble, copy config template when missing, copy prompts) + `scripts/verify-codex.ps1` (Step 7 smoke test); `codex:sync` + `verify:codex` npm scripts.
+- **Step 7 — verify:** `npm run verify:codex` passes (asserts ignores, no override file, both marker pairs + literal Neon IDs in `AGENTS.md`, config parses + has both HTTP servers + no inline `ctx7sk-` secret, prompts byte-identical, containment/version). Then the manual conversational checks.
+- Claude Code behavior unchanged; no secrets committed; §10 "Verified" version slot filled.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- **Spec:** `docs/features/codex-integration-spec.md` (proposal; Windows 10 + PowerShell 5.1; last revised 2026-07-04). Scope this slice to the **shipped baseline** (flat prompts, Steps 0–7). **Defer** Step 4b (port as Codex skill) and Step 5 agent-role pilot — both marked deferred-by-decision in the spec.
+- **Current repo state (verified):** `.gitignore` already ignores `.codex`/`AGENTS.md`/`.mcp.json`; `shared-prompts/` already holds the three `feature-*.md`; `AGENTS.md` currently holds only the `nextjs-agent-rules` block; Codex not yet installed; no `.codex/`, `codex-setup/`, or codex scripts.
+- **Division of labor:** I build/run all files + `npm i -D @openai/codex@0.142.5` + `codex:sync` + `verify:codex`. **User-only (interactive, I can't):** Codex CLI login, Neon MCP browser OAuth (first neon call), and the live conversational smoke test inside `./codex.ps1`.
+- **Open decision (context7 key):** template stays secret-free via `env_http_headers` reading `$CONTEXT7_API_KEY` (spec-recommended). `.mcp.json` currently inlines the key; whether to also inline it into the gitignored `.codex/config.toml` is the user's call (Step 3 offers both forms).
+- **Testing caveat:** this slice is PowerShell scripts + config/templates + gitignore + `AGENTS.md` — **no `src/lib/**` or `src/actions/**` surface**, so Vitest has nothing to cover (project rule: test server actions + utilities only). Verification is `npm run verify:codex` + the manual §8 checklist, not new unit tests. `npm run test:run` + `npm run build` must still pass as an unchanged baseline (Step 0.3).
+- **Footguns:** `AGENTS.override.md` *replaces* `AGENTS.md` (never create one); `CODEX_HOME` dir must pre-exist (launcher creates it); `env` block is stdio-only (fails HTTP validation); the preamble must sit outside the tool-managed `nextjs-agent-rules` markers so regeneration doesn't clobber it.
 
 ## History
 

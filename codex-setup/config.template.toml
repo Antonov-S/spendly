@@ -1,0 +1,36 @@
+# Spendly — Codex config template (TRACKED, secret-free).
+#
+# `npm run codex:sync` copies this to .codex/config.toml when that file is
+# missing (use `-Force` to overwrite). NEVER put a secret in this file — the
+# context7 key is read from the environment at runtime via env_http_headers.
+# Edit this template + re-sync; do not hand-edit .codex/config.toml.
+#
+# Servers mirror .mcp.json. Remote HTTP transport uses `url` +
+# http_headers / env_http_headers / bearer_token_env_var — the `env` block is
+# stdio-only and is REJECTED for HTTP transport (config validation fails).
+
+# ── Sandbox / approval (docs/features/codex-integration-spec.md §6) ──
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true   # needed for npm / prisma; tighten if undesired
+
+# ── MCP servers (mirror of .mcp.json) ──
+
+# neon — remote HTTP, OAuth (browser auth on first neon call); no API key.
+# The read-only + development-only + never-production guardrails live in
+# AGENTS.md (Step 2), NOT here: this server CAN reach production.
+[mcp_servers.neon]
+url = "https://mcp.neon.tech/mcp"
+
+# context7 — remote HTTP, key via header sourced from the environment.
+# Reads $CONTEXT7_API_KEY at runtime, so this template stays secret-free.
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+env_http_headers = { CONTEXT7_API_KEY = "CONTEXT7_API_KEY" }
+
+# playwright — local stdio (env IS allowed for stdio transport).
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]

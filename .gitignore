@@ -47,8 +47,12 @@ next-env.d.ts
 # AI coding tools
 CLAUDE.md
 AGENTS.md
+AGENTS.override.md
 /context
 /.claude
+/.codex
+/.agents
+.codex.env
 .mcp.json
 .playwright-mcp
 
