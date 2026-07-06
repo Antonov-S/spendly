@@ -355,6 +355,7 @@ export async function confirmDraft(draftId: string): Promise<MutationResult> {
 
     revalidateTransactionViews(); // /transactions + /dashboard + /budgets
     revalidatePath("/recurring");
+    void track("draft_confirmed", { cadence: template.cadence });
     return { success: true };
   } catch (error) {
     console.error("confirmDraft failed", error);

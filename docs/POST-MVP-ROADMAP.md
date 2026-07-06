@@ -139,6 +139,23 @@ Every item is evaluated against the same frame that governed the MVP:
 
 ## 0. Product Analytics / Telemetry
 
+> **✅ Shipped (`feature/product-analytics`).** First-party, server-side telemetry now persists
+> through the existing `track(event, props?)` funnel — **zero changes to any of the ~18 existing
+> emit sites**. New additive `AnalyticsEvent` table (migration `add_analytics_events`, keyed to
+> `userId`, account-deletion cascade) + a `User.analyticsOptOut` column and a **"Usage analytics"**
+> opt-out toggle in `/settings` Preferences (default on, legitimate-interest basis). The no-PII /
+> no-financial-values contract is now **structural**: a typed event registry
+> (`src/lib/analytics/events.ts`) allowlists each event's prop keys with per-key enum/type/slug
+> validation, and the sink (`track.ts` → `src/lib/db/analytics.ts`) resolves auth → honors the env
+> kill switch + opt-out → sanitizes against the registry → truncates oversized payloads → persists,
+> **fail-open (never throws, never blocks a feature)**. Starter product-action events added at
+> existing success points (`transaction_created`, `transfer_created`, `draft_confirmed`,
+> `budget_created`, `goal_created`, `import_committed` with **bucketed** counts, `export_run`,
+> `upgrade_to_pro_clicked`). Retention policy (`ANALYTICS_RETENTION_DAYS = 180`) + a dry-run-first
+> `scripts/prune-analytics.ts` (production-refusal gate). **Resolves Open question #1** (first-party
+> table + opt-out under legitimate interest); the Pro Value Review checkpoint is now unblocked
+> pending a measurement window. See `docs/features/product-analytics-telemetry-spec.md`.
+
 **Effort: S · Value: high (de-risks every later decision) · Build early, alongside Phase 1.**
 
 Spendly has no product analytics today, so backlog priority is currently argued from first

@@ -14,9 +14,11 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getTransactions } from "@/lib/db/transactions";
+import { track } from "@/lib/analytics/track";
 import type { TransactionPage } from "@/types/transactions";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/db/transactions", () => ({ getTransactions: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
@@ -128,6 +130,12 @@ describe("createTransaction", () => {
         }),
       })
     );
+    // Telemetry: the success path emits transaction_created (§0).
+    expect(track).toHaveBeenCalledWith("transaction_created", {
+      type: "EXPENSE",
+      isSplit: false,
+      tagCount: 0,
+    });
   });
 
   it("stores income as a positive signed amount", async () => {
@@ -663,6 +671,7 @@ describe("createTransfer", () => {
     expect(legs[0].transferPairId).toBe(legs[1].transferPairId);
     expect(legs.find((l) => l.financialAccountId === "a")?.amount).toBe(-50);
     expect(legs.find((l) => l.financialAccountId === "b")?.amount).toBe(50);
+    expect(track).toHaveBeenCalledWith("transfer_created");
   });
 
   it("rejects a transfer to the same account before querying", async () => {

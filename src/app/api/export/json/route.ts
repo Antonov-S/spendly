@@ -6,6 +6,7 @@ import {
 import { buildExportEnvelope } from "@/lib/export/json";
 import { exportFilename } from "@/lib/export/filename";
 import { getFullExport } from "@/lib/db/export";
+import { track } from "@/lib/analytics/track";
 import { EXPORT_MAX_TRANSACTIONS } from "@/lib/system-constants";
 import { downloadHeaders, exportError } from "../shared";
 
@@ -62,6 +63,8 @@ export async function GET(request: Request) {
       controller.close();
     },
   });
+
+  void track("export_run", { format: "json", scoped: !!accountId });
 
   return new Response(stream, {
     headers: downloadHeaders(

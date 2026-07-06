@@ -33,6 +33,7 @@ describe("getUserOverview", () => {
       isPro: true,
       stripeCustomerId: true,
       stripeSubscriptionId: true,
+      analyticsOptOut: true,
       createdAt: true,
     });
   });

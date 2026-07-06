@@ -7,8 +7,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { redirect } from "next/navigation";
+import { track } from "@/lib/analytics/track";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findUnique: vi.fn() } },
@@ -91,6 +93,10 @@ describe("createCheckoutSession", () => {
     expect(arg.customer).toBeUndefined();
     expect(arg.customer_email).toBe("a@b.c");
     expect(mockRedirect).toHaveBeenCalledWith("https://checkout");
+    // Telemetry: the click is recorded before the redirect (§0).
+    expect(track).toHaveBeenCalledWith("upgrade_to_pro_clicked", {
+      period: "monthly",
+    });
   });
 
   it("reuses an existing stripe customer (customer set, email omitted) + payload shape", async () => {

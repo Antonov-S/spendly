@@ -279,6 +279,11 @@ export const HELP_SECTIONS: HelpSection[] = [
           "Account deletion has a 30-day grace period, and you're prompted to export your data first.",
       },
       {
+        term: "Usage analytics",
+        detail:
+          "Spendly records which features you use so we can decide what to improve. This is linked to your account but never includes amounts, balances, names, notes, or merchants — only event names and counts. It's deleted with your account, and you can turn it off any time under Settings → Preferences → Usage analytics.",
+      },
+      {
         term: "Currency",
         detail: "Spendly is EUR-only today.",
       },

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { changePassword, updateProfile } from "@/actions/profile";
+import {
+  changePassword,
+  updateProfile,
+  updateAnalyticsPreference,
+} from "@/actions/profile";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -149,5 +153,47 @@ describe("changePassword", () => {
     expect(mockSignOut).toHaveBeenCalledWith({
       redirectTo: "/sign-in?passwordChanged=1",
     });
+  });
+});
+
+describe("updateAnalyticsPreference", () => {
+  /** A checked box submits both hidden "false" and checkbox "true"; the last wins. */
+  function toggleForm(checked: boolean) {
+    const fd = new FormData();
+    fd.append("enabled", "false"); // hidden default
+    if (checked) fd.append("enabled", "true"); // checkbox present when checked
+    return fd;
+  }
+
+  it("rejects an unauthenticated request without writing", async () => {
+    mockAuth.mockResolvedValue(null as never);
+
+    const result = await updateAnalyticsPreference({}, toggleForm(true));
+
+    expect(result.error).toBeTruthy();
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("opts out (analyticsOptOut = true) when unchecked and revalidates", async () => {
+    signIn("u1");
+    userUpdate.mockResolvedValue({} as never);
+
+    const result = await updateAnalyticsPreference({}, toggleForm(false));
+
+    expect(result.success).toBe(true);
+    const arg = userUpdate.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: "u1" });
+    expect(arg.data).toEqual({ analyticsOptOut: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/settings");
+  });
+
+  it("opts in (analyticsOptOut = false) when checked", async () => {
+    signIn("u1");
+    userUpdate.mockResolvedValue({} as never);
+
+    await updateAnalyticsPreference({}, toggleForm(true));
+
+    const arg = userUpdate.mock.calls[0][0];
+    expect(arg.data).toEqual({ analyticsOptOut: false });
   });
 });

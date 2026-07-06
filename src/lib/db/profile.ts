@@ -50,6 +50,7 @@ export async function getUserOverview(userId: string) {
       isPro: true, //                Billing plan badge (DB read, S4)
       stripeCustomerId: true, //     Billing: drives the Free/Pro action branch (§8)
       stripeSubscriptionId: true, // Billing "subscription active" affordance (§8)
+      analyticsOptOut: true, //      Preferences: usage analytics opt-out toggle
       createdAt: true, //            Preferences "member since"
     },
   });

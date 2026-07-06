@@ -203,6 +203,7 @@ model User {
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
   preferredCurrency    String    @default("EUR") // dormant in EUR-only MVP; reconciled from "USD" (migration reconcile_currency_eur_default)
+  analyticsOptOut      Boolean   @default(false) // usage-analytics opt-out (POST-MVP §0); default on (false)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -216,6 +217,7 @@ model User {
   recurringTemplates RecurringTemplate[]
   tags               Tag[]
   favorites          Favorite[]
+  analyticsEvents    AnalyticsEvent[]
 }
 
 // ─── NextAuth Models ──────────────────────────────────
@@ -577,6 +579,26 @@ model GoalContribution {
   goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
 
   @@index([goalId])
+}
+
+// ─── AnalyticsEvent ───────────────────────────────────
+// First-party product-telemetry sink (POST-MVP §0). Written ONLY through
+// src/lib/analytics/track.ts — no feature code touches this model directly.
+// Contract: event names + outcome counters only; NO PII, NO financial values.
+// Account deletion cascades events away (GDPR).
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  name      String   // snake_case event name, e.g. "ai_result"
+  props     Json?    // counts / enums / flags only — never amounts, names, merchants
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
 }
 ```
 

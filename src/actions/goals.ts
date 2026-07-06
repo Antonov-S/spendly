@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getGoalForEdit as getGoalForEditQuery } from "@/lib/db/goals";
 import { revalidateGoalViews } from "@/lib/revalidation";
+import { track } from "@/lib/analytics/track";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { dateInputToUtc } from "@/lib/date";
 import {
@@ -71,6 +72,7 @@ export async function createGoal(
     });
 
     revalidateGoalViews();
+    void track("goal_created");
     return { success: true };
   } catch (error) {
     console.error("createGoal failed", error);

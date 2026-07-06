@@ -380,6 +380,8 @@ describe("confirmDraft", () => {
     const updData = vi.mocked(prisma.recurringTemplate.update).mock.calls[0][0]
       .data as { nextOccurrence: Date };
     expect(updData.nextOccurrence.toISOString()).toBe("2026-07-16T00:00:00.000Z");
+    // Telemetry: the success path emits draft_confirmed with the cadence (§0).
+    expect(track).toHaveBeenCalledWith("draft_confirmed", { cadence: "MONTHLY" });
   });
 
   it("creates a positive INCOME transaction", async () => {

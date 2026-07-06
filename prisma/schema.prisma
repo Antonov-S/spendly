@@ -23,6 +23,7 @@ model User {
   stripeSubscriptionId String?   @unique
   preferredCurrency    String    @default("EUR")
   sessionEpoch         Int       @default(0) // bumped to invalidate outstanding JWT sessions
+  analyticsOptOut      Boolean   @default(false)
   deletedAt            DateTime? // soft delete — 30-day grace period before purge
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -37,6 +38,7 @@ model User {
   recurringTemplates RecurringTemplate[]
   tags               Tag[]
   favorites          Favorite[]
+  analyticsEvents    AnalyticsEvent[]
 
   recurringSuggestionMutes RecurringSuggestionMute[]
 
@@ -424,4 +426,23 @@ model GoalContribution {
   goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
 
   @@index([goalId])
+}
+
+// ─── AnalyticsEvent ───────────────────────────────────
+// First-party telemetry sink (POST-MVP §0). Written ONLY through
+// src/lib/analytics/track.ts — no feature code touches this model directly.
+// Contract: event names + outcome counters only; NO PII, NO financial values.
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  name      String
+  props     Json?
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
 }
