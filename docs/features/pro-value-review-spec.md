@@ -1,6 +1,23 @@
 # Pro Value Review — Measurement & Report — Implementation Spec
 
-> **Status: Not started.** This spec implements the [POST-MVP-ROADMAP.md](../POST-MVP-ROADMAP.md)
+> **✅ Shipped — measurement tooling (`feature/pro-value-review`, merged 2026-07-07).** Everything
+> this spec commits to build is live: `src/lib/analytics/review-metrics.ts` (pure
+> `buildProValueReviewReport` + frozen `AI_REVIEW_THRESHOLDS`), the read-only
+> `scripts/ai-review-report.ts`, `docs/reviews/pro-value-review-template.md`, Part B token/model
+> telemetry (`ai_result` + `input_tokens`/`output_tokens`/`model`, emitted centrally by
+> `runAiFeature`), `AI_REVIEW_WINDOW_DAYS = 28`, and the roadmap ✦-row note. §8's open questions
+> were resolved at build time: D3 thresholds approved as written; Part B shipped now; template
+> author "Project owner". **One deviation (repo wins):** `aiJsonRespond` now returns
+> `{ text, usage?, model }` instead of a bare string, so the four AI actions were touched to read
+> `response.text` and wrap their result in `withAiTelemetry(...)` — the orchestrator remains the
+> single `ai_result` emit site and feature behavior is unchanged. Beyond spec: the script also
+> prints a "Feature context" table (D6 guard-health/panel-yield/repeat-rate ride-alongs). 1074
+> tests, build + lint clean. **The checkpoint itself remains open:** earliest honest review is
+> **2026-08-03** (D1 window from the 2026-07-06 telemetry go-live); run the script, record
+> `docs/reviews/pro-value-review-<YYYY-MM>.md`, and update the roadmap ✦ row with the verdict —
+> until then §13 stays parked.
+>
+> This spec implements the [POST-MVP-ROADMAP.md](../POST-MVP-ROADMAP.md)
 > **✦ Pro Value Review checkpoint** — the one unshipped row in the Delivery Sequence. Every
 > committed feature (slots 1–15) has shipped, and §0 telemetry (`feature/product-analytics`) went
 > live on 2026-07-06, which the roadmap names as the checkpoint's unblocking event ("unblocked
