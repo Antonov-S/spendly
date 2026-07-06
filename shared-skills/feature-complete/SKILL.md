@@ -39,15 +39,29 @@ If review surfaces real problems, fix them (or report and stop) **before** Part 
 Mirrors Claude Code's `/feature complete`. Ask before committing; never add agent attribution
 to commit messages.
 
-1. Stage all changes and commit with a Conventional Commit message (`feat:` / `fix:` /
+1. **Mark the feature complete in the docs — BEFORE committing, so the doc flips ride the
+   feature commit.** Do all that apply:
+   - **Spec status banner (always):** flip the spec's opening `> **Status: …**` blockquote to
+     `> **✅ Shipped (\`feature/<branch>\`, <YYYY-MM-DD>).**` followed by the realized state:
+     what shipped, any open questions resolved at build time, deviations from the spec (repo
+     wins), anything shipped beyond spec, and the final gate results. Every shipped spec in
+     `docs/features/` and `docs/fixes/` carries this banner — a spec left at "Not started" /
+     "Draft" after merge is a workflow bug.
+   - **Roadmap:** confirm the matching `docs/POST-MVP-ROADMAP.md` section **and** its Delivery
+     Sequence row carry a `**✅ Shipped**` note (or, for gate/tooling slices, an accurate
+     status note — a gate row must never be marked ✅ before its review actually runs).
+   - **Described behaviour elsewhere:** per the Help maintenance contract, update any doc that
+     describes a behaviour this slice changed — `project-overview.md` (routes/features/schema
+     mirror), `src/lib/help/content.ts`, README where it states shipped facts.
+2. Stage all changes and commit with a Conventional Commit message (`feat:` / `fix:` /
    `chore:` …) describing the feature.
-2. Switch to `main` and merge the feature branch (no push yet).
-3. Delete the local feature branch.
-4. Reset `docs/current-feature.md`: H1 back to `# Current Feature`, clear Goals/Notes (keep
+3. Switch to `main` and merge the feature branch (no push yet).
+4. Delete the local feature branch.
+5. Reset `docs/current-feature.md`: H1 back to `# Current Feature`, clear Goals/Notes (keep
    placeholder comments), and append a feature summary to the **end** of `## History`.
-5. Commit the reset: `chore: reset current-feature.md after completing <feature>`.
-6. Push `main` to origin **once** (a single push with all changes).
-7. If the feature branch was previously pushed, delete it from origin.
+6. Commit the reset: `chore: reset current-feature.md after completing <feature>`.
+7. Push `main` to origin **once** (a single push with all changes).
+8. If the feature branch was previously pushed, delete it from origin.
 
 **Expected output:** a final validation report — a concise checklist mapping **every**
 requirement in the original spec to one of **implemented**, **deferred** (intentionally, with
