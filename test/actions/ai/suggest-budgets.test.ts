@@ -9,7 +9,10 @@ import type { BudgetSuggestInputs } from "@/lib/budget-suggest";
 
 vi.mock("@/lib/db/budget-suggest", () => ({ getBudgetSuggestInputs: vi.fn() }));
 vi.mock("@/lib/ai/respond", () => ({ aiJsonRespond: vi.fn() }));
-vi.mock("@/lib/ai/run", () => ({ runAiFeature: vi.fn() }));
+vi.mock("@/lib/ai/run", () => ({
+  runAiFeature: vi.fn(),
+  withAiTelemetry: (data: unknown) => data,
+}));
 vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 
 const mockRun = vi.mocked(runAiFeature);
@@ -49,6 +52,10 @@ const SPARSE_INPUTS: BudgetSuggestInputs = {
   categories: new Map(),
 };
 
+function ai(text: string) {
+  return { text, model: "gpt-5-nano" };
+}
+
 /** Run the real `run` callback via runAiFeature's success path. */
 function runInline() {
   mockRun.mockImplementation(async (args) => {
@@ -84,7 +91,7 @@ describe("suggestBudgets config", () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
     mockRespond.mockResolvedValue(
-      '{ "notes": [{ "categoryId": "cat-groceries", "note": "Steady at €210." }] }'
+      ai('{ "notes": [{ "categoryId": "cat-groceries", "note": "Steady at €210." }] }')
     );
 
     await suggestBudgets({ month: 7, year: 2026 });
@@ -97,7 +104,7 @@ describe("suggestBudgets config", () => {
   it("passes the built facts (as JSON) to aiJsonRespond", async () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
-    mockRespond.mockResolvedValue('{ "notes": [] }');
+    mockRespond.mockResolvedValue(ai('{ "notes": [] }'));
 
     await suggestBudgets({ month: 7, year: 2026 });
     const facts = JSON.parse(mockRespond.mock.calls[0][0].input);
@@ -114,7 +121,9 @@ describe("suggestBudgets happy path", () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
     mockRespond.mockResolvedValue(
-      '{ "notes": [{ "categoryId": "cat-groceries", "note": "You spent €180, €240 and €210 — €210 covers it." }] }'
+      ai(
+        '{ "notes": [{ "categoryId": "cat-groceries", "note": "You spent €180, €240 and €210 — €210 covers it." }] }'
+      )
     );
 
     const res = await suggestBudgets({ month: 7, year: 2026 });
@@ -143,7 +152,9 @@ describe("suggestBudgets numeric guard telemetry", () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
     mockRespond.mockResolvedValue(
-      '{ "notes": [{ "categoryId": "cat-groceries", "note": "You spent €999 last month." }] }'
+      ai(
+        '{ "notes": [{ "categoryId": "cat-groceries", "note": "You spent €999 last month." }] }'
+      )
     );
 
     const res = await suggestBudgets({ month: 7, year: 2026 });

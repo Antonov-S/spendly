@@ -6,6 +6,7 @@ import { track } from "@/lib/analytics/track";
 import type { AiResultFeature } from "@/lib/analytics/events";
 import { AiNoMatchError, AiParseError } from "@/lib/ai/errors";
 import { AI_TIMEOUT_MS, type RateLimitName } from "@/lib/system-constants";
+import type { AiJsonResponse } from "@/lib/ai/respond";
 
 /** Precise outcome of an AI call — tagged into telemetry and the result. */
 export type AiFailureReason =
@@ -21,6 +22,19 @@ export type AiResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; reason: AiFailureReason };
 
+export interface AiTelemetry {
+  usage?: AiJsonResponse["usage"];
+  model?: string;
+}
+
+const AI_RUN_OUTPUT_MARKER = "__aiRunOutput";
+
+interface AiRunOutput<T> {
+  readonly [AI_RUN_OUTPUT_MARKER]: true;
+  data: T;
+  telemetry?: AiTelemetry;
+}
+
 export interface RunAiFeatureArgs<T> {
   /** Stable feature id — telemetry tag + per-feature burst-limit key prefix. */
   feature: AiResultFeature;
@@ -31,7 +45,33 @@ export interface RunAiFeatureArgs<T> {
   /** Friendly message shown to the user when this feature fails open. */
   failOpenMessage: string;
   /** Feature-specific work. Receives the authed userId + an AbortSignal. */
-  run: (ctx: { userId: string; signal: AbortSignal }) => Promise<T>;
+  run: (ctx: {
+    userId: string;
+    signal: AbortSignal;
+  }) => Promise<T | AiRunOutput<T>>;
+}
+
+export function withAiTelemetry<T>(
+  data: T,
+  response: AiJsonResponse
+): AiRunOutput<T> {
+  return {
+    [AI_RUN_OUTPUT_MARKER]: true,
+    data,
+    telemetry: {
+      usage: response.usage,
+      model: response.model,
+    },
+  };
+}
+
+function isAiRunOutput<T>(value: T | AiRunOutput<T>): value is AiRunOutput<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    AI_RUN_OUTPUT_MARKER in value &&
+    value[AI_RUN_OUTPUT_MARKER] === true
+  );
 }
 
 /** Maps a thrown error from `run()` to its telemetry `reason`. */
@@ -98,12 +138,19 @@ export async function runAiFeature<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
-    const data = await args.run({ userId, signal: controller.signal });
+    const runOutput = await args.run({ userId, signal: controller.signal });
+    const data = isAiRunOutput(runOutput) ? runOutput.data : runOutput;
+    const telemetry = isAiRunOutput(runOutput)
+      ? runOutput.telemetry
+      : undefined;
     await track("ai_result", {
       feature: args.feature,
       prompt_version: args.promptVersion,
       outcome: "ok",
       reason: "ok",
+      input_tokens: telemetry?.usage?.inputTokens,
+      output_tokens: telemetry?.usage?.outputTokens,
+      model: telemetry?.model,
     });
     return { success: true, data };
   } catch (error) {

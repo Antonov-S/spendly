@@ -8,7 +8,10 @@ import { CATEGORY_PROMPT_VERSION } from "@/lib/ai/prompts/category";
 
 vi.mock("@/lib/db/categories", () => ({ getUserCategories: vi.fn() }));
 vi.mock("@/lib/ai/respond", () => ({ aiJsonRespond: vi.fn() }));
-vi.mock("@/lib/ai/run", () => ({ runAiFeature: vi.fn() }));
+vi.mock("@/lib/ai/run", () => ({
+  runAiFeature: vi.fn(),
+  withAiTelemetry: (data: unknown) => data,
+}));
 
 const mockRun = vi.mocked(runAiFeature);
 const mockCategories = vi.mocked(getUserCategories);
@@ -18,6 +21,10 @@ const CANDIDATES = [
   { id: "c1", name: "Groceries", color: "#000", icon: "ShoppingCart" },
   { id: "c2", name: "Dining", color: "#000", icon: "UtensilsCrossed" },
 ];
+
+function ai(text: string) {
+  return { text, model: "gpt-5-nano" };
+}
 
 /** Invoke the real `run` callback with a fake ctx, mirroring runAiFeature's success path. */
 function runInline() {
@@ -49,7 +56,7 @@ describe("suggestCategory matching", () => {
   it("returns a matched suggestion with the prompt version", async () => {
     runInline();
     mockRespond.mockResolvedValue(
-      '{ "category": "groceries", "confidence": "high", "merchant": "Amazon" }'
+      ai('{ "category": "groceries", "confidence": "high", "merchant": "Amazon" }')
     );
 
     const res = await suggestCategory({ type: "EXPENSE", merchant: "AMZN MKTP" });
@@ -67,7 +74,7 @@ describe("suggestCategory matching", () => {
 
   it("degrades to categoryId: null when the name matches nothing", async () => {
     runInline();
-    mockRespond.mockResolvedValue('{ "category": "Rent", "confidence": "low" }');
+    mockRespond.mockResolvedValue(ai('{ "category": "Rent", "confidence": "low" }'));
 
     const res = await suggestCategory({ type: "EXPENSE", merchant: "Landlord" });
     expect(res.success).toBe(true);
@@ -81,7 +88,7 @@ describe("suggestCategory matching", () => {
 describe("suggestCategory token control", () => {
   it("truncates over-long free-text to AI_INPUT_MAX_CHARS before the call", async () => {
     runInline();
-    mockRespond.mockResolvedValue('{ "category": "Dining" }');
+    mockRespond.mockResolvedValue(ai('{ "category": "Dining" }'));
 
     const longMerchant = "x".repeat(AI_INPUT_MAX_CHARS + 500);
     await suggestCategory({ type: "EXPENSE", merchant: longMerchant });
@@ -94,7 +101,7 @@ describe("suggestCategory token control", () => {
 
   it("forwards the candidate category names to the model", async () => {
     runInline();
-    mockRespond.mockResolvedValue('{ "category": "Dining" }');
+    mockRespond.mockResolvedValue(ai('{ "category": "Dining" }'));
 
     await suggestCategory({ type: "EXPENSE", merchant: "Bistro" });
     const sentInput = mockRespond.mock.calls[0][0].input;

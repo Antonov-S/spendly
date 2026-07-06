@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runAiFeature } from "@/lib/ai/run";
+import { runAiFeature, withAiTelemetry } from "@/lib/ai/run";
 import { AiParseError, AiNoMatchError } from "@/lib/ai/errors";
 import { auth } from "@/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -82,6 +82,56 @@ describe("runAiFeature outcomes + telemetry", () => {
       prompt_version: 1,
       outcome: "ok",
       reason: "ok",
+    });
+  });
+
+  it("emits token and model telemetry on success when the run step provides it", async () => {
+    const res = await runAiFeature(
+      baseArgs(async () =>
+        withAiTelemetry(
+          { v: 1 },
+          {
+            text: "{}",
+            model: "gpt-5-nano",
+            usage: { inputTokens: 123, outputTokens: 45 },
+          }
+        )
+      )
+    );
+
+    expect(res).toEqual({ success: true, data: { v: 1 } });
+    expect(mockTrack).toHaveBeenCalledWith("ai_result", {
+      feature: "category_suggest",
+      prompt_version: 1,
+      outcome: "ok",
+      reason: "ok",
+      input_tokens: 123,
+      output_tokens: 45,
+      model: "gpt-5-nano",
+    });
+  });
+
+  it("omits token counts when the provider response has no usage", async () => {
+    await runAiFeature(
+      baseArgs(async () =>
+        withAiTelemetry(
+          { v: 1 },
+          {
+            text: "{}",
+            model: "gpt-5-nano",
+          }
+        )
+      )
+    );
+
+    expect(mockTrack).toHaveBeenCalledWith("ai_result", {
+      feature: "category_suggest",
+      prompt_version: 1,
+      outcome: "ok",
+      reason: "ok",
+      input_tokens: undefined,
+      output_tokens: undefined,
+      model: "gpt-5-nano",
     });
   });
 

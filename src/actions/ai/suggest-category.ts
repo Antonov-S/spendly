@@ -2,7 +2,7 @@
 
 import { getUserCategories } from "@/lib/db/categories";
 import { aiJsonRespond } from "@/lib/ai/respond";
-import { runAiFeature, type AiResult } from "@/lib/ai/run";
+import { runAiFeature, withAiTelemetry, type AiResult } from "@/lib/ai/run";
 import { parseSuggestionJson, matchCategoryByName } from "@/lib/ai/category";
 import {
   CATEGORY_INSTRUCTIONS,
@@ -71,7 +71,7 @@ export async function suggestCategory(input: {
     failOpenMessage: "Couldn't suggest a category — pick one manually.",
     run: async ({ userId, signal }) => {
       const categories = await getUserCategories(userId); // system + own
-      const raw = await aiJsonRespond({
+      const response = await aiJsonRespond({
         instructions: CATEGORY_INSTRUCTIONS,
         input: buildCategoryInput({
           candidateNames: categories.map((c) => c.name),
@@ -83,18 +83,21 @@ export async function suggestCategory(input: {
         signal,
       });
 
-      const suggestion = parseSuggestionJson(raw); // throws AiParseError on bad JSON
+      const suggestion = parseSuggestionJson(response.text); // throws AiParseError on bad JSON
       const match = matchCategoryByName(suggestion.category, categories);
 
       // no_match is NOT a hard failure for this feature: a confident-but-unmatched
       // name degrades to a null-category suggestion (still usable: manual picker).
-      return {
-        categoryId: match?.id ?? null,
-        categoryName: match?.name ?? null,
-        confidence: suggestion.confidence,
-        merchant: suggestion.merchant,
-        promptVersion: CATEGORY_PROMPT_VERSION,
-      } satisfies CategorySuggestion;
+      return withAiTelemetry(
+        {
+          categoryId: match?.id ?? null,
+          categoryName: match?.name ?? null,
+          confidence: suggestion.confidence,
+          merchant: suggestion.merchant,
+          promptVersion: CATEGORY_PROMPT_VERSION,
+        } satisfies CategorySuggestion,
+        response
+      );
     },
   });
 }

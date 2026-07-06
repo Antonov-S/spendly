@@ -1,16 +1,40 @@
-# Current Feature
+# Current Feature: Pro Value Review
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Build the Pro Value Review tooling without adding any user-facing app surface.
+- Define and unit-test the AI feature review metrics for the four shipped AI capabilities: category suggestions, NL quick capture, monthly review, and budget suggestions.
+- Add read-only report generation over `AnalyticsEvent` rows and a `User.isPro` snapshot so the checkpoint can be run as one operator command.
+- Extend `ai_result` telemetry with model and token counts so AI COGS can be measured going forward.
+- Add a reusable review template and roadmap note so the eventual gate verdict is recorded, not just computed.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- Spec: `docs/features/pro-value-review-spec.md`.
+- This is a gate/tooling slice, not a product feature: no new route, no UI, no schema change, no migration, no Pro gate, and no new rate-limit entry.
+- Architecture fit: keep reads in `src/lib/db/*` or direct script glue as appropriate; keep review math pure in `src/lib/analytics/review-metrics.ts`; do not query or mutate production. The report script is read-only and should print the target DB host like `scripts/prune-analytics.ts`.
+- Current telemetry state: `AnalyticsEvent` already stores `{ name, props, userId, createdAt }`, `track()` sanitizes through `src/lib/analytics/events.ts`, and `runAiFeature` is the single source of `ai_result` events.
+- Confirmed decisions: D3 thresholds are approved as written; earliest review date is 2026-08-03; Part B token/model telemetry ships now; verdict template author can be "Project owner".
+- Implementation detail: `buildProValueReviewReport` accepts an optional `pricedModels` list so `scripts/ai-review-report.ts` can keep the model price table script-local while the pure module still reports unpriced token volume.
+- Implementation plan:
+  1. Add `AI_REVIEW_WINDOW_DAYS = 28` to `src/lib/system-constants.ts`.
+  2. Extend `ANALYTICS_EVENTS.ai_result` with `input_tokens`, `output_tokens`, and `model`, preserving the no-PII/no-financial-values contract.
+  3. Change `aiJsonRespond` to return `{ text, usage?, model }`; update all AI action call sites to parse `response.text` while preserving feature behavior.
+  4. Thread optional usage/model metadata through `runAiFeature` success telemetry without changing failure telemetry.
+  5. Add `src/lib/analytics/review-metrics.ts` with exported thresholds, pure report types, `buildProValueReviewReport`, cohort calculations, per-feature metrics, COGS coverage classification, small-N handling, and `verdictForRate`.
+  6. Add `scripts/ai-review-report.ts` as read-only report glue: resolve `--from`/`--days`, fetch window-scoped analytics rows plus user plan snapshots, run the pure module, and print coverage, feature verdicts, reliability, Pro-signal, and COGS sections.
+  7. Add `docs/reviews/pro-value-review-template.md` and create the `docs/reviews/` folder if needed.
+  8. Update `docs/POST-MVP-ROADMAP.md` to note that measurement tooling shipped and the review is unlocked after the measurement window.
+- Test surface:
+  - `test/lib/analytics/review-metrics.test.ts` for per-feature acceptance/engagement math, D3 threshold edges, small-N behavior, adopter/non-adopter cohorts, guard/reliability counts, empty windows, token coverage, unpriced model handling, and cost measurement states.
+  - Extend `test/lib/analytics/events.test.ts` for new `ai_result` props sanitization.
+  - Extend `test/lib/ai/run.test.ts` for success telemetry with and without usage/model metadata; failure telemetry remains unchanged.
+- Required gates during `feature-start`: `npm run test:run` and `npm run build`; run `npm run lint` if touched files warrant it.
+- Open questions: none.
 
 ## History
 
