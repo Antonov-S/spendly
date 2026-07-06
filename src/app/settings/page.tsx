@@ -8,8 +8,8 @@ import { ArrowLeft, Upload } from "lucide-react";
 import { getSessionOrRedirect } from "@/lib/auth/guards";
 import { getUserOverview } from "@/lib/db/profile";
 import { reconcileCheckoutReturn } from "@/lib/db/billing";
-import { getAccountLabels } from "@/lib/db/accounts";
-import { getManageableCategories } from "@/lib/db/categories";
+import { getAccountLabels, getUserAccounts } from "@/lib/db/accounts";
+import { getManageableCategories, getUserCategories } from "@/lib/db/categories";
 import { getManageableTags } from "@/lib/db/tags";
 import { getManageableFavorites } from "@/lib/db/favorites";
 import { Avatar } from "@/components/ui/avatar";
@@ -65,14 +65,23 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   // accounts (active + archived). An unresolvable id is normalized away so the
   // label and the actual download never disagree (avoids a silently-empty file).
   const requestedAccountId = sp.account || undefined;
-  const [accounts, categories, tags, favorites] = await Promise.all([
+  const [
+    accountLabels,
+    activeAccounts,
+    categories,
+    userCategories,
+    tags,
+    favorites,
+  ] = await Promise.all([
     getAccountLabels(session.user.id),
+    getUserAccounts(session.user.id),
     getManageableCategories(session.user.id),
+    getUserCategories(session.user.id),
     getManageableTags(session.user.id),
     getManageableFavorites(session.user.id),
   ]);
   const scoped = requestedAccountId
-    ? accounts.find((a) => a.id === requestedAccountId)
+    ? accountLabels.find((a) => a.id === requestedAccountId)
     : undefined;
   const exportAccountId = scoped?.id;
   const scopeLabel = scoped
@@ -187,7 +196,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       <ManageTags tags={tags} />
 
       {/* Favorites */}
-      <ManageFavorites favorites={favorites} />
+      <ManageFavorites
+        favorites={favorites}
+        categories={userCategories}
+        accounts={activeAccounts}
+      />
 
       {/* Data & privacy */}
       <section

@@ -18,6 +18,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe("FAVORITE_ORDER_BY", () => {
+  it("orders manual rows first, then falls back to name", () => {
+    expect(FAVORITE_ORDER_BY).toEqual([
+      { sortOrder: { sort: "asc", nulls: "last" } },
+      { name: "asc" },
+    ]);
+  });
+});
+
 describe("getUserFavorites", () => {
   it("scopes by userId, applies shared ordering, and maps Decimal values", async () => {
     favoriteFindMany.mockResolvedValue([

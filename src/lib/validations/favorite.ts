@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  FAVORITE_MAX_COUNT,
   FAVORITE_NAME_MAX,
   MERCHANT_MAX,
   NOTE_MAX,
@@ -36,8 +37,15 @@ export const createFavoriteSchema = z.object({
 
 export type CreateFavoriteInput = z.infer<typeof createFavoriteSchema>;
 
-export const updateFavoriteSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(FAVORITE_NAME_MAX),
-});
+export const updateFavoriteSchema = createFavoriteSchema;
 
 export type UpdateFavoriteInput = z.infer<typeof updateFavoriteSchema>;
+
+export const reorderFavoritesSchema = z.object({
+  ids: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(FAVORITE_MAX_COUNT),
+});
+
+export type ReorderFavoritesInput = z.infer<typeof reorderFavoritesSchema>;

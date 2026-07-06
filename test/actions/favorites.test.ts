@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFavorite,
   deleteFavorite,
+  reorderFavorites,
   trackFavoriteUsed,
   updateFavorite,
 } from "@/actions/favorites";
@@ -16,11 +17,13 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
     favorite: {
       count: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     category: { findFirst: vi.fn() },
@@ -29,6 +32,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const mockAuth = vi.mocked(auth);
+const transaction = vi.mocked(prisma.$transaction);
 const favorite = vi.mocked(prisma.favorite);
 const category = vi.mocked(prisma.category);
 const account = vi.mocked(prisma.financialAccount);
@@ -68,7 +72,8 @@ describe("authentication", () => {
     mockAuth.mockResolvedValue(null as never);
 
     expect((await createFavorite(VALID)).success).toBe(false);
-    expect((await updateFavorite("f1", { name: "Coffee" })).success).toBe(false);
+    expect((await updateFavorite("f1", VALID)).success).toBe(false);
+    expect((await reorderFavorites({ ids: ["f1"] })).success).toBe(false);
     expect((await deleteFavorite("f1")).success).toBe(false);
     expect((await trackFavoriteUsed({ hasAmount: true })).success).toBe(false);
 
@@ -223,36 +228,166 @@ describe("createFavorite", () => {
 });
 
 describe("updateFavorite", () => {
-  it("renames an owned favorite and revalidates settings only", async () => {
+  it("updates every editable field on an owned favorite and revalidates settings only", async () => {
     signIn();
     favorite.findFirst
-      .mockResolvedValueOnce({ id: "f1" } as never)
+      .mockResolvedValueOnce({ id: "f1", financialAccountId: "acc1" } as never)
       .mockResolvedValueOnce(null as never);
+    category.findFirst.mockResolvedValue({ id: "cat1" } as never);
     favorite.update.mockResolvedValue({ id: "f1" } as never);
 
-    const res = await updateFavorite("f1", { name: "Morning coffee" });
+    const res = await updateFavorite("f1", {
+      ...VALID,
+      name: "Morning coffee",
+      amount: 3.456,
+    });
 
     expect(res.success).toBe(true);
     expect(favorite.findFirst.mock.calls[0][0]).toEqual({
       where: { id: "f1", userId: "u1" },
-      select: { id: true },
+      select: { id: true, financialAccountId: true },
     });
     expect(favorite.findFirst.mock.calls[1][0].where.NOT).toEqual({ id: "f1" });
+    expect(account.findFirst).not.toHaveBeenCalled();
     expect(favorite.update).toHaveBeenCalledWith({
       where: { id: "f1" },
-      data: { name: "Morning coffee" },
+      data: {
+        name: "Morning coffee",
+        type: "EXPENSE",
+        amount: 3.46,
+        categoryId: "cat1",
+        financialAccountId: "acc1",
+        merchant: "Cafe",
+        note: "morning",
+      },
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/settings");
+  });
+
+  it("allows an unchanged archived account but validates a changed account", async () => {
+    signIn();
+    favorite.findFirst
+      .mockResolvedValueOnce({ id: "f1", financialAccountId: "archived" } as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ id: "f2", financialAccountId: "archived" } as never)
+      .mockResolvedValueOnce(null as never);
+    category.findFirst.mockResolvedValue({ id: "cat1" } as never);
+    account.findFirst.mockResolvedValue(null);
+    favorite.update.mockResolvedValue({ id: "f1" } as never);
+
+    const unchanged = await updateFavorite("f1", {
+      ...VALID,
+      financialAccountId: "archived",
+    });
+    const changed = await updateFavorite("f2", {
+      ...VALID,
+      financialAccountId: "other-archived",
+    });
+
+    expect(unchanged.success).toBe(true);
+    expect(changed).toEqual({ success: false, error: "Account not found." });
+    expect(account.findFirst).toHaveBeenCalledTimes(1);
+    expect(account.findFirst).toHaveBeenCalledWith({
+      where: { id: "other-archived", userId: "u1", isArchived: false },
+      select: { id: true },
+    });
+  });
+
+  it("normalizes a blank amount to prompt-on-use", async () => {
+    signIn();
+    favorite.findFirst
+      .mockResolvedValueOnce({ id: "f1", financialAccountId: null } as never)
+      .mockResolvedValueOnce(null as never);
+    favorite.update.mockResolvedValue({ id: "f1" } as never);
+
+    const res = await updateFavorite("f1", {
+      ...VALID,
+      amount: null,
+      categoryId: null,
+      financialAccountId: null,
+      merchant: null,
+      note: null,
+    });
+
+    expect(res.success).toBe(true);
+    expect(favorite.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: null,
+          categoryId: null,
+          financialAccountId: null,
+          merchant: null,
+          note: null,
+        }),
+      })
+    );
   });
 
   it("returns not found for a foreign row", async () => {
     signIn();
     favorite.findFirst.mockResolvedValue(null as never);
 
-    const res = await updateFavorite("foreign", { name: "X" });
+    const res = await updateFavorite("foreign", { ...VALID, name: "X" });
 
     expect(res).toEqual({ success: false, error: "Favorite not found." });
     expect(favorite.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("reorderFavorites", () => {
+  it("rejects duplicate ids before checking ownership", async () => {
+    signIn();
+
+    const res = await reorderFavorites({ ids: ["f1", "f1"] });
+
+    expect(res).toEqual({
+      success: false,
+      error: "Favorite ids must be unique.",
+    });
+    expect(favorite.count).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale or foreign ids as one failed call", async () => {
+    signIn();
+    favorite.count.mockResolvedValue(1 as never);
+
+    const res = await reorderFavorites({ ids: ["f1", "missing"] });
+
+    expect(res).toEqual({
+      success: false,
+      error: "Favorites changed — reload and try again.",
+    });
+    expect(favorite.count).toHaveBeenCalledWith({
+      where: { userId: "u1", id: { in: ["f1", "missing"] } },
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("persists sortOrder for payload rows and clears omitted rows", async () => {
+    signIn();
+    favorite.count.mockResolvedValue(2 as never);
+    favorite.update.mockResolvedValue({ id: "updated" } as never);
+    favorite.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const res = await reorderFavorites({ ids: ["f2", "f1"] });
+
+    expect(res.success).toBe(true);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0][0] as unknown[]).toHaveLength(3);
+    expect(favorite.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "f2" },
+      data: { sortOrder: 0 },
+    });
+    expect(favorite.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "f1" },
+      data: { sortOrder: 1 },
+    });
+    expect(favorite.updateMany).toHaveBeenCalledWith({
+      where: { userId: "u1", id: { notIn: ["f2", "f1"] } },
+      data: { sortOrder: null },
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/settings");
   });
 });
 

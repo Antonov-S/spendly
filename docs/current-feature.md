@@ -1,20 +1,41 @@
-# Current Feature
+# Current Feature: Favorites Editing and Reorder
 
 ## Status
 
-No active feature.
+In Progress
 
 ## Goals
 
-<!-- Add goals for the active feature here. -->
+- Let users fully edit saved favorites from Settings without deleting and re-saving.
+- Add stable manual favorite ordering with accessible move controls, shared by Settings and the transaction drawer chip grid.
+- Preserve the favorites contract: tapping a favorite only pre-fills an unsaved transaction draft; `createTransaction` remains the sole ledger writer.
+- Keep the follow-up scope narrow: defer the post-save favorite nudge and tags on favorites; reject splits on favorites for now.
+- Cover widened validations, Server Actions, and DB ordering with Vitest; run `npm run test:run` and `npm run build` before commit.
 
 ## Notes
 
-<!-- Add implementation notes, open questions, and relevant file references here. -->
+- Spec: `docs/features/favorites-follow-ups-spec.md`.
+- Parent feature shipped Quick-Add Favorites with rename-only settings management and name-ascending order.
+- Build slice is full-field editing plus manual reorder only. No drag/drop library, no drawer-side editing, no telemetry event additions, no changes to `createFavorite`, `buildFavoritePrefill`, or the drawer tap-prefill contract.
+- Data model change: additive nullable `Favorite.sortOrder Int?`, applied via `prisma migrate dev` on the development Neon branch only. No index needed because `FAVORITE_MAX_COUNT = 12`.
+- `updateFavoriteSchema` should alias `createFavoriteSchema`; `reorderFavoritesSchema` accepts a bounded ids array.
+- `updateFavorite` must use the same reference rules as create, except an unchanged archived stored account is allowed so users can edit other fields on degraded favorites.
+- Settings edit drawer needs active accounts and user-visible categories from the server page, reusing `getUserAccounts` and `getUserCategories`.
+- Ordering should be centralized in `FAVORITE_ORDER_BY` as `sortOrder asc nulls last`, then `name asc`, so Settings and transaction drawer ordering cannot diverge.
+- Docs to update when shipping: `docs/features/quick-add-favorites-spec.md`, `docs/POST-MVP-ROADMAP.md`, `docs/project-overview.md`, `src/lib/help/content.ts`, and this file's history.
+- Open questions: none. The spec is internally consistent with current project rules and architecture.
 
 ## Implementation Plan
 
-<!-- Add the active implementation plan here. -->
+1. Add the Prisma migration for nullable `Favorite.sortOrder`, regenerate Prisma artifacts as required by the existing workflow, and verify migration status on the development branch.
+2. Update favorite validation: alias update to create, add `reorderFavoritesSchema`, and extend validation tests for schema identity and reorder bounds.
+3. Widen `updateFavorite` to write all editable fields, reuse reference validation with the unchanged-archived-account exception, normalize `amount`, preserve duplicate-name handling, and revalidate `/settings`.
+4. Add `reorderFavorites`: auth guard, schema parse, duplicate-id rejection, all-or-nothing ownership count, transactional sortOrder writes plus omitted-row null reset, `/settings` revalidation, and focused action tests.
+5. Flip `FAVORITE_ORDER_BY` to ordered rows first and name fallback; update DB tests to assert the shared two-term ordering and unchanged projections.
+6. Add a `FavoriteFormDrawer` under `src/components/favorites/` using the existing Sheet pattern, `CategoryPickerField`, active-account select, prompt-on-use amount semantics, and archived-account repair behavior.
+7. Refactor `ManageFavorites` to use the edit drawer, keep delete confirmation, add optimistic move up/down controls that call `reorderFavorites`, and revert with the specified toast on failure.
+8. Thread active accounts and categories through `src/app/settings/page.tsx` so the Favorites card can edit full fields without adding a separate client fetch.
+9. Update the shipping docs named in the spec, then run `npm run test:run`, `npm run build`, and lint as part of the feature-start/complete flow.
 
 ## History
 

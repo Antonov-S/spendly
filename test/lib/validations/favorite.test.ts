@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   createFavoriteSchema,
+  reorderFavoritesSchema,
   updateFavoriteSchema,
 } from "@/lib/validations/favorite";
 import {
+  FAVORITE_MAX_COUNT,
   FAVORITE_NAME_MAX,
   MERCHANT_MAX,
   NOTE_MAX,
@@ -97,10 +99,32 @@ describe("createFavoriteSchema", () => {
 });
 
 describe("updateFavoriteSchema", () => {
-  it("is rename-only and trims the name", () => {
-    const res = updateFavoriteSchema.safeParse({ name: "  Coffee  " });
+  it("is the same schema object as createFavoriteSchema", () => {
+    expect(updateFavoriteSchema).toBe(createFavoriteSchema);
+  });
+
+  it("trims and validates the full editable field set", () => {
+    const res = updateFavoriteSchema.safeParse({
+      name: "  Coffee  ",
+      type: "EXPENSE",
+      amount: "3.50",
+      categoryId: "",
+      financialAccountId: "acc1",
+      merchant: "  Cafe  ",
+      note: "  morning  ",
+    });
     expect(res.success).toBe(true);
-    if (res.success) expect(res.data).toEqual({ name: "Coffee" });
+    if (res.success) {
+      expect(res.data).toEqual({
+        name: "Coffee",
+        type: "EXPENSE",
+        amount: 3.5,
+        categoryId: null,
+        financialAccountId: "acc1",
+        merchant: "Cafe",
+        note: "morning",
+      });
+    }
   });
 
   it("rejects empty and over-long names", () => {
@@ -108,6 +132,24 @@ describe("updateFavoriteSchema", () => {
     expect(
       updateFavoriteSchema.safeParse({
         name: "x".repeat(FAVORITE_NAME_MAX + 1),
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe("reorderFavoritesSchema", () => {
+  it("accepts a bounded id list", () => {
+    const res = reorderFavoritesSchema.safeParse({ ids: [" f1 ", "f2"] });
+
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.ids).toEqual(["f1", "f2"]);
+  });
+
+  it("rejects empty and over-cap id lists", () => {
+    expect(reorderFavoritesSchema.safeParse({ ids: [] }).success).toBe(false);
+    expect(
+      reorderFavoritesSchema.safeParse({
+        ids: Array.from({ length: FAVORITE_MAX_COUNT + 1 }, (_, i) => `f${i}`),
       }).success
     ).toBe(false);
   });

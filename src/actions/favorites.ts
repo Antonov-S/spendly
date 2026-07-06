@@ -7,8 +7,10 @@ import { track } from "@/lib/analytics/track";
 import { FAVORITE_MAX_COUNT } from "@/lib/system-constants";
 import {
   createFavoriteSchema,
+  reorderFavoritesSchema,
   updateFavoriteSchema,
   type CreateFavoriteInput,
+  type ReorderFavoritesInput,
   type UpdateFavoriteInput,
 } from "@/lib/validations/favorite";
 import { revalidatePath } from "next/cache";
@@ -31,6 +33,7 @@ const NOT_AUTHED: MutationResult = {
 const NOT_FOUND = "Favorite not found.";
 const DUPLICATE_ERROR = "You already have a favorite with this name.";
 const LIMIT_ERROR = `You can save up to ${FAVORITE_MAX_COUNT} favorites. Remove one in settings first.`;
+const REORDER_STALE_ERROR = "Favorites changed — reload and try again.";
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -89,7 +92,8 @@ function mapFavoriteWriteError(error: unknown): MutationResult | null {
 async function resolveFavoriteReferences(
   userId: string,
   categoryId: string | null,
-  financialAccountId: string | null
+  financialAccountId: string | null,
+  options?: { skipAccountId?: string | null }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (categoryId) {
     const category = await prisma.category.findFirst({
@@ -99,7 +103,7 @@ async function resolveFavoriteReferences(
     if (!category) return { ok: false, error: "Category not found." };
   }
 
-  if (financialAccountId) {
+  if (financialAccountId && financialAccountId !== options?.skipAccountId) {
     const account = await prisma.financialAccount.findFirst({
       where: { id: financialAccountId, userId, isArchived: false },
       select: { id: true },
@@ -193,21 +197,45 @@ export async function updateFavorite(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { name } = parsed.data;
+  const {
+    name,
+    type,
+    amount,
+    categoryId,
+    financialAccountId,
+    merchant,
+    note,
+  } = parsed.data;
 
   try {
     const existing = await prisma.favorite.findFirst({
       where: { id, userId },
-      select: { id: true },
+      select: { id: true, financialAccountId: true },
     });
     if (!existing) return { success: false, error: NOT_FOUND };
 
     const clash = await assertFavoriteNameAvailable(userId, name, id);
     if (clash) return { success: false, error: clash };
 
+    const refs = await resolveFavoriteReferences(
+      userId,
+      categoryId,
+      financialAccountId,
+      { skipAccountId: existing.financialAccountId }
+    );
+    if (!refs.ok) return { success: false, error: refs.error };
+
     await prisma.favorite.update({
       where: { id },
-      data: { name },
+      data: {
+        name,
+        type,
+        amount: amount === null ? null : round2(amount),
+        categoryId,
+        financialAccountId,
+        merchant,
+        note,
+      },
     });
 
     revalidatePath("/settings");
@@ -217,6 +245,51 @@ export async function updateFavorite(
     if (mapped) return mapped;
     console.error("updateFavorite failed", error);
     return { success: false, error: "Could not update the favorite." };
+  }
+}
+
+export async function reorderFavorites(
+  input: ReorderFavoritesInput
+): Promise<MutationResult> {
+  const session = await auth();
+  if (!session?.user?.id) return NOT_AUTHED;
+  const userId = session.user.id;
+
+  const parsed = reorderFavoritesSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+  const { ids } = parsed.data;
+  if (new Set(ids).size !== ids.length) {
+    return { success: false, error: "Favorite ids must be unique." };
+  }
+
+  try {
+    const ownedCount = await prisma.favorite.count({
+      where: { userId, id: { in: ids } },
+    });
+    if (ownedCount !== ids.length) {
+      return { success: false, error: REORDER_STALE_ERROR };
+    }
+
+    await prisma.$transaction([
+      ...ids.map((id, sortOrder) =>
+        prisma.favorite.update({
+          where: { id },
+          data: { sortOrder },
+        })
+      ),
+      prisma.favorite.updateMany({
+        where: { userId, id: { notIn: ids } },
+        data: { sortOrder: null },
+      }),
+    ]);
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("reorderFavorites failed", error);
+    return { success: false, error: "Could not reorder favorites." };
   }
 }
 

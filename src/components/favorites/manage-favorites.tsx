@@ -3,14 +3,21 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Loader2, Pencil, Trash2, X } from "lucide-react";
-import { deleteFavorite, updateFavorite } from "@/actions/favorites";
+import { ArrowDown, ArrowUp, Loader2, Pencil, Trash2 } from "lucide-react";
+import { deleteFavorite, reorderFavorites } from "@/actions/favorites";
+import { FavoriteFormDrawer } from "@/components/favorites/favorite-form-drawer";
 import { formatCurrencyCents } from "@/lib/format";
 import type { ManageableFavorite } from "@/types/favorites";
+import type { AccountOption, CategoryOption } from "@/types/transactions";
 
 interface ManageFavoritesProps {
   favorites: ManageableFavorite[];
+  categories: CategoryOption[];
+  accounts: AccountOption[];
 }
+
+const REORDER_FALLBACK_ERROR =
+  "Couldn't reorder favorites — previous order restored.";
 
 function typeLabel(type: ManageableFavorite["type"]): string {
   return type === "INCOME" ? "Income" : "Expense";
@@ -27,37 +34,36 @@ function summaryLine(favorite: ManageableFavorite): string {
     .join(" · ");
 }
 
-export function ManageFavorites({ favorites }: ManageFavoritesProps) {
+export function ManageFavorites({
+  favorites,
+  categories,
+  accounts,
+}: ManageFavoritesProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
+  const [favoriteState, setFavoriteState] = useState({
+    source: favorites,
+    rows: favorites,
+  });
+  const [editState, setEditState] = useState<{
+    favorite: ManageableFavorite | null;
+    open: boolean;
+    formKey: number;
+  }>({
+    favorite: null,
+    open: false,
+    formKey: 0,
+  });
   const [deleteTarget, setDeleteTarget] = useState<ManageableFavorite | null>(
     null
   );
 
-  function startEdit(favorite: ManageableFavorite) {
-    setEditId(favorite.id);
-    setEditName(favorite.name);
+  if (favoriteState.source !== favorites) {
+    setFavoriteState({ source: favorites, rows: favorites });
   }
 
-  function cancelEdit() {
-    setEditId(null);
-    setEditName("");
-  }
-
-  function saveEdit(id: string) {
-    startTransition(async () => {
-      const res = await updateFavorite(id, { name: editName });
-      if (res.success) {
-        cancelEdit();
-        toast.success("Favorite renamed");
-        router.refresh();
-      } else {
-        toast.error(res.error ?? "Could not rename the favorite.");
-      }
-    });
-  }
+  const rows =
+    favoriteState.source === favorites ? favoriteState.rows : favorites;
 
   function handleDelete() {
     if (!deleteTarget) return;
@@ -72,6 +78,37 @@ export function ManageFavorites({ favorites }: ManageFavoritesProps) {
         toast.error(res.error ?? "Could not delete the favorite.");
       }
     });
+  }
+
+  function moveFavorite(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= rows.length) return;
+    const previous = rows;
+    const next = [...rows];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    setFavoriteState({ source: favorites, rows: next });
+
+    startTransition(async () => {
+      const res = await reorderFavorites({ ids: next.map((row) => row.id) });
+      if (res.success) {
+        router.refresh();
+      } else {
+        setFavoriteState({ source: favorites, rows: previous });
+        toast.error(res.error ?? REORDER_FALLBACK_ERROR);
+      }
+    });
+  }
+
+  function openFavoriteEditor(favorite: ManageableFavorite) {
+    setEditState((state) => ({
+      favorite,
+      open: true,
+      formKey: state.formKey + 1,
+    }));
+  }
+
+  function closeFavoriteEditor() {
+    setEditState((state) => ({ ...state, open: false }));
   }
 
   return (
@@ -89,35 +126,16 @@ export function ManageFavorites({ favorites }: ManageFavoritesProps) {
         </p>
       ) : (
         <ul className="mt-4 flex max-h-105 flex-col gap-1 overflow-y-auto pr-1">
-          {favorites.map((favorite) => {
-            const editing = editId === favorite.id;
+          {rows.map((favorite, index) => {
             return (
               <li
                 key={favorite.id}
                 className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-2"
               >
                 <div className="min-w-0 flex-1">
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          saveEdit(favorite.id);
-                        }
-                        if (e.key === "Escape") {
-                          cancelEdit();
-                        }
-                      }}
-                      className="w-full rounded-md border border-line bg-app px-2 py-1 text-[13px] text-ink outline-none"
-                    />
-                  ) : (
-                    <p className="truncate text-[13px] font-medium text-ink">
-                      {favorite.name}
-                    </p>
-                  )}
+                  <p className="truncate text-[13px] font-medium text-ink">
+                    {favorite.name}
+                  </p>
                   <p className="mt-1 truncate text-[11px] text-ink-3">
                     {summaryLine(favorite)}
                   </p>
@@ -128,51 +146,54 @@ export function ManageFavorites({ favorites }: ManageFavoritesProps) {
                   )}
                 </div>
 
-                {editing ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => saveEdit(favorite.id)}
-                      disabled={isPending}
-                      aria-label={`Save ${favorite.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-success disabled:opacity-50"
-                    >
-                      <Check size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEdit}
-                      aria-label={`Cancel editing ${favorite.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-ink"
-                    >
-                      <X size={15} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(favorite)}
-                      aria-label={`Rename ${favorite.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-ink"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(favorite)}
-                      aria-label={`Delete ${favorite.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={() => moveFavorite(index, -1)}
+                  disabled={index === 0 || isPending}
+                  aria-label={`Move ${favorite.name} up`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ArrowUp size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveFavorite(index, 1)}
+                  disabled={index === rows.length - 1 || isPending}
+                  aria-label={`Move ${favorite.name} down`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ArrowDown size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openFavoriteEditor(favorite)}
+                  aria-label={`Edit ${favorite.name}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(favorite)}
+                  aria-label={`Delete ${favorite.name}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-surface hover:text-danger"
+                >
+                  <Trash2 size={15} />
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+
+      <FavoriteFormDrawer
+        favorite={editState.favorite}
+        open={editState.open}
+        formKey={editState.formKey}
+        categories={categories}
+        accounts={accounts}
+        onClose={closeFavoriteEditor}
+      />
 
       <ConfirmDeleteFavoriteDialog
         name={deleteTarget?.name ?? null}
