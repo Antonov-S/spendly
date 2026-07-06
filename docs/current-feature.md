@@ -1,41 +1,20 @@
-# Current Feature: Favorites Editing and Reorder
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- Let users fully edit saved favorites from Settings without deleting and re-saving.
-- Add stable manual favorite ordering with accessible move controls, shared by Settings and the transaction drawer chip grid.
-- Preserve the favorites contract: tapping a favorite only pre-fills an unsaved transaction draft; `createTransaction` remains the sole ledger writer.
-- Keep the follow-up scope narrow: defer the post-save favorite nudge and tags on favorites; reject splits on favorites for now.
-- Cover widened validations, Server Actions, and DB ordering with Vitest; run `npm run test:run` and `npm run build` before commit.
+<!-- Add the active feature goals here during $feature-load. -->
 
 ## Notes
 
-- Spec: `docs/features/favorites-follow-ups-spec.md`.
-- Parent feature shipped Quick-Add Favorites with rename-only settings management and name-ascending order.
-- Build slice is full-field editing plus manual reorder only. No drag/drop library, no drawer-side editing, no telemetry event additions, no changes to `createFavorite`, `buildFavoritePrefill`, or the drawer tap-prefill contract.
-- Data model change: additive nullable `Favorite.sortOrder Int?`, applied via `prisma migrate dev` on the development Neon branch only. No index needed because `FAVORITE_MAX_COUNT = 12`.
-- `updateFavoriteSchema` should alias `createFavoriteSchema`; `reorderFavoritesSchema` accepts a bounded ids array.
-- `updateFavorite` must use the same reference rules as create, except an unchanged archived stored account is allowed so users can edit other fields on degraded favorites.
-- Settings edit drawer needs active accounts and user-visible categories from the server page, reusing `getUserAccounts` and `getUserCategories`.
-- Ordering should be centralized in `FAVORITE_ORDER_BY` as `sortOrder asc nulls last`, then `name asc`, so Settings and transaction drawer ordering cannot diverge.
-- Docs to update when shipping: `docs/features/quick-add-favorites-spec.md`, `docs/POST-MVP-ROADMAP.md`, `docs/project-overview.md`, `src/lib/help/content.ts`, and this file's history.
-- Open questions: none. The spec is internally consistent with current project rules and architecture.
+<!-- Add implementation notes, decisions, and open questions here during $feature-load. -->
 
 ## Implementation Plan
 
-1. Add the Prisma migration for nullable `Favorite.sortOrder`, regenerate Prisma artifacts as required by the existing workflow, and verify migration status on the development branch.
-2. Update favorite validation: alias update to create, add `reorderFavoritesSchema`, and extend validation tests for schema identity and reorder bounds.
-3. Widen `updateFavorite` to write all editable fields, reuse reference validation with the unchanged-archived-account exception, normalize `amount`, preserve duplicate-name handling, and revalidate `/settings`.
-4. Add `reorderFavorites`: auth guard, schema parse, duplicate-id rejection, all-or-nothing ownership count, transactional sortOrder writes plus omitted-row null reset, `/settings` revalidation, and focused action tests.
-5. Flip `FAVORITE_ORDER_BY` to ordered rows first and name fallback; update DB tests to assert the shared two-term ordering and unchanged projections.
-6. Add a `FavoriteFormDrawer` under `src/components/favorites/` using the existing Sheet pattern, `CategoryPickerField`, active-account select, prompt-on-use amount semantics, and archived-account repair behavior.
-7. Refactor `ManageFavorites` to use the edit drawer, keep delete confirmation, add optimistic move up/down controls that call `reorderFavorites`, and revert with the specified toast on failure.
-8. Thread active accounts and categories through `src/app/settings/page.tsx` so the Favorites card can edit full fields without adding a separate client fetch.
-9. Update the shipping docs named in the spec, then run `npm run test:run`, `npm run build`, and lint as part of the feature-start/complete flow.
+<!-- Add the approved implementation plan here during $feature-load. -->
 
 ## History
 
@@ -168,3 +147,5 @@ In Progress
 - **Quick-Add Favorites (Post-MVP §19)** — Added user-owned on-demand INCOME/EXPENSE capture shortcuts that pre-fill the transaction drawer as unsaved drafts while keeping `createTransaction` as the sole ledger writer. New additive `Favorite` model plus migrations (`add_favorites`, `favorite_name_ci_unique`) store type, optional amount, optional category/account, merchant, and note with `SetNull` degradation for deleted category/account references and case-insensitive per-user name uniqueness. Backend additions: `src/actions/favorites.ts` (`createFavorite`, rename-only `updateFavorite`, `deleteFavorite`, usage telemetry), `src/lib/db/favorites.ts` (`getUserFavorites`, `getManageableFavorites`, shared name-ascending ordering), `src/lib/favorites.ts` (`buildFavoritePrefill`), `src/lib/validations/favorite.ts`, and `src/types/favorites.ts`; all mutations are auth-guarded, Zod-validated, user-scoped, cap-checked (`FAVORITE_MAX_COUNT = 12`), and reference-validated. Drawer create mode now loads favorites, shows a reachable quiet `Save as favorite` outline button and a neutral two-column favorites grid, supports fixed amount or prompt-on-use null amount, and resets split/AI/parse state on favorite tap. `/settings` gained a Favorites card after Tags with inline rename, delete confirmation, archived-account fallback indicator, and empty-state guidance; category delete copy now mentions favorite fallback. Docs updated across POST-MVP roadmap, project overview, help content, active spec, and a parked polish follow-up (`docs/fixes/favorite-chip-tap-feedback-spec.md`). New tests cover validation, pure prefill semantics, DB fetchers, and Server Actions; final gates passed: `npm run test:run` 1028 tests, `npm run build`, `npm run lint` (0 errors, existing warnings only), and `prisma migrate status` up to date on development. Manual browser pass was intentionally left for user testing. Spec: `docs/features/quick-add-favorites-spec.md`.
 
 - **Fix: Favorite Chip Tap Feedback** — The deferred-polish follow-up to Quick-Add Favorites (§19): tapping a favorite chip in the transaction drawer wholesale-prefilled the form but gave **no acknowledgement on the chip itself** — the only cue was distant fields changing, which can sit off-screen on the mobile bottom sheet, and screen readers got no announcement at all. Component-internal fix, single file (`src/components/transactions/transaction-drawer.tsx`): a transient `appliedFavoriteId` state + `favoriteFlashRef` (setTimeout handle) drives a ~600 ms (`FAVORITE_FLASH_MS`, module-local one-consumer timing) **neutral pressed style** (`border-ink-3 bg-ink/10` — the same pair the split toggle uses, deliberately **not** success-green since a prefill is not a save) on the tapped chip, settling back via the `transition-colors` already on it. `handleFavoriteTap` **clears any pending timeout before scheduling a fresh one**, so rapid taps *restart* the flash window instead of an older timeout cutting it short. The timeout is torn down in the existing `useEffect([open, editId])` cleanup (covers close/reopen **and** unmount — the drawer remounts with `AppShell` per navigation), and `appliedFavoriteId` is reset in the effect body so a prior-session flash never carries in. A visually-hidden `role="status" aria-live="polite"` span in the favorites grid announces `"{name} applied"` (text derived from state; `sr-only` is `position:absolute` so it claims no grid track — no layout shift). **No toast** (toasts are the app's mutation acknowledgements; a prefill is not a mutation and would dilute the undo-snackbar signal), **no auto-scroll**, **no new color semantics**. Rejected-and-documented: hiding "Save as favorite" on exact-match (seven-field per-keystroke compare; the duplicate-name error *is* the design). No Vitest (component-internal timing/state, out of scope per project standards); `buildFavoritePrefill` + actions untouched. Gates: `npm run test:run` **1028 pass** (unchanged), `npm run build` clean, `npm run lint` 0 errors (16 pre-existing React Compiler advisory warnings only). Manual browser pass (visible flash, reopen-clears, mobile 375 px, SR announce, rapid double-tap) left for user. No schema change, no migration. Spec: `docs/fixes/favorite-chip-tap-feedback-spec.md`.
+
+- **Favorites Editing and Reorder** — Shipped the committed Quick-Add Favorites follow-up slice: full-field favorite editing on `/settings` plus stable manual ordering. Added nullable `Favorite.sortOrder` via additive migration `add_favorite_sort_order`; widened `updateFavoriteSchema` to alias `createFavoriteSchema`; added `reorderFavoritesSchema` and `reorderFavorites` with auth, duplicate rejection, all-or-nothing ownership checks, transactional `sortOrder` writes, and omitted-row null reset. `updateFavorite` now writes the full editable favorite field set, keeps duplicate-name protections, validates category/account references like create, and allows an unchanged archived stored account so degraded favorites remain repairable. Settings now passes active accounts and user categories into a new `favorite-form-drawer.tsx`, replaces inline rename with an edit drawer, and adds accessible optimistic up/down move controls that revert on failure. Shared `FAVORITE_ORDER_BY` now orders non-null `sortOrder` first and falls back to name, so Settings and the transaction drawer chip grid stay aligned without touching the prefill contract. Deferred post-save nudges and tags on favorites remain telemetry/evidence-gated; splits on favorites are rejected for now. Docs updated across the parent favorites spec, roadmap, project overview, and help content. Gates passed: `npm run test:run` 1037 tests, `npm run build`, `npm run lint` (16 pre-existing warnings only), and `prisma migrate status` clean on the development Neon branch. Automated browser smoke was not completed because background dev-server launches exited before binding in this environment. Spec: `docs/features/favorites-follow-ups-spec.md`.
