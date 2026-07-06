@@ -19,6 +19,7 @@ import { ManageCategories } from "@/components/categories/manage-categories";
 import { ManageTags } from "@/components/tags/manage-tags";
 import { ManageFavorites } from "@/components/favorites/manage-favorites";
 import { SettingsNameForm } from "@/components/settings/settings-name-form";
+import { AnalyticsPreferenceForm } from "@/components/settings/analytics-preference-form";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
 import {
@@ -144,6 +145,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             Update how your name appears across Spendly.
           </p>
           <SettingsNameForm name={user.name} email={user.email} />
+        </div>
+        <div className="mt-5 border-t border-line pt-5">
+          <p className="text-[12px] text-ink-2">
+            Choose whether Spendly may collect usage signals to improve the
+            product.
+          </p>
+          <AnalyticsPreferenceForm enabled={!user.analyticsOptOut} />
         </div>
       </section>
 

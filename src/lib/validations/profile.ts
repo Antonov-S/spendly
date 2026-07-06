@@ -16,3 +16,11 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const updateAnalyticsPreferenceSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export type UpdateAnalyticsPreferenceInput = z.infer<
+  typeof updateAnalyticsPreferenceSchema
+>;

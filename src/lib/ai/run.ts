@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getAiProfile } from "@/lib/db/ai";
 import { track } from "@/lib/analytics/track";
+import type { AiResultFeature } from "@/lib/analytics/events";
 import { AiNoMatchError, AiParseError } from "@/lib/ai/errors";
 import { AI_TIMEOUT_MS, type RateLimitName } from "@/lib/system-constants";
 
@@ -22,7 +23,7 @@ export type AiResult<T> =
 
 export interface RunAiFeatureArgs<T> {
   /** Stable feature id — telemetry tag + per-feature burst-limit key prefix. */
-  feature: string;
+  feature: AiResultFeature;
   /** Prompt version emitted in telemetry so iterations are measurable (§9). */
   promptVersion: number;
   /** Per-feature burst budget, keyed `${feature}:${userId}`. */

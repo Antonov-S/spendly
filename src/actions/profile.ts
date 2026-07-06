@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { auth, signOut } from "@/auth";
 import { changeUserPassword } from "@/lib/auth/change-password";
 import { softDeleteAccount } from "@/lib/auth/account";
-import { updateProfileSchema } from "@/lib/validations/profile";
+import {
+  updateAnalyticsPreferenceSchema,
+  updateProfileSchema,
+} from "@/lib/validations/profile";
 
 /** Result returned to the settings name form's `useActionState` hook. */
 export interface UpdateProfileState {
@@ -46,6 +49,37 @@ export async function updateProfile(
   // (getSidebarUser) on each page render instead. Revalidate /settings so its
   // own server render reflects the new name; /profile refreshes on its own next
   // render (DB-sourced too) so it need not be revalidated from this hot path.
+  revalidatePath("/settings");
+  return { success: true, at: Date.now() };
+}
+
+export interface UpdateAnalyticsPreferenceState {
+  success?: boolean;
+  at?: number;
+  error?: string;
+}
+
+export async function updateAnalyticsPreference(
+  _prevState: UpdateAnalyticsPreferenceState,
+  formData: FormData
+): Promise<UpdateAnalyticsPreferenceState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "You must be signed in to update analytics settings." };
+  }
+
+  const values = formData.getAll("enabled");
+  const enabled = values.at(-1) === "true";
+  const parsed = updateAnalyticsPreferenceSchema.safeParse({ enabled });
+  if (!parsed.success) {
+    return { error: "Invalid analytics setting." };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { analyticsOptOut: !parsed.data.enabled },
+  });
+
   revalidatePath("/settings");
   return { success: true, at: Date.now() };
 }

@@ -11,8 +11,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getBudgetForEdit as getBudgetForEditQuery } from "@/lib/db/budgets";
 import { BUDGET_PRESETS } from "@/lib/constants";
+import { track } from "@/lib/analytics/track";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db/budgets", () => ({ getBudgetForEdit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
@@ -111,6 +113,8 @@ describe("createBudget", () => {
     expect(args.create.amount).toBe(250);
     // Currency resolves from DEFAULT_CURRENCY, never the user record.
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
+    // Telemetry: the success path emits budget_created (§0).
+    expect(track).toHaveBeenCalledWith("budget_created", { rollover: false });
   });
 
   it("revives an archived row via upsert (update branch), keeping its id", async () => {

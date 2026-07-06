@@ -9,6 +9,7 @@ import {
 } from "@/lib/export/csv";
 import { exportFilename } from "@/lib/export/filename";
 import { getTransactionsForExport } from "@/lib/db/export";
+import { track } from "@/lib/analytics/track";
 import { EXPORT_CSV_EXCEL_HINT } from "@/lib/constants";
 import { EXPORT_MAX_TRANSACTIONS } from "@/lib/system-constants";
 import {
@@ -73,6 +74,8 @@ export async function GET(request: Request) {
       controller.close();
     },
   });
+
+  void track("export_run", { format: "csv", scoped: !!accountId });
 
   return new Response(stream, {
     headers: downloadHeaders("text/csv; charset=utf-8", exportFilename("csv")),

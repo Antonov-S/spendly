@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getBudgetForEdit as getBudgetForEditQuery } from "@/lib/db/budgets";
 import { BUDGET_PRESETS } from "@/lib/constants";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
+import { track } from "@/lib/analytics/track";
 import {
   createBudgetSchema,
   updateBudgetSchema,
@@ -106,6 +107,7 @@ export async function createBudget(
     });
 
     revalidateBudgetViews();
+    void track("budget_created", { rollover });
     return { success: true };
   } catch (error) {
     if (isUniqueViolation(error)) {

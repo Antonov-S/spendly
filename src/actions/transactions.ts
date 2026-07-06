@@ -11,6 +11,7 @@ import { getAiProfile } from "@/lib/db/ai";
 import { dateInputToUtc, toDateInputValue } from "@/lib/date";
 import { round2 } from "@/lib/money";
 import { revalidateTransactionViews } from "@/lib/revalidation";
+import { track } from "@/lib/analytics/track";
 import {
   createTransactionSchema,
   updateTransactionSchema,
@@ -302,6 +303,11 @@ export async function createTransaction(
     });
 
     revalidateTransactionViews();
+    void track("transaction_created", {
+      type,
+      isSplit,
+      tagCount: tags.ids.length,
+    });
     return { success: true };
   } catch (error) {
     console.error("createTransaction failed", error);
@@ -519,6 +525,7 @@ export async function createTransfer(
     });
 
     revalidateTransactionViews();
+    void track("transfer_created");
     return { success: true };
   } catch (error) {
     console.error("createTransfer failed", error);

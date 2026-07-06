@@ -11,8 +11,10 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getGoalForEdit as getGoalForEditQuery } from "@/lib/db/goals";
+import { track } from "@/lib/analytics/track";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/revalidation", () => ({ revalidateGoalViews: vi.fn() }));
 vi.mock("@/lib/db/goals", () => ({ getGoalForEdit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
@@ -85,6 +87,7 @@ describe("createGoal", () => {
     expect(data.isCompleted).toBe(false);
     expect(data.targetAmount).toBe(1000);
     expect(data.targetDate).toEqual(new Date(Date.UTC(2026, 11, 31)));
+    expect(track).toHaveBeenCalledWith("goal_created");
   });
 
   it("ignores client-supplied currency / currentAmount / isCompleted", async () => {

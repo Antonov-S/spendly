@@ -68,6 +68,22 @@ export const EMAIL_VERIFICATION_ENABLED =
   process.env.EMAIL_VERIFICATION_ENABLED !== "false";
 
 /**
+ * Whether first-party product analytics persistence is active. Defaults to on:
+ * only the literal string "false" disables it, matching the other env kill
+ * switches in this file.
+ */
+export const ANALYTICS_ENABLED = process.env.ANALYTICS_ENABLED !== "false";
+
+/** Max serialized telemetry props bytes before the payload is dropped. */
+export const ANALYTICS_PROPS_MAX_BYTES = 2048;
+
+/** Product telemetry retention ceiling for the manual prune script. */
+export const ANALYTICS_RETENTION_DAYS = 180;
+
+/** Max length of open string telemetry prop values. */
+export const ANALYTICS_STRING_PROP_MAX = 64;
+
+/**
  * Auth rate-limit policy. Each entry is a sliding-window budget: at most
  * `limit` requests per `window` (Upstash Duration string). Keyed per-endpoint
  * so a burst of logins can't exhaust the register budget and vice versa.

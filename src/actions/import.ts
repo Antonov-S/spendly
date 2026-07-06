@@ -32,6 +32,8 @@ import {
 } from "@/lib/import/resolve";
 import { partitionForWrite } from "@/lib/import/dedup";
 import { getImportTargets, countExistingForDedup } from "@/lib/db/import";
+import { track } from "@/lib/analytics/track";
+import { bucketCount } from "@/lib/analytics/events";
 import { importOptionsSchema } from "@/lib/validations/import";
 import type {
   ActionResult,
@@ -484,6 +486,15 @@ export async function commitImport(
 
     revalidateTransactionViews();
     revalidateCategoryViews();
+
+    // Volume counts are bucketed, never raw — a raw count leaks ledger size.
+    void track("import_committed", {
+      format: parsed.data.format,
+      createdBucket: bucketCount(created),
+      skippedBucket: bucketCount(
+        d.duplicatesSkipped + d.invalidSkipped + d.transfersSkipped
+      ),
+    });
 
     const divergedFromPreview =
       typeof expectedCreate === "number" && created !== expectedCreate;

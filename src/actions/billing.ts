@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe, STRIPE_PRICE_IDS, type BillingPeriod } from "@/lib/stripe";
 import { getBaseUrl } from "@/lib/url";
+import { track } from "@/lib/analytics/track";
 
 /** Failure shape returned to the form's `useTransition`; success path redirects. */
 export interface BillingActionResult {
@@ -66,6 +67,9 @@ export async function createCheckoutSession(
   if (!url) {
     return { error: "Could not start checkout. Please try again." };
   }
+  // Awaited (not void) — redirect() throws synchronously, so a fire-and-forget
+  // promise would be abandoned before it persists.
+  await track("upgrade_to_pro_clicked", { period });
   redirect(url);
 }
 

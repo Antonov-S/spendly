@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getImportTargets, countExistingForDedup } from "@/lib/db/import";
 import { IMPORT_MAX_ROWS } from "@/lib/system-constants";
+import { track } from "@/lib/analytics/track";
 import type { ImportOptions } from "@/types/import";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@/lib/revalidation", () => ({
   revalidateTransactionViews: vi.fn(),
@@ -195,6 +197,13 @@ describe("commitImport write (D2/D7)", () => {
       expect(res.data.created).toBe(2);
       expect(res.data.categoriesCreated).toBe(1);
     }
+
+    // Telemetry: bucketed counts only, never raw ledger size (§0 D8).
+    expect(track).toHaveBeenCalledWith("import_committed", {
+      format: "csv",
+      createdBucket: "1-10",
+      skippedBucket: "0",
+    });
   });
 });
 
