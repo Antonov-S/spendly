@@ -52,15 +52,15 @@ conscious (the drawer is open, the Save is explicit) but the typing burden drops
 ### In scope
 
 - A new additive **`Favorite` model** — the user's saved capture shortcuts (§3).
-- **CRUD actions** (`src/actions/favorites.ts`): `createFavorite`, `updateFavorite` (rename
-  only), `deleteFavorite` — plus a `getUserFavorites` fetcher (§6–§7).
+- **CRUD actions** (`src/actions/favorites.ts`): `createFavorite`, full-field `updateFavorite`,
+  `reorderFavorites`, `deleteFavorite` — plus a `getUserFavorites` fetcher (§6–§7).
 - **Favorites strip in the transaction drawer, create mode only**: a two-column chip grid that
   pre-fills the form wholesale on tap — the fill values computed by a **pure, directly-tested
   helper** `buildFavoritePrefill` (`src/lib/favorites.ts`), since components are out of Vitest
   scope but the prefill rules are the core UX contract (§8.1).
 - **"Save as favorite" affordance in the drawer, create mode only**: snapshots the currently
   filled fields into a new favorite with a one-line name input (§8.2).
-- A **"Favorites" management card on `/settings`** (rename + delete), after Tags (§8.3).
+- A **"Favorites" management card on `/settings`** (edit + reorder + delete), after Tags (§8.3).
 - Constants `FAVORITE_NAME_MAX` / `FAVORITE_MAX_COUNT` (§5); validation schemas (§4).
 - Vitest coverage for validations, actions, and the DB fetcher (§11).
 
@@ -73,11 +73,10 @@ conscious (the drawer is open, the Save is explicit) but the typing burden drops
 - **No splits, no tags on favorites** (v1). A favorite carries a single optional category;
   the split editor and tag picker remain manual post-fill steps. Deferred, not rejected — the
   extension contracts are written down in §10 so a later slice stays additive.
-- **No usage tracking / MRU ordering — and no manual reordering yet.** v1 ordering is
-  name-ascending and deterministic (D6). MRU is *rejected* (a usage write on the capture hot
-  path, and chips that jump under the user's finger); **manual drag-and-drop ordering on
-  `/settings` is *deferred, planned*** — muscle memory for shortcut positions is real, and the
-  seam is a single additive `sortOrder Int?` column (§10, Deferred).
+- **No usage tracking / MRU ordering.** v1 shipped name-ascending and deterministic (D6);
+  `favorites-follow-ups-spec.md` ships the committed manual ordering seam as accessible
+  move controls backed by nullable `sortOrder`. MRU stays rejected (a usage write on the
+  capture hot path, and chips that jump under the user's finger).
 - **No dedicated quick-add bar outside the drawer.** The NL spec already ruled that out;
   favorites live inside the drawer's create mode, same surface, same reasoning.
 - **No export/import of favorites** (v1). Same deliberate scope call as tags — favorites are
@@ -420,10 +419,10 @@ with how split lines were added to this dialog.)
 |---|---|---|
 | **D1** | **Free, not Pro-gated** (resolves open question #10's remaining half) | Deterministic, zero COGS, and it serves the *core* 5-second-capture promise for the users who don't have NL Quick Capture. Pro depth stays AI + Reports history (the §10/§18 stance). |
 | **D2** | **Pre-fill draft, never one-tap create** | The roadmap's own recommendation, and the app-wide confirm contract: recurring drafts, NL parse, and subscription suggestions all pre-fill; `createTransaction` is the sole writer. One-tap-create would be the first silent write path in the product. |
-| **D3** | **Authoring in the drawer; management on `/settings`** | The drawer is where the fields are already filled — "save what I just typed" beats re-entering it in a settings form. `/settings` gets rename + delete only. |
+| **D3** | **Authoring in the drawer; management on `/settings`** | The drawer is where the fields are already filled — "save what I just typed" beats re-entering it in a settings form. `/settings` gets edit, reorder, and delete. |
 | **D4** | **`amount` optional — fixed when set, prompt-on-use when null** | Resolves "fixed amount vs. prompt-on-use" with *both*, cheaply: null amount → the drawer clears + focuses the amount field. "Coffee €3.50" and "Groceries (varies)" are both real favorites. |
-| **D5** | **Update = rename only (v1); full field editing is the committed first follow-up** | Field edits are delete + re-save from the drawer (30 seconds, and the re-save flow *is* the authoring flow) — acceptable at v1 volumes, inconvenient once a user accumulates many favorites. Full editing is *planned*, not merely possible (seam in Deferred below); it's held out of v1 only to keep the slice small. |
-| **D6** | **Name-ascending order in v1; MRU rejected; manual reordering deferred, planned** | Deterministic and consistent with tags. MRU is rejected outright (a usage write on the capture hot path; chips that jump under the user's finger defeat the muscle memory they exist to serve). Manual drag-and-drop ordering serves that same muscle memory *without* either cost — it's user-controlled and stable — and is a committed follow-up (seam below), not a rejection. |
+| **D5** | **Full field editing on `/settings` shipped as the committed first follow-up** | Field edits no longer require delete + re-save. `favorites-follow-ups-spec.md` widens update to the create field set and adds the repair path for archived-account favorites. |
+| **D6** | **Manual ordering shipped; MRU rejected** | `favorites-follow-ups-spec.md` adds stable user-controlled ordering with accessible move controls and nullable `sortOrder`. MRU remains rejected: a usage write on the capture hot path and chips that jump under the user's finger defeat muscle memory. |
 | **D7** | **Prefill is wholesale, date always today, account only when resolvable** | Mirrors the NL-parse semantics the drawer already implements (replace parse-owned fields; never fight the account context) — one mental model for every prefill source. |
 
 ### Rejected (considered, decided against — with the seam named)
@@ -442,20 +441,14 @@ with how split lines were added to this dialog.)
 
 ### Deferred (known follow-ups, not oversights — each with its seam named)
 
-- **Full field editing on `/settings`** (D5 — the committed first follow-up). Seam:
-  `updateFavoriteSchema` widens from `{ name }` to the full `createFavoriteSchema` field set
-  (same rules, so create and edit can never diverge); the edit surface is a small form drawer
-  reusing `<CategoryPickerField>` + the account select — a subset of the transaction drawer,
-  *not* a copy of it. No schema change needed; the action's ownership/dedup layers are already
-  in place.
-- **Manual drag-and-drop reordering on `/settings`** (D6). Seam: one additive migration adds
-  `sortOrder Int?`; ordering becomes `sortOrder asc` (nulls last) then `name asc` — existing
-  favorites keep their alphabetical order until first touched, so the change is invisible
-  until used. A `reorderFavorites(ids)` action persists the array index. **Divergence-proof by
-  construction:** both `getUserFavorites` and `getManageableFavorites` already read the shared
-  `FAVORITE_ORDER_BY` constant (§6), so the reorder slice edits that one definition and the
-  drawer strip and `/settings` list flip together — neither fetcher carries its own `orderBy`
-  literal, in v1 or after.
+- **Full field editing on `/settings`** (D5) — **shipped in
+  `favorites-follow-ups-spec.md`**. `updateFavoriteSchema` now aliases the full
+  `createFavoriteSchema`, and the Settings edit drawer reuses `<CategoryPickerField>` plus an
+  active-account select. This also makes archived-account favorite warnings repairable.
+- **Manual reordering on `/settings`** (D6) — **shipped in
+  `favorites-follow-ups-spec.md`** as accessible move controls rather than drag-and-drop. The
+  additive `sortOrder Int?` column orders rows before name fallback, and both favorite fetchers
+  still share `FAVORITE_ORDER_BY` so the drawer strip and `/settings` list cannot diverge.
 - **"Save this as a favorite?" post-save suggestion** for transactions the user keeps
   re-typing. Explicitly **deterministic and user-controlled** — the §10-subscription-detection
   shape, never AI: a pure engine counts recent captures by `(normalizeLabelKey(merchant),

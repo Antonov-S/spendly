@@ -389,6 +389,7 @@ model Favorite {
   amount    Decimal?        @db.Decimal(12, 2)
   merchant  String?
   note      String?
+  sortOrder Int?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -695,9 +696,10 @@ Soft delete: deleted transactions receive `deletedAt` timestamp and disappear fr
 > **pre-fill an unsaved draft only**; the user still reviews and clicks Save, and `createTransaction`
 > remains the sole ledger writer. A null favorite amount clears and focuses the amount field
 > (prompt-on-use); stale/deleted categories fall back to Uncategorized; archived stored accounts fall
-> back to the current default and are flagged on `/settings`, where favorites are renamed or deleted.
+> back to the current default and are flagged on `/settings`, where favorites are edited, reordered, or deleted.
 > Free, deterministic, no AI, no Pro gate, no transfer favorites in v1. See
-> `docs/features/quick-add-favorites-spec.md`.
+> `docs/features/quick-add-favorites-spec.md` and
+> `docs/features/favorites-follow-ups-spec.md`.
 
 ### Financial Accounts
 

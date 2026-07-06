@@ -145,7 +145,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         term: "Favorites",
         detail:
-          "Save common income or expense entries from the transaction drawer. A favorite pre-fills the drawer for you to review and save; it never creates a transaction by itself, and you manage saved favorites in Settings.",
+          "Save common income or expense entries from the transaction drawer. A favorite pre-fills the drawer for you to review and save; it never creates a transaction by itself, and you can edit or reorder saved favorites in Settings.",
       },
       {
         term: "Split across categories",

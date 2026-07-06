@@ -258,6 +258,7 @@ model Favorite {
   amount    Decimal?        @db.Decimal(12, 2)
   merchant  String?
   note      String?
+  sortOrder Int?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 

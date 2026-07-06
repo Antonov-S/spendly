@@ -1,8 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import type { FavoriteOption, ManageableFavorite } from "@/types/favorites";
 
-export const FAVORITE_ORDER_BY = { name: "asc" } as const;
+export const FAVORITE_ORDER_BY: Prisma.FavoriteOrderByWithRelationInput[] = [
+  { sortOrder: { sort: "asc", nulls: "last" } },
+  { name: "asc" },
+];
 
 type FavoriteRow = {
   id: string;
