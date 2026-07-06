@@ -1,44 +1,16 @@
-# Current Feature: Product Analytics / Telemetry
+# Current Feature
 
 ## Status
 
-Complete
+Not Started
 
 ## Goals
 
-- Add first-party, server-side product telemetry through the existing `track(event, props?)` funnel without changing existing emit call sites.
-- Persist telemetry in a new additive `AnalyticsEvent` table, keyed to `userId`, with account-deletion cascade and a per-user analytics opt-out.
-- Enforce the no-PII/no-financial-values contract with a typed event registry, runtime prop sanitization, payload size caps, and bucketed ledger-size counts.
-- Add a Settings usage-analytics toggle, help disclosure, retention constants, and a manual dry-run-first prune script.
-- Add starter product-action events for transactions, transfers, budgets, goals, recurring draft confirmations, exports, imports, and Pro checkout clicks.
-- Cover the sink, registry, profile preference action, and starter emissions with Vitest; run `npm run test:run` and `npm run build` before completion.
+<!-- Bullet points of what success looks like -->
 
 ## Notes
 
-- Spec: `docs/features/product-analytics-telemetry-spec.md`.
-- Branch target for start step: `feature/product-analytics`.
-- Existing shim: `src/lib/analytics/track.ts` is currently a no-op with debug logging; the implementation must keep the same signature and preserve existing `await track(...)` / `void track(...)` call styles.
-- Existing emitters found in AI, notifications, favorites, and recurring-suggestions paths. Existing call sites already use literal snake_case event names and count/enum/boolean props.
-- Schema change required: additive Prisma migration `add_analytics_events` for `AnalyticsEvent` plus `User.analyticsOptOut Boolean @default(false)` and `User.analyticsEvents`.
-- DB access should stay in a new `src/lib/db/analytics.ts`; `track.ts` composes auth, kill switch, opt-out, registry sanitization, truncation, and fail-open behavior.
-- Settings Preferences currently live directly in `src/app/settings/page.tsx` with `SettingsNameForm`; the usage-analytics toggle can be added below the display-name form and backed by a new `updateAnalyticsPreference` action in `src/actions/profile.ts`.
-- Export telemetry can be emitted from `src/app/api/export/csv/route.ts` and `src/app/api/export/json/route.ts` after successful response preparation; avoid direct Prisma imports in routes.
-- Revalidation: analytics preference update revalidates `/settings`; telemetry writes themselves should not revalidate any UI.
-- Deviation recorded for implementation: the spec's open-string sanitizer pattern excludes comma punctuation, but the existing no-change `ai_parse_confirmed.edited_fields` emitter sends comma-separated field codes. The sanitizer allows comma-separated slug tokens so that existing telemetry is preserved without touching the call site; it still rejects whitespace/prose strings.
-- Open questions: none. The spec resolves sink choice, consent model, retention, starter events, and analysis path.
-
-## Implementation Plan
-
-1. Create the Prisma schema additions and `add_analytics_events` migration with `prisma migrate dev` on the development branch only.
-2. Add analytics constants/env docs: `ANALYTICS_ENABLED`, `ANALYTICS_PROPS_MAX_BYTES`, `ANALYTICS_RETENTION_DAYS`, `ANALYTICS_STRING_PROP_MAX`, and `.env.example` comments for `ANALYTICS_ENABLED` / `ANALYTICS_DEBUG`.
-3. Build `src/lib/analytics/events.ts` with `ANALYTICS_EVENTS`, `sanitizeProps`, `bucketCount`, event-name/types helpers, slug/length validation, enum-first prop specs, and the starter-event registry entries.
-4. Add `src/lib/db/analytics.ts` with server-only helpers to read the opt-out flag and persist a sanitized event; keep all Prisma access out of API route glue and out of components.
-5. Swap the body of `track()` to debug safely in non-production, honor the kill switch, resolve `auth()`, drop unauthenticated/opted-out/unregistered events, truncate oversized props, persist, and fail open.
-6. Add `updateAnalyticsPreference` validation/action, extend `getUserOverview`, and render the Settings Preferences checkbox row with non-anonymous copy from the spec.
-7. Add starter `void track(...)` emissions at existing success points: `createTransaction`, `createTransfer`, `confirmDraft`, `createBudget`, `createGoal`, `commitImport`, both export routes, and `createCheckoutSession`.
-8. Add `scripts/prune-analytics.ts` as a dry-run-first operator script with `--apply` and production-host refusal unless `--production` is explicit.
-9. Update help Data & privacy copy and shipping docs later in the workflow: `docs/POST-MVP-ROADMAP.md`, `docs/project-overview.md`, and this file's history entry during feature-complete.
-10. Add Vitest coverage for `src/lib/analytics/events.ts`, `src/lib/analytics/track.ts`, `src/lib/db/analytics.ts`, `src/actions/profile.ts`, and starter-emission assertions in the relevant action suites; then run `npm run test:run` and `npm run build`.
+<!-- Additional context, constraints, or details from spec -->
 
 ## History
 
