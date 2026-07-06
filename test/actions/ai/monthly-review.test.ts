@@ -9,7 +9,10 @@ import type { ReviewInputs } from "@/lib/reports-review";
 
 vi.mock("@/lib/db/monthly-review", () => ({ getMonthlyReviewInputs: vi.fn() }));
 vi.mock("@/lib/ai/respond", () => ({ aiJsonRespond: vi.fn() }));
-vi.mock("@/lib/ai/run", () => ({ runAiFeature: vi.fn() }));
+vi.mock("@/lib/ai/run", () => ({
+  runAiFeature: vi.fn(),
+  withAiTelemetry: (data: unknown) => data,
+}));
 vi.mock("@/lib/analytics/track", () => ({ track: vi.fn() }));
 
 const mockRun = vi.mocked(runAiFeature);
@@ -47,6 +50,10 @@ const SPARSE_INPUTS: ReviewInputs = {
   periodLabel: "July 2026",
 };
 
+function ai(text: string) {
+  return { text, model: "gpt-5-nano" };
+}
+
 /** Run the real `run` callback via runAiFeature's success path. */
 function runInline() {
   mockRun.mockImplementation(async (args) => {
@@ -81,7 +88,7 @@ describe("generateMonthlyReview config", () => {
   it("invokes runAiFeature with the right feature, burst limit and prompt version", async () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
-    mockRespond.mockResolvedValue('{ "summary": ["Net cashflow is €600."] }');
+    mockRespond.mockResolvedValue(ai('{ "summary": ["Net cashflow is €600."] }'));
 
     await generateMonthlyReview({ accountId: null });
     const args = mockRun.mock.calls[0][0];
@@ -93,7 +100,7 @@ describe("generateMonthlyReview config", () => {
   it("passes the built facts (as JSON) to aiJsonRespond", async () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
-    mockRespond.mockResolvedValue('{ "summary": ["Net cashflow is €600."] }');
+    mockRespond.mockResolvedValue(ai('{ "summary": ["Net cashflow is €600."] }'));
 
     await generateMonthlyReview({ accountId: null });
     const payload = mockRespond.mock.calls[0][0].input;
@@ -109,7 +116,7 @@ describe("generateMonthlyReview happy path", () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
     mockRespond.mockResolvedValue(
-      '{ "summary": ["Dining is €50 over budget.", "Net cashflow is €600."] }'
+      ai('{ "summary": ["Dining is €50 over budget.", "Net cashflow is €600."] }')
     );
 
     const res = await generateMonthlyReview({ accountId: null });
@@ -131,7 +138,9 @@ describe("generateMonthlyReview numeric guard telemetry", () => {
     runInline();
     mockInputs.mockResolvedValue(SIGNAL_INPUTS);
     mockRespond.mockResolvedValue(
-      '{ "summary": ["Dining is €50 over budget.", "Groceries rose 38%.", "Net cashflow is €600."] }'
+      ai(
+        '{ "summary": ["Dining is €50 over budget.", "Groceries rose 38%.", "Net cashflow is €600."] }'
+      )
     );
 
     const res = await generateMonthlyReview({ accountId: null });

@@ -1,7 +1,7 @@
 "use server";
 
 import { aiJsonRespond } from "@/lib/ai/respond";
-import { runAiFeature, type AiResult } from "@/lib/ai/run";
+import { runAiFeature, withAiTelemetry, type AiResult } from "@/lib/ai/run";
 import { AiNoMatchError, AiParseError } from "@/lib/ai/errors";
 import { track } from "@/lib/analytics/track";
 import { getBudgetSuggestInputs } from "@/lib/db/budget-suggest";
@@ -76,13 +76,14 @@ export async function suggestBudgets(input: {
 
       let notes = new Map<string, string>();
       let aiNotes = false;
+      let aiResponse: Awaited<ReturnType<typeof aiJsonRespond>> | null = null;
       try {
-        const raw = await aiJsonRespond({
+        aiResponse = await aiJsonRespond({
           instructions: SUGGEST_INSTRUCTIONS,
           input: buildSuggestInput(facts),
           signal,
         });
-        const proposed = parseSuggestionNotes(raw, facts); // throws AiParseError on bad JSON
+        const proposed = parseSuggestionNotes(aiResponse.text, facts); // throws AiParseError on bad JSON
         notes = validateSuggestionNotes(proposed, facts); // drops misquoted notes
         aiNotes = notes.size > 0;
 
@@ -107,13 +108,14 @@ export async function suggestBudgets(input: {
         });
       }
 
-      return toBudgetSuggestions(
+      const suggestions = toBudgetSuggestions(
         facts,
         notes,
         inputs.categories,
         aiNotes,
         BUDGET_SUGGEST_PROMPT_VERSION
       );
+      return aiResponse ? withAiTelemetry(suggestions, aiResponse) : suggestions;
     },
   });
 }

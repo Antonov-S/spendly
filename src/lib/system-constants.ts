@@ -83,6 +83,9 @@ export const ANALYTICS_RETENTION_DAYS = 180;
 /** Max length of open string telemetry prop values. */
 export const ANALYTICS_STRING_PROP_MAX = 64;
 
+/** Default stable-window length for the Pro Value Review checkpoint. */
+export const AI_REVIEW_WINDOW_DAYS = 28;
+
 /**
  * Auth rate-limit policy. Each entry is a sliding-window budget: at most
  * `limit` requests per `window` (Upstash Duration string). Keyed per-endpoint

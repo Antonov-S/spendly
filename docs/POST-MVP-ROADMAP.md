@@ -465,6 +465,14 @@ Review Narrative, and Smart Budget Suggestions. Before expanding the AI surface 
 existing four, or (c) hold and let the non-AI backlog (§9–§10) carry the next cycle. This
 checkpoint is the dividing line between "committed AI layer" and "speculative AI expansion."
 
+> **Measurement tooling shipped (`feature/pro-value-review`).** The checkpoint remains a gate,
+> not an app feature: `src/lib/analytics/review-metrics.ts` defines the committed metrics and
+> thresholds, `scripts/ai-review-report.ts` prints the read-only operator report, and
+> `docs/reviews/pro-value-review-template.md` records the verdict. Additive `ai_result`
+> token/model telemetry starts the COGS clock from this slice. Earliest honest review date:
+> **2026-08-03** (28 days after telemetry go-live on 2026-07-06). Until the completed
+> `docs/reviews/pro-value-review-<YYYY-MM>.md` exists, §13 stays parked.
+
 ---
 
 ## 7. Budget Rollover
@@ -911,7 +919,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 9 | **Split Transactions (17)** | Committed | M | No | **✅ Shipped.** `TransactionSplit` child (derived split status, no `isSplit` column); one shared `getCategorySpend` two-`groupBy` union rewires budgets/rollover/dashboard/reports (double-count structurally impossible); EXPENSE-only, single-account; JSON `schemaVersion: 2`; import of splits deferred. Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | **✅ Shipped.** First "insight" assistant — Pro `/reports` "Generate summary" card phrasing this-month-vs-last. Deterministic `buildReviewFacts` owns every figure; pure `validateReviewNumbers` guard drops any misquoted line (model phrases, never computes — D2). Reuses §3 foundation + `getCategorySpend`/`getBudgets`; read-only, fail-open; no schema. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Suggest budgets" panel on `/budgets`; deterministic per-category ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period, model phrases each rationale (numeric-guarded — D1). Read-only (accept via `createBudget`), fail-open, softer D5 degradation. Reuses §3; extracted the shared numeric-guard core to `numeric-guard.ts`. No schema change, no migration, no new rate entry. |
-| ✦ | **Pro Value Review checkpoint** | Gate | — | — | All four AI features (§3–§6) now shipped — apply the expand/iterate/retire rubric; decide whether to grow the AI surface (gates §13). |
+| ✦ | **Pro Value Review checkpoint** | Gate | — | — | **Measurement tooling shipped.** All four AI features (§3–§6) now shipped; run `scripts/ai-review-report.ts` after the 2026-08-03 window close, record `docs/reviews/pro-value-review-<YYYY-MM>.md`, then decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
 | 14 | Cash-Flow Forecast (18) | Committed | M | No | **✅ Shipped.** Read-only `ForecastPanel` on `/dashboard` (right column below Goals) projects the balance 30 days forward from active templates + pending drafts. Pure deterministic `buildCashflowForecast` folds signed occurrences over the horizon (load-bearing skip rule prevents template/draft double-count); anchored on `summary.totalBalance` in-process so it can't drift from the hero number. Dashed neutral SVG, `danger` below zero, hidden at `eventCount === 0`. **Zero AI, zero writes, zero schema, no Pro gate.** Reuses `advanceNextOccurrence`. |

@@ -1,7 +1,7 @@
 "use server";
 
 import { aiJsonRespond } from "@/lib/ai/respond";
-import { runAiFeature, type AiResult } from "@/lib/ai/run";
+import { runAiFeature, withAiTelemetry, type AiResult } from "@/lib/ai/run";
 import { AiNoMatchError } from "@/lib/ai/errors";
 import { track } from "@/lib/analytics/track";
 import { getMonthlyReviewInputs } from "@/lib/db/monthly-review";
@@ -67,12 +67,12 @@ export async function generateMonthlyReview(input: {
         throw new AiNoMatchError("Not enough month-over-month data.");
       }
 
-      const raw = await aiJsonRespond({
+      const response = await aiJsonRespond({
         instructions: REVIEW_INSTRUCTIONS,
         input: buildReviewInput(facts),
         signal,
       });
-      const parsedLines = parseReviewJson(raw); // throws AiParseError on bad JSON
+      const parsedLines = parseReviewJson(response.text); // throws AiParseError on bad JSON
       const summary = validateReviewNumbers(parsedLines, facts); // drops misquoted lines
 
       // Diagnostic: how often the D2 guard actually intervenes. Counts only — no
@@ -87,11 +87,14 @@ export async function generateMonthlyReview(input: {
         });
       }
 
-      return {
-        summary,
-        periodLabel: facts.periodLabel,
-        promptVersion: MONTHLY_REVIEW_PROMPT_VERSION,
-      } satisfies MonthlyReviewNarrative;
+      return withAiTelemetry(
+        {
+          summary,
+          periodLabel: facts.periodLabel,
+          promptVersion: MONTHLY_REVIEW_PROMPT_VERSION,
+        } satisfies MonthlyReviewNarrative,
+        response
+      );
     },
   });
 }

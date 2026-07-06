@@ -2,8 +2,20 @@ import "server-only";
 import { getOpenAI } from "@/lib/ai/client";
 import { AI_MODEL, AI_REASONING_EFFORT } from "@/lib/system-constants";
 
+export interface AiUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface AiJsonResponse {
+  text: string;
+  usage?: AiUsage;
+  model: string;
+}
+
 /**
- * Run one JSON-object Responses-API call and return the raw `output_text`.
+ * Run one JSON-object Responses-API call and return the raw `output_text` plus
+ * additive telemetry metadata for the Pro Value Review COGS clock.
  *
  * CRITICAL (carried from ai-auto-tag-spec §"CRITICAL" — load-bearing for
  * gpt-5-nano):
@@ -23,7 +35,7 @@ export async function aiJsonRespond(args: {
   instructions: string;
   input: string;
   signal?: AbortSignal;
-}): Promise<string> {
+}): Promise<AiJsonResponse> {
   const input = /json/i.test(args.input)
     ? args.input
     : `${args.input}\n\nRespond with a single JSON object.`;
@@ -40,5 +52,14 @@ export async function aiJsonRespond(args: {
     },
     { signal: args.signal }
   );
-  return response.output_text;
+  return {
+    text: response.output_text,
+    usage: response.usage
+      ? {
+          inputTokens: response.usage.input_tokens,
+          outputTokens: response.usage.output_tokens,
+        }
+      : undefined,
+    model: String(response.model || AI_MODEL),
+  };
 }

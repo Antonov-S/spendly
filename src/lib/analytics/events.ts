@@ -33,6 +33,9 @@ export const ANALYTICS_EVENTS = {
       "parse_failed",
       "no_match",
     ],
+    input_tokens: "number",
+    output_tokens: "number",
+    model: "string",
   },
   ai_category_accepted: {
     feature: ["category_suggest"],

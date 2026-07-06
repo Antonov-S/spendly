@@ -2,7 +2,7 @@
 
 import { getUserCategories } from "@/lib/db/categories";
 import { aiJsonRespond } from "@/lib/ai/respond";
-import { runAiFeature, type AiResult } from "@/lib/ai/run";
+import { runAiFeature, withAiTelemetry, type AiResult } from "@/lib/ai/run";
 import { matchCategoryByName } from "@/lib/ai/category";
 import {
   parseDraftJson,
@@ -91,7 +91,7 @@ export async function parseTransaction(input: {
     failOpenMessage: "Couldn't read that — add the details manually.",
     run: async ({ userId, signal }) => {
       const categories = await getUserCategories(userId); // system + own
-      const raw = await aiJsonRespond({
+      const response = await aiJsonRespond({
         instructions: PARSE_INSTRUCTIONS,
         input: buildParseInput({
           text: clippedText,
@@ -101,23 +101,26 @@ export async function parseTransaction(input: {
         signal,
       });
 
-      const draft = parseDraftJson(raw); // throws AiParseError on bad JSON
+      const draft = parseDraftJson(response.text); // throws AiParseError on bad JSON
       if (draft.amount == null) {
         throw new AiNoMatchError("No amount in input.");
       }
       const match = matchCategoryByName(draft.category, categories); // soft
 
-      return {
-        type: draft.type,
-        amount: draft.amount,
-        date: resolveDraftDate(draft.date), // guard → today on invalid/absent
-        categoryId: match?.id ?? null,
-        categoryName: match?.name ?? null,
-        merchant: draft.merchant,
-        note: draft.note,
-        confidence: draft.confidence,
-        promptVersion: TRANSACTION_PARSE_PROMPT_VERSION,
-      } satisfies ParsedTransactionDraft;
+      return withAiTelemetry(
+        {
+          type: draft.type,
+          amount: draft.amount,
+          date: resolveDraftDate(draft.date), // guard → today on invalid/absent
+          categoryId: match?.id ?? null,
+          categoryName: match?.name ?? null,
+          merchant: draft.merchant,
+          note: draft.note,
+          confidence: draft.confidence,
+          promptVersion: TRANSACTION_PARSE_PROMPT_VERSION,
+        } satisfies ParsedTransactionDraft,
+        response
+      );
     },
   });
 }

@@ -71,6 +71,31 @@ describe("sanitizeProps", () => {
       props: { edited: true, edited_field_count: 2, edited_fields: "amount,category" },
     });
   });
+
+  it("keeps ai_result token counts and model slug props", () => {
+    const res = sanitizeProps("ai_result", {
+      feature: "category_suggest",
+      prompt_version: 1,
+      outcome: "ok",
+      reason: "ok",
+      input_tokens: 123,
+      output_tokens: 45,
+      model: "gpt-5-nano",
+    });
+
+    expect(res).toEqual({
+      ok: true,
+      props: {
+        feature: "category_suggest",
+        prompt_version: 1,
+        outcome: "ok",
+        reason: "ok",
+        input_tokens: 123,
+        output_tokens: 45,
+        model: "gpt-5-nano",
+      },
+    });
+  });
 });
 
 describe("bucketCount", () => {
