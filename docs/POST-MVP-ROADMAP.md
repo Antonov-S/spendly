@@ -1,12 +1,12 @@
 # Spendly Post-MVP Roadmap
 
 > The MVP is complete (see [ROADMAP.md](./ROADMAP.md) — all of §0–§9 shipped, launch-day
-> operator tasks aside). This document tracks what comes **after** launch. Section numbers
-> are **stable feature IDs**, not build order; the build order is the **Delivery Sequence**
-> near the end.
+> operator tasks aside). This document tracks the post-MVP path **from feature-complete demo to
+> public launch, measurement, and later expansion**.
 >
-> Feature IDs are **stable and assigned in creation order** — they are *not* contiguous within
-> a tier; build order is the **Delivery Sequence** near the end. Tiers:
+> Section numbers are **stable feature IDs, assigned in creation order** — they are *not*
+> contiguous within a tier and are *not* build order; the build order is the **Delivery
+> Sequence** near the end. Tiers:
 > - **Foundation (§0):** lightweight telemetry, stood up early so the backlog is prioritized
 >   on real demand, not guesswork.
 > - **Phase 1 — Committed firm sequence (§1–§4):** agreed and ordered. Debt cleanup (§1–§2)
@@ -20,6 +20,11 @@
 > - **Parked — pending demand/data (§11–§14):** not committed; leaves the backlog only when
 >   telemetry or user signal justifies the cost. **§12 Category Hierarchy is low-priority and
 >   likely fully replaced by Transaction Tags (§16)** — kept parked, not killed.
+> - **Launch Readiness (§20):** added 2026-07-07, after the committed tier finished shipping —
+>   a **lean** pre-launch layer: a launch checklist/runbook plus a few focused hardening slices,
+>   ending in a soft launch that makes the shipped surface **measurable**. Deliberately **not**
+>   an infra build-out — Vercel CI/deploy and the Stripe sandbox already work. Sits **before**
+>   the Pro Value Review checkpoint, which is now **condition-based, not calendar-based**.
 
 ---
 
@@ -92,8 +97,8 @@ deterministic `buildReviewFacts` owns every figure and a pure `validateReviewNum
 line whose numbers aren't in the facts (the model phrases, never computes — D2). Figures reuse
 `getCategorySpend` + `getBudgets` so the narrative never drifts from the charts; fixed month-over-month
 window honoring `?account=`. Reuses the §3 foundation unchanged — prompt + parse + facts + card only,
-no new client/orchestrator/Pro-read/rate-policy/schema. **Next up: §6 Smart Budget Suggestions**
-(delivery slot 11). See `docs/features/monthly-review-narrative-spec.md`.
+no new client/orchestrator/Pro-read/rate-policy/schema. See
+`docs/features/monthly-review-narrative-spec.md`.
 
 **✅ §6 Smart Budget Suggestions shipped (delivery slot 11)** — the last of the four committed AI
 capabilities. A Pro-only "Suggest budgets" panel on `/budgets` proposes deterministic per-category
@@ -101,12 +106,29 @@ ceilings (median-with-adaptive-round-up) from the 3 months before the viewed per
 phrases each rationale, numeric-guarded. Read-only (accept goes through `createBudget`), fail-open, and
 softer still (D5 — a phrasing failure degrades to deterministic copy, not nothing). Reuses §3 unchanged;
 the one existing-code touch was extracting the shared numeric-guard core to `src/lib/ai/numeric-guard.ts`.
-No schema change, no migration, no new `RATE_LIMITS` entry. **Next up: the Pro Value Review checkpoint —
-all four AI features (§3–§6) now shipped.** See `docs/features/smart-budget-suggestions-spec.md`.
+No schema change, no migration, no new `RATE_LIMITS` entry. All four AI features (§3–§6) are now
+shipped. See `docs/features/smart-budget-suggestions-spec.md`.
 
-**Concurrent (product-owner gated): §0 Telemetry** — answer Open question #1 (sink +
-consent), then wire the real sink behind the `track()` shim §3 already emits through (`ai_result` +
-`ai_category_accepted`/`ai_category_overridden`).
+**✅ §0 Telemetry shipped** (`feature/product-analytics`). The real first-party sink now persists
+behind the existing `track()` shim — additive `AnalyticsEvent` table, typed event registry,
+`/settings` opt-out toggle, starter product events, retention prune script. Resolves the
+original sink/consent open question. See §0 below and
+`docs/features/product-analytics-telemetry-spec.md`.
+
+**▶ Next up: §20 Public Launch Readiness (lean).** Every committed delivery slot (1–15) has
+shipped, and most launch infrastructure already exists — Vercel CI/deploy works, the environment
+is production-like, and Stripe runs end-to-end in sandbox mode — but the app has **no public
+domain and no real users**, so the Pro Value Review checkpoint cannot produce a meaningful
+verdict on the originally implied **2026-08-03** date (the tooling would run, but against
+local/demo usage it mostly returns "insufficient data"). The checkpoint is now
+**condition-based**: it runs after **≥ 28 days of real production/beta telemetry following a
+soft or official launch**, provided there is enough usage to evaluate the AI features. §20 is
+deliberately **lean** — a launch checklist/runbook that confirms what already works, plus a few
+focused slices: data-portability hardening (split + tag round-trip — the first real code slice),
+script-first beta ops tooling (`scripts/set-pro.ts` + `scripts/beta-health.ts`; an Operator
+Console v0 only if the scripts prove insufficient during beta), analytics smoke validation on
+the deployment, CSP Stage B (which must never block launch), a soft launch/beta, and — last,
+optional — Stripe live readiness.
 
 ---
 
@@ -152,11 +174,15 @@ Every item is evaluated against the same frame that governed the MVP:
 > existing success points (`transaction_created`, `transfer_created`, `draft_confirmed`,
 > `budget_created`, `goal_created`, `import_committed` with **bucketed** counts, `export_run`,
 > `upgrade_to_pro_clicked`). Retention policy (`ANALYTICS_RETENTION_DAYS = 180`) + a dry-run-first
-> `scripts/prune-analytics.ts` (production-refusal gate). **Resolves Open question #1** (first-party
-> table + opt-out under legitimate interest); the Pro Value Review checkpoint is now unblocked
-> pending a measurement window. See `docs/features/product-analytics-telemetry-spec.md`.
+> `scripts/prune-analytics.ts` (production-refusal gate). **Resolves the original sink/consent
+> open question** (first-party table + opt-out under legitimate interest); the Pro Value Review
+> checkpoint is now unblocked pending a real production/beta telemetry window after §20 launch
+> readiness. See `docs/features/product-analytics-telemetry-spec.md`.
 
 **Effort: S · Value: high (de-risks every later decision) · Build early, alongside Phase 1.**
+
+> *The prose below is the original pre-build plan, kept for the record — telemetry has since
+> shipped; the banner above records the realized design.*
 
 Spendly has no product analytics today, so backlog priority is currently argued from first
 principles. A lightweight, **privacy-respecting** telemetry layer turns that into evidence:
@@ -307,6 +333,10 @@ lighter shell.
 > truncated, never rejected). 540 tests pass, build + lint clean; no schema change. Spec:
 > `docs/features/ai-auto-categorization-spec.md`.
 
+> *The prose below is the original pre-build plan, kept for the record — the shipped banner
+> above records the realized design (model behind the `AI_MODEL` knob, currently `gpt-5-nano`;
+> the provider key is long since back in `.env.example`).*
+
 When a Pro user enters a transaction, an LLM suggests the most likely **category** (and
 optionally cleans up the **merchant**) from the description/merchant text. The suggestion is
 **pre-selected in the drawer for the user to confirm or override** — never written silently.
@@ -448,10 +478,10 @@ onboarding deferred (D3 — no history to compute from at onboarding).
 
 ## Checkpoint — Pro Value Review (after the core AI layer)
 
-**Not a feature — a gate.** By the time §3, §4, §5, and §6 have all shipped (delivery slots
-3, 4, 7, 8), Spendly has four AI capabilities: Auto-Categorization, NL Quick Capture, Monthly
-Review Narrative, and Smart Budget Suggestions. Before expanding the AI surface any further
-(§13 later-stage assistants), run a **formal review** against §0 data:
+**Not a feature — a gate.** §3–§6 have all shipped (see the Delivery Sequence), giving Spendly
+four AI capabilities: Auto-Categorization, NL Quick Capture, Monthly Review Narrative, and Smart
+Budget Suggestions. Before expanding the AI surface any further (§13 later-stage assistants),
+run a **formal review** against §0 data:
 
 - **Is AI driving Pro?** Compare upgrade/retention for users who adopt ≥1 AI feature vs. those
   who don't. AI is a major plank of the Pro value proposition — this is the moment to confirm
@@ -462,16 +492,30 @@ Review Narrative, and Smart Budget Suggestions. Before expanding the AI surface 
   the model, cap, or feature set if it's drifting.
 
 **Outcome:** an explicit decision to (a) expand AI (promote items from §13), (b) iterate the
-existing four, or (c) hold and let the non-AI backlog (§9–§10) carry the next cycle. This
+existing four, or (c) hold and let non-AI launch findings or parked backlog candidates carry
+the next cycle. This
 checkpoint is the dividing line between "committed AI layer" and "speculative AI expansion."
 
 > **Measurement tooling shipped (`feature/pro-value-review`).** The checkpoint remains a gate,
 > not an app feature: `src/lib/analytics/review-metrics.ts` defines the committed metrics and
 > thresholds, `scripts/ai-review-report.ts` prints the read-only operator report, and
 > `docs/reviews/pro-value-review-template.md` records the verdict. Additive `ai_result`
-> token/model telemetry starts the COGS clock from this slice. Earliest honest review date:
-> **2026-08-03** (28 days after telemetry go-live on 2026-07-06). Until the completed
-> `docs/reviews/pro-value-review-<YYYY-MM>.md` exists, §13 stays parked.
+> token/model telemetry starts the COGS clock from this slice.
+>
+> **Trigger revised 2026-07-07 — condition-based, not calendar-based.** The original "earliest
+> honest review date: 2026-08-03 (28 days after telemetry go-live)" implicitly assumed the app
+> was live and collecting real production telemetry. It isn't — the app deploys via Vercel CI
+> and the infrastructure is production-like, but there is no public domain and no real users, so
+> a calendar-dated review would only measure local/demo usage. The review now runs after **≥ 28
+> days (`AI_REVIEW_WINDOW_DAYS`) of real production/beta telemetry following a soft or official
+> launch (§20)**, provided there is enough usage to evaluate the AI features. **"Enough" is
+> objective, not a judgment call** — the frozen small-sample floors in
+> `src/lib/analytics/review-metrics.ts` (`AI_REVIEW_THRESHOLDS.minRunDenominator = 20` runs per
+> feature; `minUserDenominator = 10` users for user-sampled rates) already force the
+> `insufficient` verdict below them. If the sample is too small at review time, record an explicit
+> **"insufficient data"** verdict in `docs/reviews/pro-value-review-<YYYY-MM>.md` and **extend
+> the measurement window** — never force an expand/iterate/retire call from noise. Until a
+> completed review with a decision-grade sample exists, §13 stays parked.
 
 ---
 
@@ -617,8 +661,10 @@ added as future-proofing for exactly this, so the model is ready.
   AI coupling is explicitly deferred — do **not** reach for the model to ship v1. Strictly a
   later, evidence-gated enhancement, never a prerequisite.
 
-**Why later:** value depends on accumulated transaction history; needs a scheduled/batched run
-(or lazy compute on the recurring page). Gate the build on §0 showing users with enough history.
+**Why later (original rationale — v1 has since shipped lazy/cron-free):** value depends on
+accumulated transaction history. The realized v1 computes lazily on the `/recurring` page load —
+no scheduled/batched run was needed. §0 evidence now gates only the optional **v2 AI
+merchant-normalization assist**, not the shipped heuristic.
 
 ---
 
@@ -809,6 +855,101 @@ when null; name-ascending order in v1.
 
 ---
 
+# Launch Readiness
+
+---
+
+## 20. Public Launch Readiness (lean checklist + focused hardening slices)
+
+**Effort: S–M (an operator checklist + a few small slices — not a build-out) · Value: critical —
+makes the shipped roadmap measurable. Sits before the Pro Value Review checkpoint.**
+
+> Added 2026-07-07, when the committed tier finished shipping; **framed lean deliberately.** The
+> checkpoint logic implicitly assumed Spendly was already collecting real production telemetry.
+> It isn't — but the gap is much smaller than a from-scratch launch: **Vercel CI/deploy already
+> works, most production-like infrastructure is in place, and Stripe runs end-to-end in sandbox
+> mode** (it simply can't process real payments until/if monetization is pursued). What's missing
+> is a public domain, real users, and *validated* telemetry — `scripts/ai-review-report.ts` runs
+> today but mostly returns "insufficient data" against local/demo usage. So §20 is **not one big
+> umbrella feature branch**: it is a short runbook that confirms what already works, a small
+> number of focused hardening slices, and a soft launch that starts the checkpoint's ≥ 28-day
+> clock.
+
+Work items, in rough order:
+
+1. **Lean launch checklist / runbook** *(operator doc)* — one short document confirming what
+   already works and what must be checked before soft launch: Vercel deployment + CI/build/test
+   pipeline, production env vars (`AUTH_URL`, `AUTH_SECRET` rotation), production URL / domain
+   choice, Google OAuth production callback, the Stripe **sandbox** flow, analytics event
+   persistence, a backup/restore check, the soft-launch audience, and whether beta users get
+   `isPro` operator-flagged so the Pro-gated AI features generate reviewable telemetry. Three
+   checks called out explicitly:
+   - **Email deliverability** *(domain-gated — checked once the public domain exists, before
+     beta invites; not a separate implementation task)*: decide whether email verification is
+     on or off for the beta (`EMAIL_VERIFICATION_ENABLED`); if on, verify the Resend production
+     sender domain and configure `EMAIL_FROM` (the dev sender `onboarding@resend.dev` is not
+     launch-grade).
+   - **Public privacy page** *(real pre-beta requirement)*: real EU users must be able to read
+     what's stored, the analytics legitimate-interest basis + opt-out, and their export/delete
+     rights **before signing up** — today that disclosure lives only behind auth in `/help`.
+   - **Rate limiting** *(verification, not setup — Upstash is already configured in
+     production)*: confirm the Upstash env vars are present in the production environment and
+     that rate-limited paths are actually using Redis-backed limits rather than silently
+     falling back to the fail-open behavior.
+2. **Data portability hardening** *(the first real code slice — own branch + spec)* — the most
+   concrete next implementation task: fix the **split export/import round-trip** (a
+   `schemaVersion: 2` JSON re-import currently flattens a split to Uncategorized — the
+   documented top post-release follow-up from §17), add **tag export/import** (deferred from
+   §16), and add a JSON export → import round-trip fixture proving important user data is not
+   silently lost.
+3. **Beta operations tooling — script-first** *(small operator-side code slice)* — add
+   `scripts/set-pro.ts` (operator-controlled beta `isPro` flagging; the flip happens
+   operator-side like the seed, so the "webhook is the only **in-app** Pro grant surface" rule
+   stays intact) and `scripts/beta-health.ts` (launch telemetry health: latest event timestamp,
+   event counts by name, active users, Pro-flagged users, AI run/failure counts, token/model
+   telemetry presence), reusing the existing analytics/review-metrics read paths where possible.
+   An **Operator Console v0** is the explicit **rung 2**, built **only if** the script workflow
+   proves insufficient during beta (too many beta users, a second operator, repeated need to
+   check status away from the terminal, scripts becoming error-prone). If promoted it stays
+   narrowly scoped — allowlisted access (e.g. `ADMIN_EMAILS`), telemetry/user overview, beta
+   `isPro` handling — with **no** financial-data editing, **no** destructive account actions,
+   and **no** billing management. A full admin panel stays out of scope entirely; note any
+   in-app admin route would be the codebase's first deliberate cross-user read surface, which is
+   exactly why it must earn its way in.
+4. **Analytics smoke validation** *(operator + smoke, on the Vercel deployment)* — confirm
+   `AnalyticsEvent` rows are written against real deployment data: core product events, AI
+   events including token/model telemetry, opt-out honored end-to-end, a
+   `scripts/prune-analytics.ts` dry run, and a smoke run of `scripts/ai-review-report.ts`.
+5. **CSP Stage B** *(small code flip — `docs/fixes/security-headers-spec.md`)* — move from
+   Report-Only to enforcing **only after** Google OAuth (incl. the no-JS form-POST path) and the
+   Stripe **sandbox** checkout round-trip have been exercised in a real browser window with zero
+   violations. Valuable hardening, but it must **never block the soft launch** by breaking auth,
+   forms, or third-party flows — if the soak isn't clean in time, launch on Report-Only and flip
+   later.
+6. **Soft launch / beta measurement** — a limited beta with real users to generate meaningful
+   telemetry: surface launch blockers and confirm behaviour outside local/demo usage. This is
+   the event that starts the checkpoint's ≥ 28-day window. Since the AI features are Pro-gated
+   and Stripe isn't live, beta users are `isPro`-flagged via `scripts/set-pro.ts` (item 3) if
+   the review is expected to measure AI usage before real monetization.
+7. **Stripe live readiness** *(last; optional — must not block the rest of §20)* — Spendly is
+   currently a hobby/demo project and monetization may never happen. If/when it becomes
+   relevant: live products/prices, live webhook endpoint + secret, a successful checkout
+   round-trip, cancel/resubscribe scenarios, and verification that Pro entitlement is granted
+   correctly after payment (the webhook remains the only code surface that grants Pro).
+
+**Exit criterion — §20 is done when:** the app is reachable on its public domain, every runbook
+check passes, the beta cohort is onboarded (with `isPro` flags applied where decided),
+`scripts/beta-health.ts` shows a live event stream from real users, and the ≥ 28-day Pro Value
+Review telemetry window has started. Stripe live readiness (item 7) is explicitly **not** part
+of the exit bar.
+
+**Explicitly not in this phase:** promoting any parked item (§11–§14) — they stay parked until
+real production/beta evidence exists — and any heavy "build launch infrastructure" project. The
+job is to **tighten and validate the mostly-working Vercel/CI/sandbox setup**, close the known
+data-portability gap, and run a small real-user beta that makes the checkpoint measurable.
+
+---
+
 # Parked — pending demand/data
 
 > Not committed. Each leaves the backlog only when §0 telemetry or direct user signal justifies
@@ -866,7 +1007,7 @@ Until both hold it stays deprioritized — the working assumption is that tags a
 
 **Effort: per-item M–L · Value: niche / experimental. Validate the §3–§6 layer first.**
 
-Additional assistants on the §3 foundation, deferred until the first three (§4–§6) prove their
+Additional assistants on the §3 foundation, deferred until the core four (§3–§6) prove their
 acceptance rates:
 
 - **Goal pace advisor** — "save €240/mo to hit Japan Trip by your target date" on the goal card.
@@ -919,11 +1060,12 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 9 | **Split Transactions (17)** | Committed | M | No | **✅ Shipped.** `TransactionSplit` child (derived split status, no `isSplit` column); one shared `getCategorySpend` two-`groupBy` union rewires budgets/rollover/dashboard/reports (double-count structurally impossible); EXPENSE-only, single-account; JSON `schemaVersion: 2`; import of splits deferred. Everyday categorization accuracy; highest blast radius of the non-AI wins. |
 | 10 | Monthly Review Narrative (5) | Committed | M | **Yes** | **✅ Shipped.** First "insight" assistant — Pro `/reports` "Generate summary" card phrasing this-month-vs-last. Deterministic `buildReviewFacts` owns every figure; pure `validateReviewNumbers` guard drops any misquoted line (model phrases, never computes — D2). Reuses §3 foundation + `getCategorySpend`/`getBudgets`; read-only, fail-open; no schema. |
 | 11 | Smart Budget Suggestions (6) | Committed | M | **Yes** | **✅ Shipped.** Pro-only "Suggest budgets" panel on `/budgets`; deterministic per-category ceilings (median-with-adaptive-round-up) from the 3 months before the viewed period, model phrases each rationale (numeric-guarded — D1). Read-only (accept via `createBudget`), fail-open, softer D5 degradation. Reuses §3; extracted the shared numeric-guard core to `numeric-guard.ts`. No schema change, no migration, no new rate entry. |
-| ✦ | **Pro Value Review checkpoint** | Gate | — | — | **Measurement tooling shipped.** All four AI features (§3–§6) now shipped; run `scripts/ai-review-report.ts` after the 2026-08-03 window close, record `docs/reviews/pro-value-review-<YYYY-MM>.md`, then decide whether to grow the AI surface (gates §13). |
 | 12 | In-App Notifications (9) | Committed | M | No | **✅ Shipped.** Topbar bell + popover panel on every `AppShell` page; per-entity derived items (budget-over/at-risk/draft/goal-overdue) from single-sourced rules (`budgetRiskLevel` extraction); lazy read-only `getNotifications` action over channel-agnostic `deriveNotifications`; **derive-first, no persistence**; telemetry via `track()` shim. No schema change, no new queries. Consistency insight deferred (needs a stored preference). |
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
 | 14 | Cash-Flow Forecast (18) | Committed | M | No | **✅ Shipped.** Read-only `ForecastPanel` on `/dashboard` (right column below Goals) projects the balance 30 days forward from active templates + pending drafts. Pure deterministic `buildCashflowForecast` folds signed occurrences over the horizon (load-bearing skip rule prevents template/draft double-count); anchored on `summary.totalBalance` in-process so it can't drift from the hero number. Dashed neutral SVG, `danger` below zero, hidden at `eventCount === 0`. **Zero AI, zero writes, zero schema, no Pro gate.** Reuses `advanceNextOccurrence`. |
 | 15 | Quick-Add Favorites (19) | Committed | S–M | No | **✅ Shipped.** User-owned on-demand drawer shortcuts (`Favorite` + functional CI-unique index); save from create-mode drawer, manage edit/reorder/delete on `/settings`; tap pre-fills an unsaved draft only (`createTransaction` sole writer). Free, no AI, no Pro gate. |
+| 16 | **Public Launch Readiness (20)** | Launch | S–M | No | **▶ Next — lean.** The app is **already deployed via Vercel CI** (Stripe working in sandbox) — what's missing is only a **public domain + real users**. Runbook confirming the existing setup, data-portability hardening (split/tag round-trip — the first code slice), script-first beta ops tooling (`set-pro` / `beta-health` scripts; Operator Console v0 only on evidence), analytics smoke validation, CSP Stage B (never blocks launch), soft launch (`isPro`-flagged beta), Stripe live last/optional. Makes the checkpoint below measurable. |
+| ✦ | **Pro Value Review checkpoint** | Gate | — | — | **Measurement tooling shipped; trigger now condition-based** — runs after ≥ 28 days of real production/beta telemetry following the §20 launch, with enough usage to judge the AI features (the frozen minimum-sample floors in `review-metrics.ts`). Sample too small → record an explicit **"insufficient data"** verdict and extend the window. Record `docs/reviews/pro-value-review-<YYYY-MM>.md`, then decide whether to grow the AI surface (gates §13). |
 | — | Multi-Currency (11) | Parked | L | No | Promote only if ≥ ~10–15% of active users signal multi-currency need. |
 | — | Category Hierarchy (12) | Parked (low) | M+ | No | Likely fully replaced by Tags (§16); revisit only if tags prove insufficient *and* nesting is demanded. |
 | — | Later-stage AI assistants (13) | Parked | M–L | Yes | Promote only on an "expand AI" verdict at the Pro Value Review. |
@@ -936,7 +1078,9 @@ trio — before the two AI insight assistants (§5–§6) and the Pro Value Revi
 in-app notification center, heuristic subscription detection, and the lighter Forecast / Favorites
 enhancements round out the committed tier. The parked tier (multi-currency, later AI, mobile/PWA)
 leaves the backlog only on evidence from §0; **Category Hierarchy is low-priority** and expected to
-be fully replaced by Tags (kept parked, not killed).
+be fully replaced by Tags (kept parked, not killed). **Launch Readiness (§20) closes the committed
+sequence** — the shipped surface is feature-complete, but nothing above it is measurable (and the
+checkpoint cannot fire) until the app is live, observed, and collecting real telemetry.
 
 ---
 
@@ -944,8 +1088,8 @@ be fully replaced by Tags (kept parked, not killed).
 
 - **AI foundation is built once (§3) and reused** (§4–§6, §10 v2, §13). It must: read `isPro`
   from the DB, rate-limit + cost-cap per user, **fail open** to the manual flow, never become a
-  write path (suggestions only), and **emit acceptance telemetry** (§0). Re-add the AI provider
-  key to `.env.example`.
+  write path (suggestions only), and **emit acceptance telemetry** (§0). All of this is realized
+  in the shipped §3 foundation (including the provider key, back in `.env.example`).
 - **Every AI feature ships instrumented and is judged on explicit thresholds** — define them in
   each spec before building, then act on the numbers, not intuition. A shared starting rubric
   (calibrate to real baselines):
@@ -956,21 +1100,24 @@ be fully replaced by Tags (kept parked, not killed).
   | **Iterate** | Mixed — acceptance in a middle band (**~30–60%**) or flat Pro signal. Rework the prompt/surface, re-measure before any expansion. |
   | **Retire** | Low acceptance (**< ~30%**) or negative cost/UX trade-off after one iteration. Pull the feature rather than carry dead weight. |
 
-  These percentages are *placeholders to be calibrated* against the first weeks of §0 data — the
-  point is that each spec commits to a number up front. The **Pro Value Review checkpoint** (after
-  §6) applies this rubric to the core four at once.
+  These percentages are **no longer placeholders** — they are frozen as `AI_REVIEW_THRESHOLDS`
+  in `src/lib/analytics/review-metrics.ts` (D3 approved as written: 0.6 / 0.3, plus the
+  monthly-review engagement variant 0.4 / 0.15 / 0.25-repeat and the min-sample floors), and the
+  review script enforces them. Recalibration happens only through a deliberate constant change,
+  not by re-arguing the numbers at review time. The **Pro Value Review checkpoint** (after §6)
+  applies this rubric to the core four at once.
 - **AI cost budget — target ≤ ~10% of net Pro revenue (~€0.20–0.30 / Pro user / month).** Pro is
   €3/mo (≈ €2.08/mo on the annual plan), less Stripe fees — so the COGS ceiling for *all* AI a
-  Pro user consumes is small but very comfortable: a cheap model (OpenAI `gpt-4o-mini` / Claude
-  Haiku) handles a categorization or NL-parse call in a few hundred tokens for a fraction of a
-  cent, so even heavy daily use stays well under budget. This assumption guides three things: the
+  Pro user consumes is small but very comfortable: the cheap configured model (`AI_MODEL`,
+  currently `gpt-5-nano`) handles a categorization or NL-parse call in a few hundred tokens for
+  a fraction of a cent, so even heavy daily use stays well under budget. This assumption guides three things: the
   **model choice** (stay on cheap models until a feature proves it needs more), the **§3 monthly
   per-user cost cap** (set it to enforce this ceiling), and **AI expansion** (each new assistant's
   projected cost-per-Pro-user is checked against the remaining budget headroom before commit).
   Re-validate actual COGS at the Pro Value Review checkpoint.
-- **Telemetry (§0) gates the parked tier** — Notifications persistence (§9), Subscription
-  Detection scheduling (§10), and especially Multi-Currency (§11) are committed/parked decisions
-  that §0 data is meant to settle.
+- **Telemetry (§0) gates the parked tier** — Notifications persistence (§9 rung 2), the
+  Subscription Detection v2 AI assist (§10), and especially Multi-Currency (§11) are
+  escalation/parked decisions that §0 data is meant to settle.
 - **Workflow unchanged** — each item is one `/feature` slice: document in `current-feature.md`,
   branch (`feature/<name>`), implement, add Vitest coverage for new `src/actions/**` +
   `src/lib/**`, run `npm run test:run` + `npm run build`, commit/merge per `docs/ai-interaction.md`.
@@ -988,31 +1135,22 @@ be fully replaced by Tags (kept parked, not killed).
 
 ## Open questions for the product owner
 
-1. **§0 sink** — third-party analytics (PostHog/Plausible) or a first-party events table? And the
-   consent/opt-out model for the EU market?
-2. **§3/§4 provider + cost budget** — OpenAI `gpt-4o-mini` (your stated preference) vs.
-   benchmarking Claude Haiku; confirm the target AI COGS ceiling (~€0.20–0.30 / Pro user / month)
-   and the resulting §3 monthly per-user cost cap.
-3. **AI thresholds** — sign off the expand/iterate/retire numbers (the ~60% / ~30–60% / <30%
-   starting rubric), or set your own, so each AI spec commits to a target before building.
-4. **§5/§6 surfacing** — Monthly Review cached vs. per-request; Smart Budget Suggestions in the
-   empty state, onboarding, or both.
-5. **§9 notifications** — confirm **derive-first** as the committed default (persist only on
-   §0 evidence), as written.
-6. **Pro surface** — do the AI features warrant an "AI" section in `/settings` (usage, limits,
+> Cleaned up 2026-07-07 — questions resolved by shipped slices (the §0 sink + consent model, AI
+> provider/model choice, the expand/iterate/retire thresholds, §5/§6 surfacing, §9 derive-first,
+> §15 dedup, §16 tags, §17 splits, §18/§19 gating) were removed; their resolutions are recorded
+> in the corresponding shipped specs under `docs/features/`. Only active questions remain.
+
+1. **§20 soft launch** — audience and size (invite-only friends/colleagues vs. public), domain
+   choice, and whether beta users get `isPro` flipped by the operator so the Pro-gated AI
+   features generate reviewable telemetry during the window (without it, the Pro Value Review
+   has nothing to measure until Stripe live readiness lands).
+2. **§20 Stripe monetization** — will it be pursued at all? Spendly is currently a hobby/demo
+   project and Stripe already works end-to-end in sandbox. Decide whether §20 item 7 (live mode)
+   is a real (if last) roadmap step or Pro remains an operator-flagged tier indefinitely — the
+   answer also caps how meaningful the "is AI driving Pro?" half of the Pro Value Review can
+   ever be.
+3. **Pro surface** — do the AI features warrant an "AI" section in `/settings` (usage, limits,
    toggle)?
-7. ~~**§15 import** — dedup strategy, and how unknown categories/accounts resolve?~~ **Resolved
-   (shipped):** count-based multiset dedup on `(date, signedAmount, type, merchant, note)`
-   (idempotent re-import); unknown categories → user-chosen **Create** or **Uncategorized**;
-   single target account (file's account column is informational only).
-8. **§16 tags** — join table vs. `text[]` column; name-only vs. colored; do tags get a Reports
-   breakdown chart, and are they free (recommended) or Pro?
-9. **§17 splits** — split-line child table vs. linked sub-transactions; confirm splits stay
-   single-account and exclude transfers.
-10. **§18 forecast / §19 favorites** — ~~forecast: free or Pro; surface (Dashboard vs. Reports) and
-    horizon (30/60/90 days)~~ **Resolved (§18 shipped):** free, Dashboard (right column below Goals),
-    fixed 30-day horizon (60/90 left as a constant-plus-UI seam). ~~§19 favorites — free or Pro~~
-    **Resolved (§19 shipped):** free, deterministic, no Pro gate.
-11. **Parked promotion bars** — confirm/adjust the promotion criteria (multi-currency ~10–15%,
-    mobile ~30% sessions) against your own targets. (Category Hierarchy is parked at low priority —
-    expected to be fully replaced by Tags.)
+4. **Parked promotion bars** — confirm/adjust the promotion criteria (multi-currency ~10–15%,
+   mobile ~30% sessions) against your own targets. (Category Hierarchy is parked at low
+   priority — expected to be fully replaced by Tags.)

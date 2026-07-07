@@ -12,10 +12,16 @@
 > `response.text` and wrap their result in `withAiTelemetry(...)` — the orchestrator remains the
 > single `ai_result` emit site and feature behavior is unchanged. Beyond spec: the script also
 > prints a "Feature context" table (D6 guard-health/panel-yield/repeat-rate ride-alongs). 1074
-> tests, build + lint clean. **The checkpoint itself remains open:** earliest honest review is
-> **2026-08-03** (D1 window from the 2026-07-06 telemetry go-live); run the script, record
+> tests, build + lint clean. **The checkpoint itself remains open:** the originally implied
+> earliest review date was **2026-08-03** (D1 window from the 2026-07-06 telemetry go-live), but
+> the roadmap trigger was **revised 2026-07-07 to be condition-based** — the app deploys via
+> Vercel CI but is not publicly launched (no public domain, no real users), so the D1 window now
+> starts at the §20 soft/official launch, not at telemetry go-live: run the review after ≥ 28
+> days of **real production/beta telemetry** with enough usage to judge the AI features (too
+> small a sample → record
+> "insufficient data" and extend). Run the script, record
 > `docs/reviews/pro-value-review-<YYYY-MM>.md`, and update the roadmap ✦ row with the verdict —
-> until then §13 stays parked.
+> until then §13 stays parked. See POST-MVP-ROADMAP §20 (Public Launch Readiness).
 >
 > This spec implements the [POST-MVP-ROADMAP.md](../POST-MVP-ROADMAP.md)
 > **✦ Pro Value Review checkpoint** — the one unshipped row in the Delivery Sequence. Every
@@ -380,8 +386,11 @@ No schema change, no migration, no new route, no UI, no new `RATE_LIMITS` entry,
 
 1. **Sign off D3 as-frozen** (60 / 30–60 / 30 acceptance; 40 / 15–40 / 15 engagement for §5) — or
    set your own numbers *now*, before the window closes.
-2. **Review date** — the window opened 2026-07-06 (telemetry go-live); D1 puts the earliest
-   honest review at ~2026-08-03. Confirm, or extend if traffic is thin.
+2. ~~**Review date** — the window opened 2026-07-06 (telemetry go-live); D1 puts the earliest
+   honest review at ~2026-08-03. Confirm, or extend if traffic is thin.~~ **Resolved
+   (2026-07-07 roadmap revision):** condition-based, not calendar-based — the D1 window starts at
+   the §20 soft/official launch (the app was not yet live at telemetry go-live); insufficient
+   sample at review time → record "insufficient data" and extend.
 3. **Part B now or later?** Recommended now (starts the COGS clock); skipping it makes the first
    review's cost section fully manual (OpenAI dashboard only).
 4. **Who is "the operator"?** Single-owner project, presumably you — but the verdict doc should
