@@ -1,31 +1,16 @@
-# Current Feature: Beta Operations Tooling
+# Current Feature
 
 ## Status
 
-Completed
+No active feature.
 
 ## Goals
 
-- Add `scripts/set-pro.ts`, a dry-run-by-default operator script that flips one existing user's `isPro` flag on or off by normalized email, with explicit apply/production gates and refusal rules for missing, soft-deleted, or Stripe-linked users.
-- Add `scripts/beta-health.ts`, a read-only operator telemetry pulse over the recent analytics window that reports stream freshness, event counts, active users, Pro/operator-flagged counts, and AI run/token/model shape.
-- Add a pure, unit-tested `buildBetaHealthReport` module in `src/lib/analytics/beta-health.ts` so script logic stays thin and testable.
-- Extract shared DB host/environment helpers into `scripts/db-env.ts` and reuse them from the existing analytics operator scripts without changing their behavior.
-- Keep the slice script-first: no in-app admin surface, no routes, no UI, no schema change, no billing-code changes, no Pro gate changes, and no new dependencies.
+<!-- Add active feature goals here during $feature-load. -->
 
 ## Notes
 
-- Spec: `docs/features/beta-ops-tooling-spec.md`.
-- Branch from spec: `feature/beta-ops-tooling`.
-- Roadmap target: POST-MVP Launch Readiness §20 item 3. This is the script-first rung; Operator Console v0 remains out of scope unless beta evidence proves scripts insufficient.
-- Architecture fit: existing operator scripts live in `scripts/` and import `dotenv/config` plus `../src/lib/prisma`; analytics report logic belongs in pure `src/lib/analytics/*` modules with Vitest coverage under `test/lib/analytics/`.
-- Data model impact: no Prisma migration. Reuses `User.isPro`, `User.stripeSubscriptionId`, `User.deletedAt`, `User.analyticsOptOut`, and `AnalyticsEvent`.
-- `set-pro` writes only `User.isPro`; it must never write Stripe linkage fields. The mutation should reassert safety predicates with `updateMany`.
-- `beta-health` is read-only and verdict-free. Product verdicts remain owned by `scripts/ai-review-report.ts`.
-- Constants: add `BETA_HEALTH_WINDOW_DAYS = 7` to `src/lib/system-constants.ts`; validate `--days` against `ANALYTICS_RETENTION_DAYS`.
-- Existing spec open questions are resolved in the spec: 7-day default, keep `--pro off`, and maintain the beta cohort audit record in the runbook, not code.
-- Implementation notes: no schema change, no migration, no app route/UI/admin surface, no billing-code changes, and no new dependency.
-- Verification notes: focused beta-health tests passed; full `npm run test:run`, `npm run build`, and `npm run lint` passed. DB-backed smoke checks were development-only: `beta-health --days 180`, invalid `--days` rejection, `set-pro` dry-run diff, happy-path `--apply` on/off with fixture restored, missing-user refusal, soft-deleted-user refusal, Stripe-linked-user refusal, and no-op path.
-- Current open questions: none.
+<!-- Add active feature notes, branch, decisions, and open questions here during $feature-load. -->
 
 ## History
 
@@ -166,3 +151,5 @@ Completed
 - **Pro Value Review Measurement Tooling** - Shipped the operator-side checkpoint tooling for the committed AI layer without adding app UI, routes, schema, migrations, Pro gates, or rate-limit entries. Added the pure `buildProValueReviewReport` metrics module with frozen D3 thresholds, small-N handling, D10 coverage/COGS states, per-feature verdict inputs for category suggestions, NL quick capture, monthly review, and budget suggestions, plus adopter/non-adopter Pro signal and guard/reliability context. Added the read-only `scripts/ai-review-report.ts` report, `docs/reviews/pro-value-review-template.md`, and roadmap notes that the earliest honest review is 2026-08-03. Extended `ai_result` telemetry additively with input/output tokens and model via `aiJsonRespond`/`runAiFeature`, preserving existing fail-open AI behavior. Gates passed: `npm run test:run` 1074 tests, `npm run build`, and `npm run lint` with 0 errors and 16 pre-existing warnings. Spec: `docs/features/pro-value-review-spec.md`.
 
 - **Data Portability Hardening (POST-MVP §20 item 2)** — Closed the JSON export → import split/tag round-trip gaps without schema, migration, route, Pro gate, rate-limit, or analytics-registry changes. JSON export is now `schemaVersion: 3`: split lines carry category names, transactions carry sorted tag names, and `data.tags` exports the user-owned tag registry. JSON import now accepts versions 1–3, restores split lines and transaction tag joins for rows it creates, creates missing tags with validated registry colors, and resolves same-user v2 split backups by owned/system category-id fallback. Invalid or wholly malformed split payloads degrade to flat rows with visible `split` preview issues, while dedup remains `(date, signedAmount, type, merchant, note)` and skipped duplicates are not retro-repaired. Preview shows split/tag aggregates and true issue totals; help and portability docs now describe the restored behavior and limitation. Added pure split-gate, parse/resolve/action/export coverage, a typed golden round-trip fixture with at-cap split/tag rows and renamed-category fallback, and an `IMPORT_MAX_ROWS` split perf smoke. Gates passed: `npm.cmd run test:run` 1094 tests, `npm.cmd run build`, `npm.cmd run lint` with 0 errors and 16 pre-existing warnings. Spec: `docs/features/data-portability-hardening-spec.md`.
+
+- **Beta Operations Tooling (POST-MVP §20 item 3)** — Shipped the script-first operator tooling for a small real-user beta without adding an app/admin surface, route, schema, billing change, Pro gate, rate-limit entry, analytics-registry change, or dependency. Added `scripts/set-pro.ts` for dry-run-first one-user `isPro` flagging by normalized email with explicit `--apply` / `--production` gates, D4 refusal rules (missing, soft-deleted, Stripe-linked), analytics opt-out warning, and predicate-guarded `updateMany`; added `scripts/beta-health.ts` for read-only launch telemetry health over `BETA_HEALTH_WINDOW_DAYS = 7`, including stream freshness, event counts, active users, Pro/operator-flagged/opt-out counts, AI ok/fail/reason counts, token/model shape, and single-user smoke framing. The report logic lives in pure `buildBetaHealthReport` with Vitest coverage, and shared DB host detection is centralized in `scripts/db-env.ts` for `prune-analytics`, `ai-review-report`, and the new scripts. Development-only smoke checks covered invalid windows, the inclusive 180-day boundary, dry-run/no-op/refusal branches, and a reversible `--apply` on/off fixture check. Gates passed: `npm.cmd run test:run` 1100 tests, `npm.cmd run build`, `npm.cmd run lint` with 0 errors and 16 pre-existing warnings. Spec: `docs/features/beta-ops-tooling-spec.md`.
