@@ -1,16 +1,31 @@
-# Current Feature
+# Current Feature: Beta Operations Tooling
 
 ## Status
 
-No active feature.
+Completed
 
 ## Goals
 
-<!-- Add active feature goals here during $feature-load. -->
+- Add `scripts/set-pro.ts`, a dry-run-by-default operator script that flips one existing user's `isPro` flag on or off by normalized email, with explicit apply/production gates and refusal rules for missing, soft-deleted, or Stripe-linked users.
+- Add `scripts/beta-health.ts`, a read-only operator telemetry pulse over the recent analytics window that reports stream freshness, event counts, active users, Pro/operator-flagged counts, and AI run/token/model shape.
+- Add a pure, unit-tested `buildBetaHealthReport` module in `src/lib/analytics/beta-health.ts` so script logic stays thin and testable.
+- Extract shared DB host/environment helpers into `scripts/db-env.ts` and reuse them from the existing analytics operator scripts without changing their behavior.
+- Keep the slice script-first: no in-app admin surface, no routes, no UI, no schema change, no billing-code changes, no Pro gate changes, and no new dependencies.
 
 ## Notes
 
-<!-- Add active feature notes, branch, decisions, and open questions here during $feature-load. -->
+- Spec: `docs/features/beta-ops-tooling-spec.md`.
+- Branch from spec: `feature/beta-ops-tooling`.
+- Roadmap target: POST-MVP Launch Readiness §20 item 3. This is the script-first rung; Operator Console v0 remains out of scope unless beta evidence proves scripts insufficient.
+- Architecture fit: existing operator scripts live in `scripts/` and import `dotenv/config` plus `../src/lib/prisma`; analytics report logic belongs in pure `src/lib/analytics/*` modules with Vitest coverage under `test/lib/analytics/`.
+- Data model impact: no Prisma migration. Reuses `User.isPro`, `User.stripeSubscriptionId`, `User.deletedAt`, `User.analyticsOptOut`, and `AnalyticsEvent`.
+- `set-pro` writes only `User.isPro`; it must never write Stripe linkage fields. The mutation should reassert safety predicates with `updateMany`.
+- `beta-health` is read-only and verdict-free. Product verdicts remain owned by `scripts/ai-review-report.ts`.
+- Constants: add `BETA_HEALTH_WINDOW_DAYS = 7` to `src/lib/system-constants.ts`; validate `--days` against `ANALYTICS_RETENTION_DAYS`.
+- Existing spec open questions are resolved in the spec: 7-day default, keep `--pro off`, and maintain the beta cohort audit record in the runbook, not code.
+- Implementation notes: no schema change, no migration, no app route/UI/admin surface, no billing-code changes, and no new dependency.
+- Verification notes: focused beta-health tests passed; full `npm run test:run`, `npm run build`, and `npm run lint` passed. DB-backed smoke checks were development-only: `beta-health --days 180`, invalid `--days` rejection, `set-pro` dry-run diff, happy-path `--apply` on/off with fixture restored, missing-user refusal, soft-deleted-user refusal, Stripe-linked-user refusal, and no-op path.
+- Current open questions: none.
 
 ## History
 
