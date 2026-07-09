@@ -9,6 +9,7 @@ import {
   type RateMetric,
   type ReviewEventRow,
 } from "../src/lib/analytics/review-metrics";
+import { looksProduction, parseHost } from "./db-env";
 
 /**
  * Read-only operator report for the Pro Value Review checkpoint.
@@ -20,22 +21,11 @@ import {
  * rows and a minimal User plan snapshot, then prints the pure metrics report.
  */
 
-const DEV_ENDPOINT_MARKER = "ep-nameless-resonance-aqvflbsf";
-
 // Operator-local price table. Keep this small and explicit: unknown models are
 // reported as unpriced volume instead of being silently costed at the wrong rate.
 const MODEL_PRICE_EUR_PER_1M = {
   "gpt-5-nano": { input: 0.05, output: 0.4 },
 } as const;
-
-function parseHost(connectionString: string | undefined): string {
-  if (!connectionString) return "(unknown - DATABASE_URL unset)";
-  try {
-    return new URL(connectionString).host;
-  } catch {
-    return "(unparseable DATABASE_URL)";
-  }
-}
 
 function argValue(name: string): string | null {
   const flag = `--${name}`;
@@ -118,12 +108,12 @@ function totalCost(cogs: CogsMetrics): number {
 async function main() {
   const { from, to, days } = parseWindow();
   const host = parseHost(process.env.DATABASE_URL);
-  const looksProduction = !host.includes(DEV_ENDPOINT_MARKER);
+  const isProductionLike = looksProduction(host);
 
   console.log("Pro Value Review report");
   console.log(`Target DB host:  ${host}`);
   console.log(
-    `Environment:     ${looksProduction ? "PRODUCTION (or unknown)" : "development"}`
+    `Environment:     ${isProductionLike ? "PRODUCTION (or unknown)" : "development"}`
   );
   console.log(`Mode:            read-only`);
   console.log(`Window:          ${from.toISOString()} -> ${to.toISOString()}`);

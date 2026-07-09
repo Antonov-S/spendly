@@ -901,12 +901,14 @@ Work items, in rough order:
    rows it creates, including same-user v2 split backups through category-id fallback. CSV remains the
    unchanged flat ledger, and a JSON export → import fixture proves important user data is not silently
    lost.
-3. **Beta operations tooling — script-first** *(small operator-side code slice)* — add
-   `scripts/set-pro.ts` (operator-controlled beta `isPro` flagging; the flip happens
-   operator-side like the seed, so the "webhook is the only **in-app** Pro grant surface" rule
-   stays intact) and `scripts/beta-health.ts` (launch telemetry health: latest event timestamp,
-   event counts by name, active users, Pro-flagged users, AI run/failure counts, token/model
-   telemetry presence), reusing the existing analytics/review-metrics read paths where possible.
+3. **✅ Beta operations tooling — script-first** *(shipped, `feature/beta-ops-tooling`)* —
+   operator-side tooling now covers the small-beta run loop without adding any app/admin surface:
+   `scripts/set-pro.ts` dry-runs by default and flips one existing user's `isPro` flag on/off by
+   normalized email only under explicit `--apply` / production-friction gates, refusing missing,
+   soft-deleted, and Stripe-linked users; `scripts/beta-health.ts` is a read-only telemetry pulse
+   over the recent analytics window (latest all-time/window events, event counts, active users,
+   Pro/operator-flagged counts, AI ok/fail/reason counts, token/model shape). The health math lives
+   in pure `buildBetaHealthReport`, and shared DB host detection is centralized in `scripts/db-env.ts`.
    An **Operator Console v0** is the explicit **rung 2**, built **only if** the script workflow
    proves insufficient during beta (too many beta users, a second operator, repeated need to
    check status away from the terminal, scripts becoming error-prone). If promoted it stays
@@ -1063,7 +1065,7 @@ so there's a proven capture/notification flow worth amplifying on mobile.
 | 13 | Subscription Detection — heuristic (10) | Committed | M | No | **✅ Shipped.** "Suggested templates" panel on `/recurring`; deterministic engine (`recurring-suggest.ts`) groups by normalized merchant + type, strict six-rule gate (WEEKLY/MONTHLY only), median-amount ranking; Create-template pre-fills the drawer (`createTemplate` sole writer), Dismiss/accept persist via additive `RecurringSuggestionMute`. **No AI dep, no Pro gate, no rate limit**; lazy page-load derivation; `normalizeLabelKey` extracted behavior-preserving. v2 AI assist deferred. |
 | 14 | Cash-Flow Forecast (18) | Committed | M | No | **✅ Shipped.** Read-only `ForecastPanel` on `/dashboard` (right column below Goals) projects the balance 30 days forward from active templates + pending drafts. Pure deterministic `buildCashflowForecast` folds signed occurrences over the horizon (load-bearing skip rule prevents template/draft double-count); anchored on `summary.totalBalance` in-process so it can't drift from the hero number. Dashed neutral SVG, `danger` below zero, hidden at `eventCount === 0`. **Zero AI, zero writes, zero schema, no Pro gate.** Reuses `advanceNextOccurrence`. |
 | 15 | Quick-Add Favorites (19) | Committed | S–M | No | **✅ Shipped.** User-owned on-demand drawer shortcuts (`Favorite` + functional CI-unique index); save from create-mode drawer, manage edit/reorder/delete on `/settings`; tap pre-fills an unsaved draft only (`createTransaction` sole writer). Free, no AI, no Pro gate. |
-| 16 | **Public Launch Readiness (20)** | Launch | S–M | No | **▶ Next — lean.** The first code slice, data-portability hardening, is **✅ shipped**: JSON `schemaVersion: 3` restores split attribution and tag associations on import-created rows. Remaining launch-readiness work is only the public-domain / real-user track: runbook confirming the existing Vercel + Stripe sandbox setup, script-first beta ops tooling (`set-pro` / `beta-health` scripts; Operator Console v0 only on evidence), analytics smoke validation, CSP Stage B (never blocks launch), soft launch (`isPro`-flagged beta), Stripe live last/optional. Makes the checkpoint below measurable. |
+| 16 | **Public Launch Readiness (20)** | Launch | S–M | No | **▶ Next — lean.** The first two code slices are **✅ shipped**: data-portability hardening restored JSON split/tag round-trips, and script-first beta ops tooling added `set-pro` / `beta-health` (Operator Console v0 only on evidence). Remaining launch-readiness work is the public-domain / real-user track: runbook confirming the existing Vercel + Stripe sandbox setup, analytics smoke validation using `beta-health`, CSP Stage B (never blocks launch), soft launch (`isPro`-flagged beta), Stripe live last/optional. Makes the checkpoint below measurable. |
 | ✦ | **Pro Value Review checkpoint** | Gate | — | — | **Measurement tooling shipped; trigger now condition-based** — runs after ≥ 28 days of real production/beta telemetry following the §20 launch, with enough usage to judge the AI features (the frozen minimum-sample floors in `review-metrics.ts`). Sample too small → record an explicit **"insufficient data"** verdict and extend the window. Record `docs/reviews/pro-value-review-<YYYY-MM>.md`, then decide whether to grow the AI surface (gates §13). |
 | — | Multi-Currency (11) | Parked | L | No | Promote only if ≥ ~10–15% of active users signal multi-currency need. |
 | — | Category Hierarchy (12) | Parked (low) | M+ | No | Likely fully replaced by Tags (§16); revisit only if tags prove insufficient *and* nesting is demanded. |

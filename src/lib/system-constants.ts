@@ -83,6 +83,9 @@ export const ANALYTICS_RETENTION_DAYS = 180;
 /** Max length of open string telemetry prop values. */
 export const ANALYTICS_STRING_PROP_MAX = 64;
 
+/** Default lookback for the beta telemetry health pulse. */
+export const BETA_HEALTH_WINDOW_DAYS = 7;
+
 /** Default stable-window length for the Pro Value Review checkpoint. */
 export const AI_REVIEW_WINDOW_DAYS = 28;
 
