@@ -14,6 +14,7 @@ vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@/lib/revalidation", () => ({
   revalidateTransactionViews: vi.fn(),
   revalidateCategoryViews: vi.fn(),
+  revalidateTagViews: vi.fn(),
 }));
 vi.mock("@/lib/db/import", () => ({
   getImportTargets: vi.fn(),
@@ -62,14 +63,27 @@ function fd(text: string, name = "x.csv"): FormData {
 /** Tracks tx.transaction.createMany calls so we can assert the written rows. */
 let txCreateMany: ReturnType<typeof vi.fn>;
 let catCreateMany: ReturnType<typeof vi.fn>;
+let tagCreateMany: ReturnType<typeof vi.fn>;
+let txCreate: ReturnType<typeof vi.fn>;
+let transactionTagCreateMany: ReturnType<typeof vi.fn>;
 
 /** Wire `$transaction` to run the callback against a tx mock; categories re-query
  * returns the system seed plus any created names. */
-function wireWrite(freshCats: { id: string; name: string }[]) {
+function wireWrite(
+  freshCats: { id: string; name: string }[],
+  freshTags: { id: string; name: string }[] = [{ id: "tag-trip", name: "Trip" }]
+) {
   catCreateMany = vi.fn(async ({ data }: { data: unknown[] }) => ({
     count: data.length,
   }));
+  tagCreateMany = vi.fn(async ({ data }: { data: unknown[] }) => ({
+    count: data.length,
+  }));
   txCreateMany = vi.fn(async ({ data }: { data: unknown[] }) => ({
+    count: data.length,
+  }));
+  txCreate = vi.fn(async () => ({ id: "created-tx" }));
+  transactionTagCreateMany = vi.fn(async ({ data }: { data: unknown[] }) => ({
     count: data.length,
   }));
   const tx = {
@@ -77,7 +91,12 @@ function wireWrite(freshCats: { id: string; name: string }[]) {
       createMany: catCreateMany,
       findMany: vi.fn(async () => freshCats),
     },
-    transaction: { createMany: txCreateMany },
+    tag: {
+      createMany: tagCreateMany,
+      findMany: vi.fn(async () => freshTags),
+    },
+    transaction: { createMany: txCreateMany, create: txCreate },
+    transactionTag: { createMany: transactionTagCreateMany },
   };
   txn.mockImplementation(async (fn: (t: unknown) => unknown) => fn(tx));
 }
@@ -98,6 +117,7 @@ beforeEach(() => {
   mockTargets.mockResolvedValue({
     accounts: [{ id: "a1", name: "Checking" }],
     categories: [{ id: "sys-dining", name: "Dining" }],
+    tags: [{ id: "tag-trip", name: "Trip" }],
   });
   mockExisting.mockResolvedValue(new Map());
   wireWrite([{ id: "sys-dining", name: "Dining" }]);
@@ -196,6 +216,7 @@ describe("commitImport write (D2/D7)", () => {
     if (res.success) {
       expect(res.data.created).toBe(2);
       expect(res.data.categoriesCreated).toBe(1);
+      expect(res.data.tagsCreated).toBe(0);
     }
 
     // Telemetry: bucketed counts only, never raw ledger size (§0 D8).
@@ -204,6 +225,138 @@ describe("commitImport write (D2/D7)", () => {
       createdBucket: "1-10",
       skippedBucket: "0",
     });
+  });
+
+  it("writes split rows and tag joins inside the same transaction for enriched rows", async () => {
+    mockTargets.mockResolvedValue({
+      accounts: [{ id: "a1", name: "Checking" }],
+      categories: [
+        { id: "cat-food", name: "Food" },
+        { id: "cat-home", name: "Home" },
+      ],
+      tags: [{ id: "tag-trip", name: "Trip" }],
+    });
+    wireWrite(
+      [
+        { id: "cat-food", name: "Food" },
+        { id: "cat-home", name: "Home" },
+      ],
+      [
+        { id: "tag-trip", name: "Trip" },
+        { id: "tag-receipt", name: "Receipt" },
+      ]
+    );
+    const jsonOpts: ImportOptions = { ...csvOpts, format: "json", mapping: null };
+    const envelope = JSON.stringify({
+      schemaVersion: 3,
+      data: {
+        tags: [
+          { id: "tag-trip", name: "Trip", color: "#378ADD" },
+          { id: "tag-new", name: "Receipt", color: "#1D9E75" },
+        ],
+        transactions: [
+          {
+            date: "2026-03-04",
+            amount: -10,
+            type: "EXPENSE",
+            merchant: "Market",
+            note: "weekly",
+            splits: [
+              { category: "Food", categoryId: "cat-food", amount: 6, note: "food" },
+              { category: "Home", categoryId: "cat-home", amount: 4, note: null },
+            ],
+            tags: ["Trip", "Receipt"],
+          },
+        ],
+      },
+    });
+
+    const res = await commitImport(fd(envelope, "x.json"), jsonOpts);
+    expect(res.success).toBe(true);
+    expect(txCreateMany).not.toHaveBeenCalled();
+    expect(tagCreateMany).toHaveBeenCalledWith({
+      data: [{ name: "Receipt", userId: "u1", color: "#1D9E75" }],
+      skipDuplicates: true,
+    });
+    const createArg = txCreate.mock.calls[0][0] as {
+      data: {
+        categoryId: string | null;
+        splits: { createMany: { data: { categoryId: string | null; amount: number }[] } };
+      };
+    };
+    expect(createArg.data.categoryId).toBeNull();
+    expect(createArg.data.splits.createMany.data).toEqual([
+      { categoryId: "cat-food", amount: 6, note: "food" },
+      { categoryId: "cat-home", amount: 4, note: null },
+    ]);
+    expect(transactionTagCreateMany).toHaveBeenCalledWith({
+      data: [
+        { transactionId: "created-tx", tagId: "tag-trip" },
+        { transactionId: "created-tx", tagId: "tag-receipt" },
+      ],
+    });
+  });
+
+  it("degrades an invalid split to a flat preview issue", async () => {
+    const jsonOpts: ImportOptions = { ...csvOpts, format: "json", mapping: null };
+    const envelope = JSON.stringify({
+      schemaVersion: 3,
+      data: {
+        transactions: [
+          {
+            date: "2026-03-04",
+            amount: -10,
+            type: "EXPENSE",
+            category: "Dining",
+            splits: [{ category: "Dining", categoryId: "sys-dining", amount: 9 }],
+          },
+        ],
+      },
+    });
+    const res = await previewImport(fd(envelope, "x.json"), jsonOpts);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.toCreate).toBe(1);
+      expect(res.data.splitTransactions).toBe(0);
+      expect(res.data.issueCount).toBe(1);
+      expect(res.data.issues[0]).toMatchObject({ kind: "split" });
+    }
+  });
+
+  it("emits a split issue when a present splits payload is wholly malformed", async () => {
+    const jsonOpts: ImportOptions = { ...csvOpts, format: "json", mapping: null };
+    const envelope = JSON.stringify({
+      schemaVersion: 3,
+      data: {
+        transactions: [
+          {
+            date: "2026-03-04",
+            amount: -10,
+            type: "EXPENSE",
+            category: "Dining",
+            splits: { not: "an array" },
+          },
+          {
+            date: "2026-03-05",
+            amount: -12,
+            type: "EXPENSE",
+            category: "Dining",
+            splits: [{ amount: 0 }, "not-object"],
+          },
+        ],
+      },
+    });
+    const res = await previewImport(fd(envelope, "x.json"), jsonOpts);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.toCreate).toBe(2);
+      expect(res.data.splitTransactions).toBe(0);
+      expect(res.data.issueCount).toBe(2);
+      expect(res.data.issues).toEqual([
+        expect.objectContaining({ source: 1, kind: "split" }),
+        expect.objectContaining({ source: 2, kind: "split" }),
+      ]);
+    }
   });
 });
 
@@ -260,7 +413,12 @@ describe("category create race-safety (§7.2)", () => {
             { id: "race-coffee", name: "Coffee" },
           ]),
         },
-        transaction: { createMany: txCreateMany },
+        tag: {
+          createMany: vi.fn(async () => ({ count: 0 })),
+          findMany: vi.fn(async () => []),
+        },
+        transaction: { createMany: txCreateMany, create: txCreate },
+        transactionTag: { createMany: transactionTagCreateMany },
       })
     );
 
@@ -349,7 +507,7 @@ describe("distinct structural errors (D5)", () => {
   it("bad JSON envelope (newer schemaVersion)", async () => {
     const jsonOpts: ImportOptions = { ...csvOpts, format: "json", mapping: null };
     const envelope = JSON.stringify({
-      schemaVersion: 3,
+      schemaVersion: 4,
       data: { transactions: [{ date: "2026-03-04", amount: 1, type: "INCOME" }] },
     });
     const res = await previewImport(fd(envelope, "x.json"), jsonOpts);

@@ -8,7 +8,9 @@ import { TAG_NAME_MAX } from "@/lib/system-constants";
  * the client — the action stamps it from the session.
  */
 
-const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Pick a valid color");
+export const TAG_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
+const hexColor = z.string().regex(TAG_COLOR_PATTERN, "Pick a valid color");
 
 /** Create: name (required) + optional color. */
 export const createTagSchema = z.object({

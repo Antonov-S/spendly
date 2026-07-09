@@ -7,17 +7,20 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     financialAccount: { findMany: vi.fn() },
     category: { findMany: vi.fn() },
+    tag: { findMany: vi.fn() },
     transaction: { findMany: vi.fn() },
   },
 }));
 
 const accountFindMany = vi.mocked(prisma.financialAccount.findMany);
 const categoryFindMany = vi.mocked(prisma.category.findMany);
+const tagFindMany = vi.mocked(prisma.tag.findMany);
 const txFindMany = vi.mocked(prisma.transaction.findMany);
 
 beforeEach(() => {
   accountFindMany.mockReset();
   categoryFindMany.mockReset();
+  tagFindMany.mockReset();
   txFindMany.mockReset();
 });
 
@@ -25,6 +28,7 @@ describe("getImportTargets", () => {
   it("scopes active accounts and system+own categories to the user", async () => {
     accountFindMany.mockResolvedValue([{ id: "a1", name: "Checking" }] as never);
     categoryFindMany.mockResolvedValue([{ id: "c1", name: "Groceries" }] as never);
+    tagFindMany.mockResolvedValue([{ id: "t1", name: "Trip" }] as never);
 
     const res = await getImportTargets("user-1");
 
@@ -36,8 +40,13 @@ describe("getImportTargets", () => {
       where: { OR: [{ userId: null }, { userId: "user-1" }] },
       select: { id: true, name: true },
     });
+    expect(tagFindMany.mock.calls[0][0]).toMatchObject({
+      where: { userId: "user-1" },
+      select: { id: true, name: true },
+    });
     expect(res.accounts).toEqual([{ id: "a1", name: "Checking" }]);
     expect(res.categories).toEqual([{ id: "c1", name: "Groceries" }]);
+    expect(res.tags).toEqual([{ id: "t1", name: "Trip" }]);
   });
 });
 

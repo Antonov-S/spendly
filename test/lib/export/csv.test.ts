@@ -26,6 +26,7 @@ function row(overrides: Partial<ExportTransactionRow> = {}): ExportTransactionRo
     recurringTemplateId: null,
     isSplit: false,
     splits: [],
+    tags: [],
     createdAt: "2026-06-15T10:00:00.000Z",
     ...overrides,
   };
@@ -152,8 +153,8 @@ describe("transactionsToCsv", () => {
         isSplit: true,
         category: null,
         splits: [
-          { categoryId: "c1", amount: 55, note: null },
-          { categoryId: "c2", amount: 25, note: null },
+          { categoryId: "c1", category: "Groceries", amount: 55, note: null },
+          { categoryId: "c2", category: "Household", amount: 25, note: null },
         ],
       }),
     ]);

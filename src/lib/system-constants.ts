@@ -361,7 +361,7 @@ export const HELP_TOC_MIN_SECTIONS = 5;
  * §6.2): renaming/removing a key, changing a field's type/units, or changing
  * the date/number encoding. Lets a future importer detect format generations.
  */
-export const EXPORT_JSON_SCHEMA_VERSION = 2;
+export const EXPORT_JSON_SCHEMA_VERSION = 3;
 
 /** Download filename stem: `spendly-export-YYYY-MM-DD.<ext>`. */
 export const EXPORT_FILENAME_PREFIX = "spendly-export";

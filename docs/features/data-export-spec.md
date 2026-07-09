@@ -16,6 +16,11 @@ and that is correct, not a deviation (§2).
 > CSV keeps a split as **one reconciling row** with the Category column reading `Split`. Import accepts
 > both v1 and v2 but **ignores `splits` in v1** — see `data-import-spec.md`'s known-limitation note.
 
+> **Update — `schemaVersion: 3` (Data Portability Hardening, POST-MVP §20).** JSON is now the
+> lossless round-trip format for split attribution and transaction tags: split lines carry category
+> names alongside ids, transactions carry a `tags` name array, and `data.tags` exports the user-owned
+> tag registry with colors. CSV remains unchanged as the flat reconciliation ledger.
+
 **How to read this spec (layering).** It is ordered **contract → model → implementation → tests**:
 
 | Layer | Section | What it is |

@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeCatKey,
   buildCategoryIndex,
+  buildCategoryIdSet,
+  buildTagIndex,
   resolveCategory,
+  resolveSplitCategory,
+  resolveTag,
 } from "@/lib/import/resolve";
 
 describe("normalizeCatKey", () => {
@@ -16,6 +20,96 @@ describe("normalizeCatKey", () => {
     const nfc = "café"; // café (single codepoint é)
     const nfd = "café"; // café (e + combining acute)
     expect(normalizeCatKey(nfc)).toBe(normalizeCatKey(nfd));
+  });
+});
+
+describe("resolveSplitCategory", () => {
+  const cats = [
+    { id: "sys-groceries", name: "Groceries" },
+    { id: "own-coffee", name: "Coffee" },
+  ];
+  const index = buildCategoryIndex(cats);
+  const ids = buildCategoryIdSet(cats);
+
+  it("uses name match first", () => {
+    expect(
+      resolveSplitCategory(
+        { category: "Groceries", categoryId: "own-coffee" },
+        index,
+        ids,
+        "CREATE"
+      )
+    ).toEqual({ categoryId: "sys-groceries", createCategoryName: null });
+  });
+
+  it("falls back to owned/system id when name is absent or unmatched", () => {
+    expect(
+      resolveSplitCategory(
+        { category: null, categoryId: "own-coffee" },
+        index,
+        ids,
+        "CREATE"
+      )
+    ).toEqual({ categoryId: "own-coffee", createCategoryName: null });
+    expect(
+      resolveSplitCategory(
+        { category: "Old Coffee", categoryId: "own-coffee" },
+        index,
+        ids,
+        "CREATE"
+      )
+    ).toEqual({ categoryId: "own-coffee", createCategoryName: null });
+  });
+
+  it("falls through to the name policy when name and id do not resolve", () => {
+    expect(
+      resolveSplitCategory(
+        { category: "Travel", categoryId: "foreign" },
+        index,
+        ids,
+        "CREATE"
+      )
+    ).toEqual({ categoryId: null, createCategoryName: "Travel" });
+    expect(
+      resolveSplitCategory(
+        { category: "Travel", categoryId: "foreign" },
+        index,
+        ids,
+        "UNCATEGORIZED"
+      )
+    ).toEqual({ categoryId: null, createCategoryName: null });
+  });
+
+  it("returns null when there is no category signal", () => {
+    expect(
+      resolveSplitCategory(
+        { category: null, categoryId: null },
+        index,
+        ids,
+        "CREATE"
+      )
+    ).toEqual({ categoryId: null, createCategoryName: null });
+  });
+});
+
+describe("buildTagIndex / resolveTag", () => {
+  const index = buildTagIndex([
+    { id: "tag-trip", name: "Trip" },
+    { id: "tag-receipt", name: "Receipt" },
+  ]);
+
+  it("matches existing tags by normalized label key", () => {
+    expect(resolveTag(" trip ", index)).toEqual({
+      tagId: "tag-trip",
+      createName: null,
+    });
+  });
+
+  it("returns a create name for missing tags", () => {
+    expect(resolveTag(" New Tag ", index)).toEqual({
+      tagId: null,
+      createName: "New Tag",
+    });
   });
 });
 

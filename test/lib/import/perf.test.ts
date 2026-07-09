@@ -2,9 +2,20 @@ import { describe, it, expect } from "vitest";
 import { IMPORT_MAX_ROWS } from "@/lib/system-constants";
 import { parseCsv } from "@/lib/import/csv";
 import { normalizeCsvRow } from "@/lib/import/parse";
-import { buildCategoryIndex, resolveCategory } from "@/lib/import/resolve";
+import { acceptSplits } from "@/lib/import/split-gate";
+import {
+  buildCategoryIdSet,
+  buildCategoryIndex,
+  resolveCategory,
+  resolveSplitCategory,
+} from "@/lib/import/resolve";
 import { partitionForWrite, dedupKey } from "@/lib/import/dedup";
-import type { ImportMapping, ResolvedRow } from "@/types/import";
+import type {
+  ImportMapping,
+  NormalizedImportRow,
+  ResolvedImportSplit,
+  ResolvedRow,
+} from "@/types/import";
 
 /**
  * Bound/complexity smoke (data-import-spec §10.4): the pure pipeline over the
@@ -56,6 +67,9 @@ describe("pure pipeline at the row ceiling", () => {
         note: row.note,
         categoryId: "categoryId" in cat ? cat.categoryId : null,
         createCategoryName: null,
+        splits: [],
+        tagIds: [],
+        createTagNames: [],
       });
     }
 
@@ -81,6 +95,9 @@ describe("pure pipeline at the row ceiling", () => {
         note: null,
         categoryId: null,
         createCategoryName: null,
+        splits: [],
+        tagIds: [],
+        createTagNames: [],
       };
       rows.push(r);
       const key = dedupKey({
@@ -100,5 +117,68 @@ describe("pure pipeline at the row ceiling", () => {
     expect(toCreate).toHaveLength(0);
     expect(duplicatesSkipped).toBe(5000);
     expect(elapsed).toBeLessThan(1000);
+  });
+
+  it(`runs ${IMPORT_MAX_ROWS} split rows through the pure gate/resolve/dedup pass`, () => {
+    const categories = [
+      { id: "c-food", name: "Food" },
+      { id: "c-home", name: "Home" },
+    ];
+    const index = buildCategoryIndex(categories);
+    const ids = buildCategoryIdSet(categories);
+    const rows: NormalizedImportRow[] = Array.from(
+      { length: IMPORT_MAX_ROWS },
+      (_, i) => ({
+        source: i + 1,
+        date: `2026-03-${String((i % 28) + 1).padStart(2, "0")}`,
+        amount: 10,
+        type: "EXPENSE",
+        categoryText: null,
+        merchant: `M${i}`,
+        note: null,
+        merchantTruncated: false,
+        noteTruncated: false,
+        splits: [
+          { category: "Food", categoryId: "c-food", amount: 6, note: null },
+          { category: "Home", categoryId: "c-home", amount: 4, note: null },
+        ],
+        splitPayloadMalformed: false,
+        tags: [],
+      })
+    );
+
+    const start = Date.now();
+    const resolved: ResolvedRow[] = rows.map((row) => {
+      const gate = acceptSplits(
+        row as NormalizedImportRow & { amount: number; type: "EXPENSE" }
+      );
+      expect(gate.ok).toBe(true);
+      const splits: ResolvedImportSplit[] = gate.ok
+        ? gate.splits.map((split) => ({
+            ...resolveSplitCategory(split, index, ids, "CREATE"),
+            amount: split.amount,
+            note: split.note,
+          }))
+        : [];
+      return {
+        source: row.source,
+        date: row.date as string,
+        amount: row.amount as number,
+        type: "EXPENSE",
+        merchant: row.merchant,
+        note: row.note,
+        categoryId: null,
+        createCategoryName: null,
+        splits,
+        tagIds: [],
+        createTagNames: [],
+      };
+    });
+    const { toCreate } = partitionForWrite(resolved, new Map(), true);
+    const elapsed = Date.now() - start;
+
+    expect(toCreate).toHaveLength(IMPORT_MAX_ROWS);
+    expect(toCreate[0].splits).toHaveLength(2);
+    expect(elapsed).toBeLessThan(4000);
   });
 });

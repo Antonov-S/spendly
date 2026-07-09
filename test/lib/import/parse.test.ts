@@ -122,6 +122,8 @@ describe("normalizeCsvRow", () => {
       categoryText: "Dining",
       merchant: "Pret",
       note: "lunch",
+      splits: [],
+      tags: [],
     });
   });
 
@@ -198,6 +200,9 @@ describe("normalizeJsonRow", () => {
       type: "EXPENSE",
       categoryText: "Dining",
       merchant: "Pret",
+      splits: [],
+      splitPayloadMalformed: false,
+      tags: [],
     });
   });
 
@@ -218,5 +223,74 @@ describe("normalizeJsonRow", () => {
     expect(row.amount).toBeNull();
     expect(row.type).toBeNull();
     expect(row.categoryText).toBeNull();
+  });
+
+  it("defensively coerces split entries and drops malformed ones", () => {
+    const row = normalizeJsonRow(
+      {
+        date: "2026-03-04",
+        amount: -10,
+        type: "EXPENSE",
+        splits: [
+          { category: "Food", categoryId: "c1", amount: 6, note: "x".repeat(130) },
+          { category: 1, amount: 4, note: null },
+          { category: "Bad", amount: 0 },
+          "not-object",
+        ],
+      },
+      4
+    );
+    expect(row.splits).toEqual([
+      { category: "Food", categoryId: "c1", amount: 6, note: "x".repeat(120) },
+      { category: null, categoryId: null, amount: 4, note: null },
+    ]);
+    expect(row.splitPayloadMalformed).toBe(false);
+  });
+
+  it("marks wholly malformed split payloads so preview can show a split issue", () => {
+    expect(
+      normalizeJsonRow(
+        {
+          date: "2026-03-04",
+          amount: -10,
+          type: "EXPENSE",
+          splits: { nope: true },
+        },
+        6
+      ).splitPayloadMalformed
+    ).toBe(true);
+
+    const allDropped = normalizeJsonRow(
+      {
+        date: "2026-03-04",
+        amount: -10,
+        type: "EXPENSE",
+        splits: [{ amount: 0 }, "not-object"],
+      },
+      7
+    );
+    expect(allDropped.splits).toEqual([]);
+    expect(allDropped.splitPayloadMalformed).toBe(true);
+  });
+
+  it("normalizes tags with trim, case-insensitive dedup, max length, and cap", () => {
+    const row = normalizeJsonRow(
+      {
+        date: "2026-03-04",
+        amount: 10,
+        type: "INCOME",
+        tags: [
+          " Trip ",
+          "trip",
+          "Receipt",
+          "x".repeat(40),
+          ...Array.from({ length: 20 }, (_, i) => `tag-${i}`),
+        ],
+      },
+      5
+    );
+    expect(row.tags).toHaveLength(12);
+    expect(row.tags.slice(0, 3)).toEqual(["Trip", "Receipt", "tag-0"]);
+    expect(row.tags).not.toContain("x".repeat(40));
   });
 });

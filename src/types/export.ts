@@ -41,11 +41,14 @@ export interface ExportTransactionRow {
    */
   isSplit: boolean;
   /**
-   * Split lines (schemaVersion 2). Empty unless the transaction is split;
-   * `categoryId` is null when the split's category was deleted (SetNull). CSV
-   * ignores this (a split stays one `Split`-labelled row); JSON is lossless.
+   * Split lines (schemaVersion 2; category name added in schemaVersion 3).
+   * Empty unless the transaction is split; `categoryId` and `category` are null
+   * when the split's category was deleted (SetNull). CSV ignores this (a split
+   * stays one `Split`-labelled row); JSON is lossless.
    */
   splits: ExportSplit[];
+  /** Transaction tag names, sorted ascending (schemaVersion 3). */
+  tags: string[];
   /** ISO 8601 (D3). */
   createdAt: string;
 }
@@ -53,8 +56,18 @@ export interface ExportTransactionRow {
 /** One split line inside an exported transaction (JSON only). */
 export interface ExportSplit {
   categoryId: string | null;
+  category: string | null;
   amount: number;
   note: string | null;
+}
+
+/** One user-owned tag in the JSON export registry. */
+export interface ExportTag {
+  id: string;
+  name: string;
+  color: string | null;
+  /** ISO 8601. */
+  createdAt: string;
 }
 
 export interface ExportAccount {
@@ -146,6 +159,7 @@ export interface FullExport {
   goals: ExportGoal[];
   recurringTemplates: ExportRecurringTemplate[];
   transactions: ExportTransactionRow[];
+  tags: ExportTag[];
 }
 
 /**

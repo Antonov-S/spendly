@@ -17,6 +17,11 @@
 > `TransactionSplit` rows) is a self-contained additive follow-up with no schema change. Also note feed
 > search does not cover split-line categories/notes in v1.
 
+> **Update — closed by Data Portability Hardening (POST-MVP §20).** Import now accepts
+> `schemaVersion` 1 through 3. v3 JSON restores split lines and parent-level tag associations for rows
+> it creates, and same-user v2 split backups resolve categories through the owned/system category-id
+> fallback. Dedup is unchanged: skipped duplicate rows are not retro-repaired.
+
 This spec follows [entity-crud-architecture.md](../entity-crud-architecture.md) and is the **inverse**
 of [data-export-spec.md](./data-export-spec.md). Where export is a **read that produces a download**
 (and therefore had to be an API route), import is a **mutation that consumes an upload** — so it is a

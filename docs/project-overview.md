@@ -712,6 +712,11 @@ Soft delete: deleted transactions receive `deletedAt` timestamp and disappear fr
 > round-trip flattens a split to Uncategorized in v1 — the top post-release follow-up). See
 > `docs/features/split-transactions-spec.md`.
 
+> **Update — closed by Data Portability Hardening (`feature/data-portability-hardening`).** JSON export is
+> now `schemaVersion: 3`, split lines carry category names, and JSON import writes `TransactionSplit`
+> rows for newly created transactions after validating split invariants. Same-user v2 backups resolve
+> split categories by id fallback.
+
 > **✅ Shipped — Quick-add favorites (`feature/quick-add-favorites`, POST-MVP §19).** Users can save
 > common income/expense captures from the create-mode drawer as **Favorites** (type, optional amount,
 > optional category/account, merchant, note). Favorites render as a neutral chip grid in the drawer and
@@ -1083,11 +1088,11 @@ Export is available on all tiers — it is not a Pro gate. A finance app that wi
 > the first non-auth API routes (a file download can't be a Server Action). CSV is a flat RFC-4180
 > ledger (UTF-8 BOM + an Excel `sep=,` hint so it opens straight into columns; formula-injection-safe
 > free-text columns; transfers as two rows so `SUM(Amount)` reconciles). JSON is a versioned envelope
-> `{ schemaVersion: 2, exportedAt, data }` with derived account balances, **user-owned categories
-> only**, budgets, goals + nested contributions, recurring templates, and non-deleted transactions.
-> (Split Transactions bumped the envelope to `schemaVersion: 2`: each transaction now carries a nested
-> `splits` array + a derived `isSplit`; CSV keeps a split as one `Split`-labelled row. **Import ignores
-> `splits` in v1** — a JSON round-trip flattens a split to Uncategorized; the top post-release follow-up.)
+> `{ schemaVersion: 3, exportedAt, data }` with derived account balances, **user-owned categories
+> only**, budgets, goals + nested contributions, recurring templates, user-owned tags, and non-deleted
+> transactions. Split Transactions introduced nested `splits`; Data Portability Hardening added split
+> category names plus transaction tags so JSON restores split attribution and tag associations for rows
+> import creates. CSV keeps a split as one `Split`-labelled row.
 > Both are `auth()`-guarded and `userId`-scoped, **tier-agnostic (no `isPro` read)**, per-user
 > rate-limited with a unified `{ error, code }` 401/429/413 contract, and scoped by the `?account=`
 > filter (account-bound entities scope; budgets/goals/categories stay full — the intentional

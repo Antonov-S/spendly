@@ -1,6 +1,10 @@
 import { CATEGORY_NAME_MAX } from "@/lib/system-constants";
 import { normalizeLabelKey } from "@/lib/text";
-import type { CategoryResolution } from "@/types/import";
+import type {
+  CategoryResolution,
+  NormalizedImportSplit,
+  ResolvedImportSplit,
+} from "@/types/import";
 
 /**
  * Category resolution (data-import-spec C2) — the one source of truth for turning
@@ -30,6 +34,11 @@ export function buildCategoryIndex(
     if (!index.has(key)) index.set(key, c.id);
   }
   return index;
+}
+
+/** Build a same-user/system id membership set for split-line id fallback. */
+export function buildCategoryIdSet(cats: { id: string }[]): Set<string> {
+  return new Set(cats.map((c) => c.id));
 }
 
 export type ResolveCategoryResult =
@@ -64,4 +73,54 @@ export function resolveCategory(
     return { createName: display };
   }
   return { categoryId: null };
+}
+
+/**
+ * Resolve a split-line category with the v3 name-first / same-user-id fallback.
+ * The id fallback is intentionally checked before CREATE so renamed categories
+ * restore to the original row instead of minting a stale exported name.
+ */
+export function resolveSplitCategory(
+  split: Pick<NormalizedImportSplit, "category" | "categoryId">,
+  index: Map<string, string>,
+  idSet: Set<string>,
+  policy: CategoryResolution
+): Pick<ResolvedImportSplit, "categoryId" | "createCategoryName"> {
+  if (split.category) {
+    const matched = index.get(normalizeCatKey(split.category));
+    if (matched) return { categoryId: matched, createCategoryName: null };
+  }
+
+  if (split.categoryId && idSet.has(split.categoryId)) {
+    return { categoryId: split.categoryId, createCategoryName: null };
+  }
+
+  const resolved = resolveCategory(split.category, index, policy);
+  if ("createName" in resolved) {
+    return { categoryId: null, createCategoryName: resolved.createName };
+  }
+  return { categoryId: resolved.categoryId, createCategoryName: null };
+}
+
+export function buildTagIndex(tags: { id: string; name: string }[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const tag of tags) {
+    const key = normalizeLabelKey(tag.name);
+    if (!index.has(key)) index.set(key, tag.id);
+  }
+  return index;
+}
+
+export type ResolveTagResult =
+  | { tagId: string; createName: null }
+  | { tagId: null; createName: string };
+
+export function resolveTag(
+  name: string,
+  index: Map<string, string>
+): ResolveTagResult {
+  const display = name.trim();
+  const existing = index.get(normalizeLabelKey(display));
+  if (existing) return { tagId: existing, createName: null };
+  return { tagId: null, createName: display };
 }

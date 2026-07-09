@@ -1,22 +1,20 @@
 import { z } from "zod";
 import { EXPORT_JSON_SCHEMA_VERSION } from "@/lib/system-constants";
 import { normalizeJsonRow } from "@/lib/import/parse";
-import type { ImportStructuralError, NormalizedImportRow } from "@/types/import";
+import { normalizeLabelKey } from "@/lib/text";
+import { TAG_COLOR_PATTERN } from "@/lib/validations/tag";
+import type {
+  ImportStructuralError,
+  ImportTagRegistryEntry,
+  NormalizedImportRow,
+} from "@/types/import";
 
 /**
- * JSON envelope handling (data-import-spec §6.1 / T3). Strict on `schemaVersion`
- * (only the current generation parses; a higher one is rejected, not best-effort
- * parsed), lenient on shape (unknown fields ignored → forward-compatible). Pure:
- * no Prisma, no HTTP. Returns either normalized rows or a distinct structural
- * error so the action can branch (D5).
+ * JSON envelope handling (data-import-spec §6.1 / T3). Strict on
+ * `schemaVersion`, lenient on shape (unknown fields ignored). Pure: no Prisma,
+ * no HTTP. Returns normalized rows plus the optional v3 tag registry.
  */
 
-/**
- * Lenient transaction shape — every field optional (Zod 4 treats `z.unknown()` as
- * *required*, so an absent field would otherwise structurally reject the whole
- * file). A missing/malformed field must make that single row invalid downstream
- * (D5), never reject the import (T3). Unknown extra keys pass through.
- */
 const txSchema = z
   .object({
     date: z.unknown().optional(),
@@ -25,6 +23,15 @@ const txSchema = z
     category: z.unknown().optional(),
     merchant: z.unknown().optional(),
     note: z.unknown().optional(),
+    splits: z.unknown().optional(),
+    tags: z.unknown().optional(),
+  })
+  .passthrough();
+
+const tagSchema = z
+  .object({
+    name: z.unknown().optional(),
+    color: z.unknown().optional(),
   })
   .passthrough();
 
@@ -33,13 +40,20 @@ const envelopeSchema = z
   .object({
     schemaVersion: z.number(),
     data: z
-      .object({ transactions: z.array(txSchema) })
+      .object({
+        transactions: z.array(txSchema),
+        tags: z.array(tagSchema).optional(),
+      })
       .passthrough(),
   })
   .passthrough();
 
 export type EnvelopeParseResult =
-  | { ok: true; rows: NormalizedImportRow[] }
+  | {
+      ok: true;
+      rows: NormalizedImportRow[];
+      tagRegistry: ImportTagRegistryEntry[];
+    }
   | { ok: false; error: ImportStructuralError; message: string };
 
 const UNREADABLE_MESSAGE =
@@ -50,12 +64,35 @@ const NEWER_VERSION_MESSAGE =
 const BAD_SHAPE_MESSAGE =
   "This file isn't a Spendly JSON export — its structure doesn't match.";
 
+function coerceTagRegistry(
+  rawTags: z.infer<typeof tagSchema>[]
+): ImportTagRegistryEntry[] {
+  const registry: ImportTagRegistryEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of rawTags) {
+    if (typeof raw.name !== "string") continue;
+    const name = raw.name.trim();
+    if (name === "") continue;
+    const key = normalizeLabelKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    registry.push({
+      name,
+      color:
+        typeof raw.color === "string" && TAG_COLOR_PATTERN.test(raw.color)
+          ? raw.color
+          : null,
+    });
+  }
+
+  return registry;
+}
+
 /**
- * Parse + validate a Spendly JSON export, returning normalized rows (only
- * `data.transactions` is read — accounts/categories/budgets/goals/recurring are
- * ignored in v1). Distinct errors: invalid syntax → unreadable; higher/unknown
- * `schemaVersion` or bad shape → bad_envelope (with its own message); empty
- * `transactions` → empty.
+ * Parse + validate a Spendly JSON export, returning normalized rows. Distinct
+ * errors: invalid syntax -> unreadable; higher/unknown schemaVersion or bad
+ * shape -> bad_envelope; empty transactions -> empty.
  */
 export function parseImportEnvelope(text: string): EnvelopeParseResult {
   let raw: unknown;
@@ -65,8 +102,6 @@ export function parseImportEnvelope(text: string): EnvelopeParseResult {
     return { ok: false, error: "unreadable", message: UNREADABLE_MESSAGE };
   }
 
-  // Read the version before full validation so a future generation gets the
-  // precise "newer version" message rather than a generic shape error.
   if (
     typeof raw === "object" &&
     raw !== null &&
@@ -81,9 +116,6 @@ export function parseImportEnvelope(text: string): EnvelopeParseResult {
   if (!parsed.success) {
     return { ok: false, error: "bad_envelope", message: BAD_SHAPE_MESSAGE };
   }
-  // Accept any generation from 1 up to the current version (the newer-than-current
-  // case is caught above with a friendlier message). v2 added an optional per-tx
-  // `splits` array which import ignores in v1 — so a v1 and v2 file parse identically.
   if (
     parsed.data.schemaVersion < 1 ||
     parsed.data.schemaVersion > EXPORT_JSON_SCHEMA_VERSION
@@ -97,5 +129,9 @@ export function parseImportEnvelope(text: string): EnvelopeParseResult {
   }
 
   const rows = transactions.map((tx, i) => normalizeJsonRow(tx, i + 1));
-  return { ok: true, rows };
+  return {
+    ok: true,
+    rows,
+    tagRegistry: coerceTagRegistry(parsed.data.data.tags ?? []),
+  };
 }

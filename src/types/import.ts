@@ -96,6 +96,19 @@ export interface NormalizedImportRow {
   /** D9 truncation flags surfaced in the preview ("merchant/note truncated"). */
   merchantTruncated: boolean;
   noteTruncated: boolean;
+  /** JSON-only split payload after defensive coercion; CSV rows use []. */
+  splits: NormalizedImportSplit[];
+  /** JSON-only: true when a present split payload could not yield any readable lines. */
+  splitPayloadMalformed: boolean;
+  /** JSON-only tag names after defensive coercion; CSV rows use []. */
+  tags: string[];
+}
+
+export interface NormalizedImportSplit {
+  category: string | null;
+  categoryId: string | null;
+  amount: number;
+  note: string | null;
 }
 
 /**
@@ -113,10 +126,28 @@ export interface ResolvedRow {
   categoryId: string | null;
   /** Display name of a category to create (CREATE policy), else null. */
   createCategoryName: string | null;
+  /** Accepted split lines; non-empty means parent categoryId is nulled at write. */
+  splits: ResolvedImportSplit[];
+  /** Existing tag ids resolved before tag creation. */
+  tagIds: string[];
+  /** Tag names to create, first-seen casing preserved. */
+  createTagNames: string[];
+}
+
+export interface ResolvedImportSplit {
+  categoryId: string | null;
+  createCategoryName: string | null;
+  amount: number;
+  note: string | null;
+}
+
+export interface ImportTagRegistryEntry {
+  name: string;
+  color: string | null;
 }
 
 /** Why a row will not be created. */
-export type ImportIssueKind = "invalid" | "transfer";
+export type ImportIssueKind = "invalid" | "transfer" | "split";
 
 export interface ImportIssue {
   source: number; // 1-based row index
@@ -138,6 +169,8 @@ export interface PreviewRow {
   willCreate: boolean;
   /** merchant or note was truncated (D9). */
   truncated: boolean;
+  /** Number of transaction tags to link. */
+  tagCount: number;
 }
 
 /** Dry-run preview (D6) — exactly what commit will do, without writing. */
@@ -149,8 +182,16 @@ export interface ImportPreview {
   transfersSkipped: number;
   /** Names that would be created under the CREATE policy. */
   newCategories: string[];
+  /** Rows that will be created with split children. */
+  splitTransactions: number;
+  /** Distinct tag names that will be linked. */
+  tagsToLink: number;
+  /** Tag names that would be created before linking. */
+  newTags: string[];
   sample: PreviewRow[];
   issues: ImportIssue[];
+  /** Total issue count before UI capping. */
+  issueCount: number;
   /** More issues existed than `IMPORT_MAX_ISSUES`. */
   issuesTruncated: boolean;
   /** Skipped share ≥ IMPORT_HIGH_SKIP_RATIO (T5). */
@@ -164,6 +205,7 @@ export interface ImportPreview {
 export interface ImportResult {
   created: number;
   categoriesCreated: number;
+  tagsCreated: number;
   duplicatesSkipped: number;
   invalidSkipped: number;
   transfersSkipped: number;
