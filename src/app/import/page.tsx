@@ -41,7 +41,8 @@ export default async function ImportPage() {
           <h1 className="text-[20px] font-medium text-ink">Import data</h1>
           <p className="mt-1 text-[13px] text-ink-2">
             Migrate your history from a CSV or a Spendly JSON export. Nothing is
-            saved until you review a preview and confirm.
+            saved until you review a preview and confirm. Spendly JSON backups
+            restore split categories and tags.
           </p>
         </header>
 

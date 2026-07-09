@@ -7,7 +7,6 @@ interface ImportPreviewProps {
   preview: ImportPreviewData;
 }
 
-/** Signed money for the sample table (2dp, EUR-only MVP). */
 function money(amount: number | null): string {
   if (amount === null) return "—";
   const sign = amount < 0 ? "−" : "";
@@ -35,11 +34,6 @@ function Count({ label, value, tone = "default" }: CountProps) {
   );
 }
 
-/**
- * The import preview (data-import-spec §8). Leads with the high-skip warning (T5)
- * when most rows won't import, then the currency notice (D2), the counts, a sample
- * table, and a capped issues list. Read-only — the write happens on Confirm.
- */
 export function ImportPreview({ preview }: ImportPreviewProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -69,6 +63,9 @@ export function ImportPreview({ preview }: ImportPreviewProps) {
         <Count label="Invalid" value={preview.invalidSkipped} tone="muted" />
         <Count label="Transfers" value={preview.transfersSkipped} tone="muted" />
         <Count label="New categories" value={preview.newCategories.length} />
+        <Count label="Split rows" value={preview.splitTransactions} />
+        <Count label="Tags linked" value={preview.tagsToLink} />
+        <Count label="New tags" value={preview.newTags.length} />
       </div>
 
       {preview.sample.length > 0 && (
@@ -94,7 +91,16 @@ export function ImportPreview({ preview }: ImportPreviewProps) {
                   <td className="px-2.5 py-1.5 text-right tabular-nums">
                     {money(row.amount)}
                   </td>
-                  <td className="px-2.5 py-1.5">{row.category ?? "—"}</td>
+                  <td className="px-2.5 py-1.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span>{row.category ?? "—"}</span>
+                      {row.tagCount > 0 && (
+                        <span className="rounded bg-surface-2 px-1 text-[10px] text-ink-3">
+                          +{row.tagCount} tags
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-2.5 py-1.5">
                     <span className="flex items-center gap-1.5">
                       <span className="truncate">{row.merchant ?? "—"}</span>
@@ -120,11 +126,11 @@ export function ImportPreview({ preview }: ImportPreviewProps) {
       {preview.issues.length > 0 && (
         <div className="rounded-lg border border-line bg-surface p-3">
           <p className="text-[12px] font-medium text-ink">
-            Skipped rows ({preview.invalidSkipped + preview.transfersSkipped})
+            Issues ({preview.issueCount})
           </p>
           <ul className="mt-2 flex flex-col gap-1">
             {preview.issues.map((issue) => (
-              <li key={issue.source} className="text-[11px] text-ink-2">
+              <li key={`${issue.source}-${issue.kind}`} className="text-[11px] text-ink-2">
                 Row {issue.source}: {issue.message}
               </li>
             ))}

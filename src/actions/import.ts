@@ -7,8 +7,13 @@ import { dateInputToUtc } from "@/lib/date";
 import {
   revalidateTransactionViews,
   revalidateCategoryViews,
+  revalidateTagViews,
 } from "@/lib/revalidation";
-import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
+import {
+  DEFAULT_CATEGORY_ICON,
+  DEFAULT_CATEGORY_COLOR,
+  SPLIT_LABEL,
+} from "@/lib/constants";
 import {
   IMPORT_MAX_ROWS,
   IMPORT_MAX_FILE_BYTES,
@@ -25,11 +30,17 @@ import {
 import { suggestMapping } from "@/lib/import/mapping";
 import { normalizeCsvRow } from "@/lib/import/parse";
 import { parseImportEnvelope } from "@/lib/import/json";
+import { acceptSplits } from "@/lib/import/split-gate";
 import {
+  buildCategoryIdSet,
   buildCategoryIndex,
+  buildTagIndex,
   resolveCategory,
+  resolveSplitCategory,
+  resolveTag,
   normalizeCatKey,
 } from "@/lib/import/resolve";
+import { normalizeLabelKey } from "@/lib/text";
 import { partitionForWrite } from "@/lib/import/dedup";
 import { getImportTargets, countExistingForDedup } from "@/lib/db/import";
 import { track } from "@/lib/analytics/track";
@@ -45,6 +56,8 @@ import type {
   NormalizedImportRow,
   PreviewRow,
   ResolvedRow,
+  ResolvedImportSplit,
+  ImportTagRegistryEntry,
 } from "@/types/import";
 
 /**
@@ -71,6 +84,24 @@ const tooManyRowsMessage = (max: number) =>
   `This file has more than ${max.toLocaleString("en-US")} rows. Split it and import in parts.`;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+type ImportCandidateRow = NormalizedImportRow & {
+  date: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+};
+
+function isInvalidRow(row: NormalizedImportRow): boolean {
+  return row.date === null || row.amount === null || row.type === null;
+}
+
+function hasEnrichment(row: ResolvedRow): boolean {
+  return (
+    row.splits.length > 0 ||
+    row.tagIds.length > 0 ||
+    row.createTagNames.length > 0
+  );
+}
 
 /** Read + size-guard the uploaded file from FormData (S4). */
 async function readUpload(
@@ -101,7 +132,11 @@ function produceNormalized(
   opts: ImportOptions,
   text: string
 ):
-  | { ok: true; rows: NormalizedImportRow[] }
+  | {
+      ok: true;
+      rows: NormalizedImportRow[];
+      tagRegistry: ImportTagRegistryEntry[];
+    }
   | { ok: false; error: string } {
   if (opts.format === "json") {
     const env = parseImportEnvelope(text);
@@ -109,7 +144,7 @@ function produceNormalized(
     if (env.rows.length > IMPORT_MAX_ROWS) {
       return { ok: false, error: tooManyRowsMessage(IMPORT_MAX_ROWS) };
     }
-    return { ok: true, rows: env.rows };
+    return { ok: true, rows: env.rows, tagRegistry: env.tagRegistry };
   }
 
   const clean = stripBomAndSepHint(text);
@@ -135,7 +170,7 @@ function produceNormalized(
   const rows = data.map((r, i) =>
     normalizeCsvRow(r, opts.mapping!, dateFormat, opts.decimal, i + 1)
   );
-  return { ok: true, rows };
+  return { ok: true, rows, tagRegistry: [] };
 }
 
 interface PipelineData {
@@ -145,6 +180,9 @@ interface PipelineData {
   invalidSkipped: number;
   transfersSkipped: number;
   newCategoryNames: string[];
+  newTags: ImportTagRegistryEntry[];
+  splitTransactions: number;
+  tagsToLink: number;
   issues: ImportIssue[];
   sample: PreviewRow[];
   highSkip: boolean;
@@ -172,7 +210,7 @@ async function buildPipeline(
   const issues: ImportIssue[] = [];
   let transfersSkipped = 0;
   let invalidSkipped = 0;
-  const survivors: NormalizedImportRow[] = [];
+  const survivors: ImportCandidateRow[] = [];
   for (const row of normalized) {
     if (row.type === "TRANSFER") {
       transfersSkipped++;
@@ -183,20 +221,27 @@ async function buildPipeline(
       });
       continue;
     }
-    if (row.date === null || row.amount === null || row.type === null) {
+    if (isInvalidRow(row)) {
       invalidSkipped++;
       issues.push({ source: row.source, kind: "invalid", message: invalidReason(row) });
       continue;
     }
-    survivors.push(row);
+    survivors.push(row as ImportCandidateRow);
   }
 
-  // Resolve categories against the owned index (C2).
+  // Resolve D2 split-line category attribution and D4 tag labels before D5 dedup.
   const targets = await getImportTargets(userId);
   const index = buildCategoryIndex(targets.categories);
+  const categoryIdSet = buildCategoryIdSet(targets.categories);
   const catNameById = new Map(targets.categories.map((c) => [c.id, c.name]));
+  const tagIndex = buildTagIndex(targets.tags);
+  const registryColorByKey = new Map(
+    produced.tagRegistry.map((t) => [normalizeLabelKey(t.name), t.color])
+  );
   const newNameByKey = new Map<string, string>();
+  const newTagByKey = new Map<string, ImportTagRegistryEntry>();
   const labelBySource = new Map<number, string | null>();
+  const tagCountBySource = new Map<number, number>();
   const resolved: ResolvedRow[] = [];
 
   for (const row of survivors) {
@@ -215,21 +260,80 @@ async function buildPipeline(
       label = categoryId ? catNameById.get(categoryId) ?? null : null;
     }
 
+    // D3: malformed or invalid split payloads degrade to flat rows with issues.
+    const gate = acceptSplits(row);
+    let splits: ResolvedImportSplit[] = [];
+    if (!gate.ok) {
+      issues.push({
+        source: row.source,
+        kind: "split",
+        message: gate.reason,
+      });
+    } else if (gate.splits.length > 0) {
+      splits = gate.splits.map((split) => {
+        // D2: resolve by exported name first, then same-user/system id fallback.
+        const resolvedSplit = resolveSplitCategory(
+          split,
+          index,
+          categoryIdSet,
+          opts.categoryResolution
+        );
+        if (resolvedSplit.createCategoryName) {
+          const key = normalizeCatKey(resolvedSplit.createCategoryName);
+          if (!newNameByKey.has(key)) {
+            newNameByKey.set(key, resolvedSplit.createCategoryName);
+          }
+        }
+        return {
+          ...resolvedSplit,
+          amount: split.amount,
+          note: split.note,
+        };
+      });
+      categoryId = null;
+      createCategoryName = null;
+      label = `${SPLIT_LABEL} · ${splits.length}`;
+    }
+
+    const tagIds: string[] = [];
+    const createTagNames: string[] = [];
+    for (const tagName of row.tags) {
+      const tag = resolveTag(tagName, tagIndex);
+      if (tag.tagId !== null) {
+        tagIds.push(tag.tagId);
+      } else {
+        createTagNames.push(tag.createName);
+        const key = normalizeLabelKey(tag.createName);
+        if (!newTagByKey.has(key)) {
+          newTagByKey.set(key, {
+            name: tag.createName,
+            color: registryColorByKey.get(key) ?? null,
+          });
+        }
+      }
+    }
+
     labelBySource.set(row.source, label);
+    tagCountBySource.set(row.source, tagIds.length + createTagNames.length);
     resolved.push({
       source: row.source,
-      date: row.date as string,
-      amount: row.amount as number,
-      type: row.type as "INCOME" | "EXPENSE",
+      date: row.date,
+      amount: row.amount,
+      type: row.type,
       merchant: row.merchant,
       note: row.note,
       categoryId,
       createCategoryName,
+      splits,
+      tagIds,
+      createTagNames,
     });
   }
   const newCategoryNames = [...newNameByKey.values()];
+  const newTags = [...newTagByKey.values()];
 
-  // Dedup against current ledger state (D4).
+  // D5: dedup identity stays date + signed amount + type + merchant + note.
+  // Splits and tags do not affect whether a row is considered already present.
   const existing = await countExistingForDedup(
     userId,
     opts.accountId,
@@ -241,6 +345,14 @@ async function buildPipeline(
     opts.skipDuplicates
   );
   const createSources = new Set(toCreate.map((r) => r.source));
+  const tagsToLink = new Set<string>();
+  for (const row of toCreate) {
+    for (const tagId of row.tagIds) tagsToLink.add(`id:${tagId}`);
+    for (const tagName of row.createTagNames) {
+      tagsToLink.add(`name:${normalizeLabelKey(tagName)}`);
+    }
+  }
+  const splitTransactions = toCreate.filter((r) => r.splits.length > 0).length;
 
   // Sample table (first N normalized rows, with resolved label + flags).
   const sample: PreviewRow[] = normalized
@@ -263,6 +375,7 @@ async function buildPipeline(
         note: row.note,
         willCreate: createSources.has(row.source),
         truncated: row.merchantTruncated || row.noteTruncated,
+        tagCount: tagCountBySource.get(row.source) ?? 0,
       };
     });
 
@@ -278,6 +391,9 @@ async function buildPipeline(
       invalidSkipped,
       transfersSkipped,
       newCategoryNames,
+      newTags,
+      splitTransactions,
+      tagsToLink: tagsToLink.size,
       issues,
       sample,
       highSkip,
@@ -386,8 +502,12 @@ export async function previewImport(
       invalidSkipped: d.invalidSkipped,
       transfersSkipped: d.transfersSkipped,
       newCategories: d.newCategoryNames,
+      splitTransactions: d.splitTransactions,
+      tagsToLink: d.tagsToLink,
+      newTags: d.newTags.map((tag) => tag.name),
       sample: d.sample,
       issues: d.issues.slice(0, IMPORT_MAX_ISSUES),
+      issueCount: d.issues.length,
       issuesTruncated: d.issues.length > IMPORT_MAX_ISSUES,
       highSkip: d.highSkip,
       currency: d.account.currency,
@@ -430,7 +550,7 @@ export async function commitImport(
   const d = pipe.data;
 
   try {
-    const { created, categoriesCreated } = await prisma.$transaction(
+    const { created, categoriesCreated, tagsCreated } = await prisma.$transaction(
       async (tx) => {
         let categoriesCreated = 0;
         if (d.newCategoryNames.length > 0) {
@@ -447,20 +567,53 @@ export async function commitImport(
           categoriesCreated = res.count;
         }
 
-        // Re-query to resolve created names → ids — race-safe even when our
-        // createMany skipped a name a parallel import already inserted (§7.2).
+        // Re-query to resolve created names → ids; race-safe if createMany
+        // skipped a category a parallel import already inserted (§7.2).
         const freshCats = await tx.category.findMany({
           where: { OR: [{ userId: null }, { userId }] },
           select: { id: true, name: true },
         });
         const freshIndex = buildCategoryIndex(freshCats);
 
-        const data = d.toCreate.map((r) => {
+        let tagsCreated = 0;
+        if (d.newTags.length > 0) {
+          const res = await tx.tag.createMany({
+            data: d.newTags.map((tag) => ({
+              name: tag.name,
+              userId,
+              color: tag.color,
+            })),
+            skipDuplicates: true,
+          });
+          tagsCreated = res.count;
+        }
+        const freshTags = await tx.tag.findMany({
+          where: { userId },
+          select: { id: true, name: true },
+        });
+        const freshTagIndex = buildTagIndex(freshTags);
+
+        const resolveRowCategoryId = (r: ResolvedRow): string | null => {
           let categoryId = r.categoryId;
           if (categoryId === null && r.createCategoryName) {
             categoryId =
               freshIndex.get(normalizeCatKey(r.createCategoryName)) ?? null;
           }
+          return categoryId;
+        };
+
+        const resolveSplitCategoryId = (s: ResolvedImportSplit): string | null => {
+          if (s.categoryId) return s.categoryId;
+          if (s.createCategoryName) {
+            return freshIndex.get(normalizeCatKey(s.createCategoryName)) ?? null;
+          }
+          return null;
+        };
+
+        const buildBaseTransactionData = (
+          r: ResolvedRow,
+          categoryId: string | null
+        ) => {
           const mag = round2(r.amount);
           return {
             userId,
@@ -473,19 +626,64 @@ export async function commitImport(
             merchant: r.merchant,
             note: r.note,
           };
-        });
+        };
+
+        // D6: plain rows keep the fast createMany path; enriched rows use
+        // per-row create so splits and tag joins are written atomically.
+        const data = d.toCreate
+          .filter((r) => !hasEnrichment(r))
+          .map((r) => buildBaseTransactionData(r, resolveRowCategoryId(r)));
 
         let created = 0;
         if (data.length > 0) {
           const res = await tx.transaction.createMany({ data });
-          created = res.count;
+          created += res.count;
         }
-        return { created, categoriesCreated };
+
+        const enriched = d.toCreate.filter(hasEnrichment);
+        for (const r of enriched) {
+          const createdTx = await tx.transaction.create({
+            data: {
+              ...buildBaseTransactionData(r, resolveRowCategoryId(r)),
+              ...(r.splits.length > 0
+                ? {
+                    splits: {
+                      createMany: {
+                        data: r.splits.map((s) => ({
+                          categoryId: resolveSplitCategoryId(s),
+                          amount: round2(s.amount),
+                          note: s.note,
+                        })),
+                      },
+                    },
+                  }
+                : {}),
+            },
+            select: { id: true },
+          });
+          const tagIds = [
+            ...r.tagIds,
+            ...r.createTagNames
+              .map((name) => freshTagIndex.get(normalizeLabelKey(name)) ?? null)
+              .filter((id): id is string => id !== null),
+          ];
+          if (tagIds.length > 0) {
+            await tx.transactionTag.createMany({
+              data: [...new Set(tagIds)].map((tagId) => ({
+                transactionId: createdTx.id,
+                tagId,
+              })),
+            });
+          }
+          created++;
+        }
+        return { created, categoriesCreated, tagsCreated };
       }
     );
 
     revalidateTransactionViews();
     revalidateCategoryViews();
+    revalidateTagViews();
 
     // Volume counts are bucketed, never raw — a raw count leaks ledger size.
     void track("import_committed", {
@@ -504,6 +702,7 @@ export async function commitImport(
       data: {
         created,
         categoriesCreated,
+        tagsCreated,
         duplicatesSkipped: d.duplicatesSkipped,
         invalidSkipped: d.invalidSkipped,
         transfersSkipped: d.transfersSkipped,

@@ -4,21 +4,22 @@ import { dateInputToUtc, toDateInputValue } from "@/lib/date";
 import { dedupKey } from "@/lib/import/dedup";
 
 /**
- * Read-only data layer for Data Import (data-import-spec §3.5). The atomic write
- * lives in the action (§7.2) so the `$transaction` (D7) is co-located with
- * `revalidate*`. Both fetchers are `userId`-scoped (S2).
+ * Read-only data layer for Data Import. The atomic write lives in the action so
+ * the transaction is co-located with revalidation. Fetchers are user-scoped.
  */
 
 export interface ImportTargets {
-  /** Active accounts only — the target picker (C1). */
+  /** Active accounts only - the target picker (C1). */
   accounts: { id: string; name: string }[];
-  /** System + own categories — the resolution index (C2). */
+  /** System + own categories - the resolution index (C2). */
   categories: { id: string; name: string }[];
+  /** User-owned tags for JSON round-trip resolution. */
+  tags: { id: string; name: string }[];
 }
 
-/** Active accounts + visible categories, for the import page + resolver (C1, C2). */
+/** Active accounts + visible categories/tags, for the import page + resolver. */
 export async function getImportTargets(userId: string): Promise<ImportTargets> {
-  const [accounts, categories] = await Promise.all([
+  const [accounts, categories, tags] = await Promise.all([
     prisma.financialAccount.findMany({
       where: { userId, isArchived: false },
       select: { id: true, name: true },
@@ -29,17 +30,19 @@ export async function getImportTargets(userId: string): Promise<ImportTargets> {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.tag.findMany({
+      where: { userId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
-  return { accounts, categories };
+  return { accounts, categories, tags };
 }
 
 /**
  * Count existing non-deleted rows in the target account, keyed by the dedup
- * identity tuple (D4). Scoped to `userId` + `financialAccountId` + `deletedAt:
- * null` + the batch's distinct dates — a bounded `findMany` (not a full-account
- * scan, not N+1). Returns `dedupKey → count`, the `existingCount` half of the
- * multiset dedup. `amount` is read as the **signed** stored value, matching how
- * incoming rows compute their key.
+ * identity tuple. Scoped to userId + financialAccountId + deletedAt:null + the
+ * batch's distinct dates. Returns dedupKey -> count.
  */
 export async function countExistingForDedup(
   userId: string,

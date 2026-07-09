@@ -1,16 +1,33 @@
-# Current Feature
+# Current Feature: Data Portability Hardening
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- JSON export emits `schemaVersion: 3` with split category names, per-transaction tag names, and a top-level tag registry.
+- JSON import preserves split attribution and transaction tag associations for newly created rows, including same-user v2 split backups via category-id fallback.
+- Invalid split payloads degrade visibly to flat rows with preview issues instead of silently losing attribution or rejecting the whole file.
+- Re-import remains idempotent with the existing count-based dedup key; import still creates rows only and never repairs existing duplicates.
+- CSV export/import behavior remains unchanged and byte-stable for the same input.
+- No schema change, Prisma migration, route, Pro gate, rate-limit entry, or analytics event expansion is required.
+- A golden JSON export-to-import round-trip fixture proves splits and tags are not dropped by the pipeline.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- Spec: `docs/features/data-portability-hardening-spec.md`.
+- Workflow branch for the next step: `feature/data-portability-hardening`.
+- Authoritative context: POST-MVP roadmap section 20 item 2, data export/import specs, split transaction deferred round-trip note, and transaction tags deferred export/import note.
+- Existing models already cover the feature: `TransactionSplit`, `Tag`, and `TransactionTag`; no Prisma migration is planned.
+- Export work is additive: bump `EXPORT_JSON_SCHEMA_VERSION` from 2 to 3; extend export transaction rows with `splits[].category` and `tags`; add `data.tags`; add `tag: "global"` to `EXPORT_ENTITY_CLASS`.
+- Import work keeps the current architecture: JSON/CSV normalize into one row shape, pure helpers resolve categories/tags/splits, `commitImport` writes in one `$transaction`, and export downloads remain API routes while import stays Server Actions.
+- Category resolution for split lines is name-first, then same-user/system category-id fallback, then the existing category creation/uncategorized policy.
+- Tag resolution is create-always for missing names; registry colors are used only after the existing hex-color validation and otherwise degrade to `null`.
+- Dedup identity remains `(date, signedAmount, type, merchant, note)`; splits and tags do not affect duplicate detection and skipped duplicates are not retro-repaired.
+- Resolved decisions from the spec: preview uses minimal aggregate markers only; `import_committed` analytics props stay unchanged; the round-trip fixture is an inline typed literal rather than a checked-in JSON file.
+- Restore-specific nuance: import may recreate a split line with `categoryId: null` when the export carried an uncategorized/deleted-category line. The drawer still requires categorized split lines for new manual entry.
+- Open questions: none identified. The spec is detailed and consistent with the current schema and project guardrails.
 
 ## History
 

@@ -1,11 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { parseImportEnvelope } from "@/lib/import/json";
 
-function envelope(transactions: unknown[], schemaVersion = 1): string {
+function envelope(
+  transactions: unknown[],
+  schemaVersion = 1,
+  tags: unknown[] = []
+): string {
   return JSON.stringify({
     schemaVersion,
     exportedAt: "2026-06-28T00:00:00.000Z",
-    data: { transactions },
+    data: { transactions, tags },
   });
 }
 
@@ -30,7 +34,7 @@ describe("parseImportEnvelope", () => {
   });
 
   it("rejects a higher schemaVersion with the newer-version message", () => {
-    const res = parseImportEnvelope(envelope([{ date: "x", amount: 1, type: "INCOME" }], 3));
+    const res = parseImportEnvelope(envelope([{ date: "x", amount: 1, type: "INCOME" }], 4));
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.error).toBe("bad_envelope");
@@ -38,11 +42,44 @@ describe("parseImportEnvelope", () => {
     }
   });
 
-  it("accepts a v2 envelope (splits ignored on import in v1)", () => {
+  it("accepts a v2 envelope", () => {
     const res = parseImportEnvelope(
       envelope([{ date: "2026-06-15", amount: 10, type: "EXPENSE" }], 2)
     );
     expect(res.ok).toBe(true);
+  });
+
+  it("accepts a v3 envelope with splits, tags, and a registry", () => {
+    const res = parseImportEnvelope(
+      envelope(
+        [
+          {
+            date: "2026-06-15",
+            amount: -10,
+            type: "EXPENSE",
+            splits: [
+              { categoryId: "c1", category: "Groceries", amount: 6, note: "food" },
+              { categoryId: "c2", category: "Home", amount: 4, note: null },
+            ],
+            tags: ["Trip", "trip", "Receipt"],
+          },
+        ],
+        3,
+        [
+          { id: "t1", name: "Trip", color: "#378ADD" },
+          { id: "t2", name: "Bad", color: "blue" },
+        ]
+      )
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.rows[0].splits).toHaveLength(2);
+      expect(res.rows[0].tags).toEqual(["Trip", "Receipt"]);
+      expect(res.tagRegistry).toEqual([
+        { name: "Trip", color: "#378ADD" },
+        { name: "Bad", color: null },
+      ]);
+    }
   });
 
   it("ignores unknown extra fields on the envelope and on a transaction (forward-compat)", () => {

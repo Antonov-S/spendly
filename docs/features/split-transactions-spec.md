@@ -639,6 +639,11 @@ if not, add it. The write actions already call it — no action change beyond th
 
 ## 12. Deferred round-trip (import) — documented, not an oversight
 
+> **Closed by Data Portability Hardening (POST-MVP §20).** JSON import now reads split payloads,
+> validates the same EXPENSE-only/sum-to-cent/cap invariants, resolves categories by name with a
+> same-user/system id fallback for v2 backups, and writes `TransactionSplit` rows for newly created
+> transactions. Invalid split payloads degrade visibly to flat rows.
+
 Like Tags' export/import deferral, this slice **writes** splits into the JSON export but **does not read**
 them back on import. Rationale: `/import` maps flat external files (CSV/YNAB/Mint) that have no split
 concept, and adding split re-hydration to the JSON path means categ/amount resolution + the sum-invariant

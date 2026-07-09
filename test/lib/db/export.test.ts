@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
     budget: { findMany: vi.fn() },
     goal: { findMany: vi.fn() },
     recurringTemplate: { findMany: vi.fn() },
+    tag: { findMany: vi.fn() },
   },
 }));
 
@@ -26,6 +27,7 @@ const categoryFindMany = vi.mocked(prisma.category.findMany);
 const budgetFindMany = vi.mocked(prisma.budget.findMany);
 const goalFindMany = vi.mocked(prisma.goal.findMany);
 const templateFindMany = vi.mocked(prisma.recurringTemplate.findMany);
+const tagFindMany = vi.mocked(prisma.tag.findMany);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -36,6 +38,7 @@ beforeEach(() => {
   budgetFindMany.mockResolvedValue([] as never);
   goalFindMany.mockResolvedValue([] as never);
   templateFindMany.mockResolvedValue([] as never);
+  tagFindMany.mockResolvedValue([] as never);
 });
 
 describe("exportTxWhere (C1, S2, D1)", () => {
@@ -87,6 +90,7 @@ describe("getTransactionsForExport", () => {
         financialAccount: { name: "Checking" },
         category: null,
         splits: [],
+        tags: [],
       },
     ] as never);
 
@@ -99,6 +103,7 @@ describe("getTransactionsForExport", () => {
     expect(row.account).toBe("Checking");
     expect(row.isSplit).toBe(false);
     expect(row.splits).toEqual([]);
+    expect(row.tags).toEqual([]);
   });
 });
 
@@ -121,6 +126,7 @@ describe("getFullExport scoping asymmetry (C2 / §3.2)", () => {
     // global: budgets + goals are userId-only — NO financialAccountId filter
     expect(budgetFindMany.mock.calls[0][0]?.where).toEqual({ userId: "u1" });
     expect(goalFindMany.mock.calls[0][0]?.where).toEqual({ userId: "u1" });
+    expect(tagFindMany.mock.calls[0][0]?.where).toEqual({ userId: "u1" });
   });
 
   it("filters categories to user-owned only (isSystem:false, D6)", async () => {
@@ -177,6 +183,7 @@ describe("EXPORT_ENTITY_CLASS completeness (§3.4 drift guard)", () => {
         "category",
         "financialAccount",
         "goal",
+        "tag",
         "recurringDraft",
         "recurringTemplate",
         "transaction",

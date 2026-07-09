@@ -11,6 +11,7 @@ import type {
   ExportBudget,
   ExportGoal,
   ExportRecurringTemplate,
+  ExportTag,
 } from "@/types/export";
 
 /**
@@ -51,6 +52,7 @@ export const EXPORT_ENTITY_CLASS = {
   category: "global", // + isSystem:false filter (D6)
   budget: "global",
   goal: "global", // incl. nested contributions
+  tag: "global",
   recurringDraft: "never", // transient (D6)
   user: "never", // credentials/billing (D6)
 } as const;
@@ -84,8 +86,17 @@ export async function getTransactionsForExport(
       financialAccount: { select: { name: true } },
       category: { select: { name: true } },
       splits: {
-        select: { categoryId: true, amount: true, note: true },
+        select: {
+          categoryId: true,
+          category: { select: { name: true } },
+          amount: true,
+          note: true,
+        },
         orderBy: { amount: "desc" },
+      },
+      tags: {
+        select: { tag: { select: { name: true } } },
+        orderBy: { tag: { name: "asc" } },
       },
     },
     orderBy: { date: "desc" },
@@ -110,9 +121,11 @@ export async function getTransactionsForExport(
     isSplit: r.splits.length > 0,
     splits: r.splits.map((s) => ({
       categoryId: s.categoryId,
+      category: s.category?.name ?? null,
       amount: Number(s.amount),
       note: s.note,
     })),
+    tags: r.tags.map((t) => t.tag.name),
     createdAt: r.createdAt.toISOString(),
   }));
 }
@@ -140,7 +153,7 @@ export async function getFullExport(
     ? { financialAccountId: accountId }
     : { financialAccount: { isArchived: false } };
 
-  const [accounts, balanceSums, categories, budgets, goals, templates, transactions] =
+  const [accounts, balanceSums, categories, budgets, goals, templates, transactions, tags] =
     await Promise.all([
       prisma.financialAccount.findMany({
         where: accountWhere,
@@ -225,6 +238,11 @@ export async function getFullExport(
         },
       }),
       getTransactionsForExport(userId, accountId),
+      prisma.tag.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, color: true, createdAt: true },
+      }),
     ]);
 
   const sumByAccount = new Map(
@@ -295,6 +313,13 @@ export async function getFullExport(
     createdAt: t.createdAt.toISOString(),
   }));
 
+  const exportTags: ExportTag[] = tags.map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+    createdAt: t.createdAt.toISOString(),
+  }));
+
   return {
     accounts: exportAccounts,
     categories: exportCategories,
@@ -302,5 +327,6 @@ export async function getFullExport(
     goals: exportGoals,
     recurringTemplates: exportTemplates,
     transactions,
+    tags: exportTags,
   };
 }

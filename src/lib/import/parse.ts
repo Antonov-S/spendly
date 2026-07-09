@@ -2,7 +2,11 @@ import {
   MERCHANT_MAX,
   NOTE_MAX,
   CATEGORY_NAME_MAX,
+  SPLIT_NOTE_MAX,
+  TAG_MAX_PER_TRANSACTION,
+  TAG_NAME_MAX,
 } from "@/lib/system-constants";
+import { normalizeLabelKey } from "@/lib/text";
 import type { ImportFieldKey, ImportDateFormat } from "@/lib/constants";
 import { applyMapping } from "@/lib/import/mapping";
 import type {
@@ -200,6 +204,9 @@ export function normalizeCsvRow(
     note: note.value,
     merchantTruncated: merchant.truncated,
     noteTruncated: note.truncated,
+    splits: [],
+    splitPayloadMalformed: false,
+    tags: [],
   };
 }
 
@@ -216,9 +223,69 @@ export interface JsonImportTransaction {
   category?: unknown;
   merchant?: unknown;
   note?: unknown;
+  splits?: unknown;
+  tags?: unknown;
 }
 
 const asText = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const asTrimmedText = (v: unknown): string | null => {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed === "" ? null : trimmed;
+};
+
+function normalizeSplitEntries(
+  raw: unknown,
+  hasPayload: boolean
+): Pick<NormalizedImportRow, "splits" | "splitPayloadMalformed"> {
+  if (!Array.isArray(raw)) {
+    return {
+      splits: [],
+      splitPayloadMalformed: hasPayload && raw !== undefined,
+    };
+  }
+  const splits: NormalizedImportRow["splits"] = [];
+
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const obj = entry as Record<string, unknown>;
+    if (typeof obj.amount !== "number" || !Number.isFinite(obj.amount)) continue;
+    if (obj.amount <= 0) continue;
+
+    const category = normalizeText(asText(obj.category), CATEGORY_NAME_MAX, false);
+    const note = normalizeText(asText(obj.note), SPLIT_NOTE_MAX, true);
+    splits.push({
+      category: category.value,
+      categoryId: asTrimmedText(obj.categoryId),
+      amount: obj.amount,
+      note: note.value,
+    });
+  }
+
+  return {
+    splits,
+    splitPayloadMalformed: raw.length > 0 && splits.length === 0,
+  };
+}
+
+function normalizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const tags: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of raw) {
+    if (typeof value !== "string") continue;
+    const display = value.trim();
+    if (display === "" || display.length > TAG_NAME_MAX) continue;
+    const key = normalizeLabelKey(display);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push(display);
+    if (tags.length >= TAG_MAX_PER_TRANSACTION) break;
+  }
+
+  return tags;
+}
 
 /**
  * Map a Spendly-JSON export row straight through the same D9 text pass (§3.3).
@@ -232,6 +299,10 @@ export function normalizeJsonRow(
   const merchant = normalizeText(asText(row.merchant), MERCHANT_MAX, true);
   const note = normalizeText(asText(row.note), NOTE_MAX, true);
   const category = normalizeText(asText(row.category), CATEGORY_NAME_MAX, false);
+  const splitPayload = normalizeSplitEntries(
+    row.splits,
+    Object.prototype.hasOwnProperty.call(row, "splits")
+  );
 
   const magnitude =
     typeof row.amount === "number" && Number.isFinite(row.amount)
@@ -253,5 +324,8 @@ export function normalizeJsonRow(
     note: note.value,
     merchantTruncated: merchant.truncated,
     noteTruncated: note.truncated,
+    splits: splitPayload.splits,
+    splitPayloadMalformed: splitPayload.splitPayloadMalformed,
+    tags: normalizeTags(row.tags),
   };
 }

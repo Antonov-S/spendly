@@ -12,6 +12,9 @@ function row(overrides: Partial<ResolvedRow> = {}): ResolvedRow {
     note: null,
     categoryId: null,
     createCategoryName: null,
+    splits: [],
+    tagIds: [],
+    createTagNames: [],
     ...overrides,
   };
 }

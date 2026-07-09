@@ -871,7 +871,11 @@ against the `development` Neon branch (the category-slice precedent):
 ### Deferred (documented seams, not built)
 
 - **Reports tag-breakdown chart** — clean follow-up; the join is query-ready. §11.
-- **Export/import of tags — intentionally omitted this release** (deliberate scope decision, not an
+- **Export/import of tags — shipped in Data Portability Hardening (POST-MVP §20).** JSON export now
+  includes per-transaction tag names plus a `data.tags` registry for colors; JSON import creates
+  missing tags and writes `TransactionTag` joins for rows it creates. CSV remains unchanged.
+- **Historical note: export/import of tags were intentionally omitted from the original tags release**
+  (deliberate scope decision, not an
   implementation gap): a JSON round-trip loses tag *associations* in v1; the fix is an additive envelope
   field + `schemaVersion` bump in a separate slice. §12.
 - **Picker virtualization / grouping** — only if a user's tag count outgrows a filtered menu (§10.2).
